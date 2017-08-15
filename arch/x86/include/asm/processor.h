@@ -692,18 +692,18 @@ static inline void sync_core(void)
 
 	asm volatile (
 		UNWIND_HINT_SAVE
-		"mov %%ss, %0\n\t"
-		"pushq %q0\n\t"
+		"mov %%ss, %[tmp]\n\t"
+		"pushq %q[tmp]\n\t"
 		"pushq %%rsp\n\t"
 		"addq $8, (%%rsp)\n\t"
 		"pushfq\n\t"
-		"mov %%cs, %0\n\t"
-		"pushq %q0\n\t"
+		"mov %%cs, %[tmp]\n\t"
+		"pushq %q[tmp]\n\t"
 		"pushq $1f\n\t"
 		"iretq\n\t"
 		UNWIND_HINT_RESTORE
 		"1:"
-		: "=&r" (tmp), "+r" (__sp) : : "cc", "memory");
+		: [tmp] "=&r" (tmp), "+r" (__sp) : : "cc", "memory");
 #endif
 }
 
@@ -769,7 +769,7 @@ extern char			ignore_fpu_irq;
 # define BASE_PREFETCH		""
 # define ARCH_HAS_PREFETCH
 #else
-# define BASE_PREFETCH		"prefetcht0 %P1"
+# define BASE_PREFETCH		"prefetcht0 %P[x]"
 #endif
 
 /*
@@ -780,9 +780,9 @@ extern char			ignore_fpu_irq;
  */
 static inline void prefetch(const void *x)
 {
-	alternative_input(BASE_PREFETCH, "prefetchnta %P1",
+	alternative_input(BASE_PREFETCH, "prefetchnta %P[x]",
 			  X86_FEATURE_XMM,
-			  "m" (*(const char *)x));
+			  [x] "m" (*(const char *)x));
 }
 
 /*
@@ -792,9 +792,9 @@ static inline void prefetch(const void *x)
  */
 static inline void prefetchw(const void *x)
 {
-	alternative_input(BASE_PREFETCH, "prefetchw %P1",
+	alternative_input(BASE_PREFETCH, "prefetchw %P[x]",
 			  X86_FEATURE_3DNOWPREFETCH,
-			  "m" (*(const char *)x));
+			  [x] "m" (*(const char *)x));
 }
 
 static inline void spin_lock_prefetch(const void *x)
