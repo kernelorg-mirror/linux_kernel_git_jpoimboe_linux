@@ -85,7 +85,7 @@ static inline u64 __cmpxchg64_local(volatile u64 *ptr, u64 old, u64 new)
 			"lock; cmpxchg8b (%%esi)" ,		\
 		       X86_FEATURE_CX8,				\
 		       "=A" (__ret),				\
-		       "S" ((ptr)), "0" (__old),		\
+		       "S" ((ptr)), "A" (__old),		\
 		       "b" ((unsigned int)__new),		\
 		       "c" ((unsigned int)(__new>>32))		\
 		       : "memory");				\
@@ -101,7 +101,7 @@ static inline u64 __cmpxchg64_local(volatile u64 *ptr, u64 old, u64 new)
 		       "cmpxchg8b (%%esi)" ,			\
 		       X86_FEATURE_CX8,				\
 		       "=A" (__ret),				\
-		       "S" ((ptr)), "0" (__old),		\
+		       "S" ((ptr)), "A" (__old),		\
 		       "b" ((unsigned int)__new),		\
 		       "c" ((unsigned int)(__new>>32))		\
 		       : "memory");				\

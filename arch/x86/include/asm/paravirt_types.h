@@ -654,8 +654,8 @@ int paravirt_disable_iospace(void);
 #define PVOP_VCALL4(op, arg1, arg2, arg3, arg4)				\
 	__PVOP_VCALL(op,						\
 		    "push %[_arg4];", "lea 4(%%esp),%%esp;",		\
-		    "0" ((u32)(arg1)), "1" ((u32)(arg2)),		\
-		    "2" ((u32)(arg3)), [_arg4] "mr" ((u32)(arg4)))
+		    "a" ((u32)(arg1)), "d" ((u32)(arg2)),		\
+		    "c" ((u32)(arg3)), [_arg4] "mr" ((u32)(arg4)))
 #else
 #define PVOP_CALL4(rettype, op, arg1, arg2, arg3, arg4)			\
 	__PVOP_CALL(rettype, op, "", "",				\

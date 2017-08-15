@@ -169,16 +169,16 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0UL), 0ULL, 0UL))
 	register void *__sp asm(_ASM_SP);				\
 	__chk_user_ptr(ptr);						\
 	might_fault();							\
-	asm volatile("call __get_user_%P4"				\
+	asm volatile("call __get_user_%P[size]"				\
 		     : "=a" (__ret_gu), "=r" (__val_gu), "+r" (__sp)	\
-		     : "0" (ptr), "i" (sizeof(*(ptr))));		\
+		     : "a" (ptr), [size] "i" (sizeof(*(ptr))));		\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
 	__builtin_expect(__ret_gu, 0);					\
 })
 
 #define __put_user_x(size, x, ptr, __ret_pu)			\
 	asm volatile("call __put_user_" #size : "=a" (__ret_pu)	\
-		     : "0" ((typeof(*(ptr)))(x)), "c" (ptr) : "ebx")
+		     : "a" ((typeof(*(ptr)))(x)), "c" (ptr) : "ebx")
 
 
 
