@@ -38,10 +38,10 @@ copy_user_generic(void *to, const void *from, unsigned len)
 			   X86_FEATURE_REP_GOOD,
 			   copy_user_enhanced_fast_string,
 			   X86_FEATURE_ERMS,
-			   ASM_OUTPUT2("=a" (ret), "+D" (to), "+S" (from),
-				       "+d" (len)),
-			   ASM_NO_INPUT_CLOBBER("memory", "rcx", "r8", "r9",
-						"r10", "r11"));
+			   OUTPUTS("=a" (ret), "+D" (to), "+S" (from),
+				   "+d" (len)),
+			   INPUTS(),
+			   CLOBBERS("memory", "rcx", "r8", "r9", "r10", "r11"));
 	return ret;
 }
 
