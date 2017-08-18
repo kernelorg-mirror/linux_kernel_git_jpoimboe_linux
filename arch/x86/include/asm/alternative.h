@@ -196,12 +196,11 @@ static inline int alternatives_text_reserved(void *start, void *end)
  */
 #define alternative_call(oldfunc, newfunc, feature, outputs, inputs,	\
 			 clobbers...)					\
-	asm volatile (ALTERNATIVE("call %P[old]", "call %P[new]",	\
-				  feature),				\
-		      : outputs						\
-		      : [old] "i" (oldfunc), [new] "i" (newfunc)	\
-		        ARGS_APPEND(inputs)				\
-		      CLOBBERS_APPEND(clobbers))
+	ASM_CALL(ALTERNATIVE("call %P[old]", "call %P[new]", feature),	\
+		 OUTPUTS(outputs),					\
+		 INPUTS([old] "i" (oldfunc), [new] "i" (newfunc)	\
+			ARGS_APPEND(inputs)),				\
+		 clobbers)
 
 /*
  * Like alternative_call, but there are two features and respective functions.
@@ -211,16 +210,13 @@ static inline int alternatives_text_reserved(void *start, void *end)
  */
 #define alternative_call_2(oldfunc, newfunc1, feature1, newfunc2,	\
 			   feature2, outputs, inputs, clobbers...)	\
-{									\
-	register void *__sp asm(_ASM_SP);				\
-	asm volatile (ALTERNATIVE_2("call %P[old]",			\
-				    "call %P[new1]", feature1,		\
-				    "call %P[new2]", feature2)		\
-		      : "+r" (__sp) ARGS_APPEND(outputs)		\
-		      : [old] "i" (oldfunc), [new1] "i" (newfunc1),	\
-			[new2] "i" (newfunc2) ARGS_APPEND(inputs)	\
-		      CLOBBERS_APPEND(clobbers));			\
-}
+	ASM_CALL(ALTERNATIVE_2("call %P[old]",				\
+			       "call %P[new1]", feature1,		\
+			       "call %P[new2]", feature2),		\
+		 OUTPUTS(outputs),					\
+		 INPUTS([old] "i" (oldfunc), [new1] "i" (newfunc1),	\
+			[new2] "i" (newfunc2) ARGS_APPEND(inputs)),	\
+		 clobbers)
 
 #endif /* __ASSEMBLY__ */
 

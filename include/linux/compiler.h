@@ -649,4 +649,9 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
 #define CLOBBERS_APPEND(...) \
 	_CLOBBERS_APPEND(HAS_ARGS(__VA_ARGS__), __VA_ARGS__)
 
+#ifndef ASM_CALL
+# define ASM_CALL(str, outputs, inputs, clobbers...) \
+	asm volatile(str : outputs : inputs CLOBBERS_APPEND(clobbers))
+#endif
+
 #endif /* __LINUX_COMPILER_H */

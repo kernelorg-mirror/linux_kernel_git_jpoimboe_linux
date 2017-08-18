@@ -166,20 +166,20 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0UL), 0ULL, 0UL))
 ({									\
 	int __ret_gu;							\
 	register __inttype(*(ptr)) __val_gu asm("%"_ASM_DX);		\
-	register void *__sp asm(_ASM_SP);				\
 	__chk_user_ptr(ptr);						\
 	might_fault();							\
-	asm volatile("call __get_user_%P[size]"				\
-		     : "=a" (__ret_gu), "=r" (__val_gu), "+r" (__sp)	\
-		     : "a" (ptr), [size] "i" (sizeof(*(ptr))));		\
+	ASM_CALL("call __get_user_%P[size]",				\
+		 OUTPUTS("=a" (__ret_gu), "=r" (__val_gu)),		\
+		 INPUTS("a" (ptr), [size] "i" (sizeof(*(ptr)))));	\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
 	__builtin_expect(__ret_gu, 0);					\
 })
 
-#define __put_user_x(size, x, ptr, __ret_pu)			\
-	asm volatile("call __put_user_" #size : "=a" (__ret_pu)	\
-		     : "a" ((typeof(*(ptr)))(x)), "c" (ptr) : "ebx")
-
+#define __put_user_x(size, x, ptr, __ret_pu)				\
+	ASM_CALL("call __put_user_" #size,				\
+		 OUTPUTS("=a" (__ret_pu)),				\
+		 INPUTS("a" ((typeof(*(ptr)))(x)), "c" (ptr)),		\
+		 CLOBBERS("ebx"))
 
 
 #ifdef CONFIG_X86_32
@@ -206,9 +206,11 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0UL), 0ULL, 0UL))
 		     _ASM_EXTABLE_EX(2b, 3b)				\
 		     : : "A" (x), "r" (addr))
 
-#define __put_user_x8(x, ptr, __ret_pu)				\
-	asm volatile("call __put_user_8" : "=a" (__ret_pu)	\
-		     : "A" ((typeof(*(ptr)))(x)), "c" (ptr) : "ebx")
+#define __put_user_x8(x, ptr, __ret_pu)					\
+	ASM_CALL("call __put_user_8",					\
+		 OUTPUTS("=a" (__ret_pu)),				\
+		 INPUTS("A" ((typeof(*(ptr)))(x)), "c" (ptr)),		\
+		 CLOBBERS("ebx"))
 #else
 #define __put_user_asm_u64(x, ptr, retval, errret) \
 	__put_user_asm(x, ptr, retval, "q", "", "er", errret)

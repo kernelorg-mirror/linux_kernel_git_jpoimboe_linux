@@ -471,8 +471,7 @@ int paravirt_disable_iospace(void);
  */
 #ifdef CONFIG_X86_32
 #define PVOP_VCALL_ARGS							\
-	unsigned long __eax = __eax, __edx = __edx, __ecx = __ecx;	\
-	register void *__sp asm("esp")
+	unsigned long __eax = __eax, __edx = __edx, __ecx = __ecx;
 #define PVOP_CALL_ARGS			PVOP_VCALL_ARGS
 
 #define PVOP_CALL_ARG1(x)		"a" ((unsigned long)(x))
@@ -492,8 +491,7 @@ int paravirt_disable_iospace(void);
 /* [re]ax isn't an arg, but the return val */
 #define PVOP_VCALL_ARGS						\
 	unsigned long __edi = __edi, __esi = __esi,		\
-		__edx = __edx, __ecx = __ecx, __eax = __eax;	\
-	register void *__sp asm("rsp")
+		__edx = __edx, __ecx = __ecx, __eax = __eax;
 #define PVOP_CALL_ARGS		PVOP_VCALL_ARGS
 
 #define PVOP_CALL_ARG1(x)		"D" ((unsigned long)(x))
@@ -541,24 +539,24 @@ int paravirt_disable_iospace(void);
 		/* This is 32-bit specific, but is okay in 64-bit */	\
 		/* since this condition will never hold */		\
 		if (sizeof(rettype) > sizeof(unsigned long)) {		\
-			asm volatile(pre				\
-				     paravirt_alt(PARAVIRT_CALL)	\
-				     post				\
-				     : outputs, "+r" (__sp)		\
-				     : paravirt_type(op),		\
-				       paravirt_clobber(clbr),		\
-				       ##__VA_ARGS__			\
-				     : "memory", "cc" extra_clbr);	\
+			ASM_CALL(pre					\
+				 paravirt_alt(PARAVIRT_CALL)		\
+				 post,					\
+				 OUTPUTS(outputs),			\
+				 INPUTS(paravirt_type(op),		\
+					paravirt_clobber(clbr),		\
+					##__VA_ARGS__),			\
+				 CLOBBERS("memory", "cc" extra_clbr));	\
 			__ret = (rettype)((((u64)__edx) << 32) | __eax); \
 		} else {						\
-			asm volatile(pre				\
-				     paravirt_alt(PARAVIRT_CALL)	\
-				     post				\
-				     : outputs, "+r" (__sp)		\
-				     : paravirt_type(op),		\
-				       paravirt_clobber(clbr),		\
-				       ##__VA_ARGS__			\
-				     : "memory", "cc" extra_clbr);	\
+			ASM_CALL(pre					\
+				 paravirt_alt(PARAVIRT_CALL)		\
+				 post,					\
+				 OUTPUTS(outputs),			\
+				 INPUTS(paravirt_type(op),		\
+					paravirt_clobber(clbr),		\
+					##__VA_ARGS__),			\
+				 CLOBBERS("memory", "cc" extra_clbr));	\
 			__ret = (rettype)(__eax & PVOP_RETMASK(rettype));	\
 		}							\
 		__ret;							\
@@ -578,14 +576,14 @@ int paravirt_disable_iospace(void);
 	({								\
 		PVOP_VCALL_ARGS;					\
 		PVOP_TEST_NULL(op);					\
-		asm volatile(pre					\
-			     paravirt_alt(PARAVIRT_CALL)		\
-			     post					\
-			     : outputs, "+r" (__sp)			\
-			     : paravirt_type(op),			\
-			       paravirt_clobber(clbr),			\
-			       ##__VA_ARGS__				\
-			     : "memory", "cc" extra_clbr);		\
+		ASM_CALL(pre						\
+			 paravirt_alt(PARAVIRT_CALL)			\
+			 post,						\
+			 OUTPUTS(outputs),				\
+			 INPUTS(paravirt_type(op),			\
+				paravirt_clobber(clbr),			\
+				##__VA_ARGS__),				\
+			 CLOBBERS("memory", "cc" extra_clbr));		\
 	})
 
 #define __PVOP_VCALL(op, pre, post, ...)				\

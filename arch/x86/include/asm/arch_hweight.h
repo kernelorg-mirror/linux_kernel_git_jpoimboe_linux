@@ -23,9 +23,10 @@ static __always_inline unsigned int __arch_hweight32(unsigned int w)
 {
 	unsigned int res;
 
-	asm (ALTERNATIVE("call __sw_hweight32", POPCNT32, X86_FEATURE_POPCNT)
-			 : "="REG_OUT (res)
-			 : REG_IN (w));
+	ASM_CALL(ALTERNATIVE("call __sw_hweight32", POPCNT32,
+			     X86_FEATURE_POPCNT),
+		 OUTPUTS("="REG_OUT (res)),
+		 INPUTS(REG_IN (w)));
 
 	return res;
 }
@@ -51,9 +52,10 @@ static __always_inline unsigned long __arch_hweight64(__u64 w)
 {
 	unsigned long res;
 
-	asm (ALTERNATIVE("call __sw_hweight64", POPCNT64, X86_FEATURE_POPCNT)
-			 : "="REG_OUT (res)
-			 : REG_IN (w));
+	ASM_CALL(ALTERNATIVE("call __sw_hweight64", POPCNT64,
+			     X86_FEATURE_POPCNT),
+		 OUTPUTS("="REG_OUT (res)),
+		 INPUTS(REG_IN (w)));
 
 	return res;
 }

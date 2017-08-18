@@ -62,16 +62,16 @@
  */
 static inline void __down_read(struct rw_semaphore *sem)
 {
-	asm volatile("# beginning down_read\n\t"
-		     LOCK_PREFIX _ASM_INC "(%[sem])\n\t"
-		     /* adds 0x00000001 */
-		     "  jns        1f\n\t"
-		     "  call call_rwsem_down_read_failed\n\t"
-		     "1:\n\t"
-		     "# ending down_read\n\t"
-		     : "+m" (sem->count)
-		     : [sem] "a" (sem)
-		     : "memory", "cc");
+	ASM_CALL("# beginning down_read\n\t"
+		 LOCK_PREFIX _ASM_INC "(%[sem])\n\t"
+		 /* adds 0x00000001 */
+		 "  jns        1f\n\t"
+		 "  call call_rwsem_down_read_failed\n\t"
+		 "1:\n\t"
+		 "# ending down_read\n\t",
+		 OUTPUTS("+m" (sem->count)),
+		 INPUTS([sem] "a" (sem)),
+		 CLOBBERS("memory", "cc"));
 }
 
 /*
@@ -104,22 +104,21 @@ static inline bool __down_read_trylock(struct rw_semaphore *sem)
 ({									\
 	long tmp;							\
 	struct rw_semaphore* ret;					\
-	register void *__sp asm(_ASM_SP);				\
 									\
-	asm volatile("# beginning down_write\n\t"			\
-		     LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"	\
-		     /* adds 0xffff0001, returns the old value */	\
-		     "  test      " __ASM_SEL_RAW(%w,%k) "[tmp],"	\
-				    __ASM_SEL_RAW(%w,%k) "[tmp]\n\t"	\
-		     /* was the active mask 0 before? */		\
-		     "  jz        1f\n"					\
-		     "  call " slow_path "\n\t"				\
-		     "1:\n\t"						\
-		     "# ending down_write\n\t"				\
-		     : "+m" (sem->count), [tmp] "=d" (tmp), "=a" (ret),	\
-		       "+r" (__sp)					\
-		     : [sem] "a" (sem), "d" (RWSEM_ACTIVE_WRITE_BIAS)	\
-		     : "memory", "cc");					\
+	ASM_CALL("# beginning down_write\n\t"				\
+		 LOCK_PREFIX "  xadd %[tmp],(%[sem])\n\t"		\
+		 /* adds 0xffff0001, returns the old value */		\
+		 "  test      " __ASM_SEL_RAW(%w,%k) "[tmp],"		\
+				__ASM_SEL_RAW(%w,%k) "[tmp]\n\t"	\
+		 /* was the active mask 0 before? */			\
+		 "  jz        1f\n"					\
+		 "  call " slow_path "\n\t"				\
+		 "1:\n\t"						\
+		 "# ending down_write\n\t",				\
+		 OUTPUTS("+m" (sem->count), [tmp] "=d" (tmp),		\
+			 "=a" (ret)),					\
+		 INPUTS([sem] "a" (sem), "d" (RWSEM_ACTIVE_WRITE_BIAS)),\
+		 CLOBBERS("memory", "cc"));				\
 	ret;								\
 })
 
@@ -170,16 +169,16 @@ static inline bool __down_write_trylock(struct rw_semaphore *sem)
 static inline void __up_read(struct rw_semaphore *sem)
 {
 	long tmp;
-	asm volatile("# beginning __up_read\n\t"
-		     LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"
-		     /* subtracts 1, returns the old value */
-		     "  jns        1f\n\t"
-		     "  call call_rwsem_wake\n" /* expects old value in %edx */
-		     "1:\n"
-		     "# ending __up_read\n"
-		     : "+m" (sem->count), [tmp] "=d" (tmp)
-		     : [sem] "a" (sem), "d" (-RWSEM_ACTIVE_READ_BIAS)
-		     : "memory", "cc");
+	ASM_CALL("# beginning __up_read\n\t"
+		 LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"
+		 /* subtracts 1, returns the old value */
+		 "  jns        1f\n\t"
+		 "  call call_rwsem_wake\n\t" /* expects old value in %edx */
+		 "1:\n\t"
+		 "# ending __up_read\n\t",
+		 OUTPUTS("+m" (sem->count), [tmp] "=d" (tmp)),
+		 INPUTS([sem] "a" (sem), "d" (-RWSEM_ACTIVE_READ_BIAS)),
+		 CLOBBERS("memory", "cc"));
 }
 
 /*
@@ -188,16 +187,16 @@ static inline void __up_read(struct rw_semaphore *sem)
 static inline void __up_write(struct rw_semaphore *sem)
 {
 	long tmp;
-	asm volatile("# beginning __up_write\n\t"
-		     LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"
-		     /* subtracts 0xffff0001, returns the old value */
-		     "  jns        1f\n\t"
-		     "  call call_rwsem_wake\n" /* expects old value in %edx */
-		     "1:\n\t"
-		     "# ending __up_write\n"
-		     : "+m" (sem->count), [tmp] "=d" (tmp)
-		     : [sem] "a" (sem), "d" (-RWSEM_ACTIVE_WRITE_BIAS)
-		     : "memory", "cc");
+	ASM_CALL("# beginning __up_write\n\t"
+		 LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"
+		 /* subtracts 0xffff0001, returns the old value */
+		 "  jns        1f\n\t"
+		 "  call call_rwsem_wake\n\t" /* expects old value in %edx */
+		 "1:\n\t"
+		 "# ending __up_write\n\t",
+		 OUTPUTS("+m" (sem->count), [tmp] "=d" (tmp)),
+		 INPUTS([sem] "a" (sem), "d" (-RWSEM_ACTIVE_WRITE_BIAS)),
+		 CLOBBERS("memory", "cc"));
 }
 
 /*
@@ -205,19 +204,19 @@ static inline void __up_write(struct rw_semaphore *sem)
  */
 static inline void __downgrade_write(struct rw_semaphore *sem)
 {
-	asm volatile("# beginning __downgrade_write\n\t"
-		     LOCK_PREFIX _ASM_ADD "%[bias],(%[sem])\n\t"
-		     /*
-		      * transitions 0xZZZZ0001 -> 0xYYYY0001 (i386)
-		      *     0xZZZZZZZZ00000001 -> 0xYYYYYYYY00000001 (x86_64)
-		      */
-		     "  jns       1f\n\t"
-		     "  call call_rwsem_downgrade_wake\n"
-		     "1:\n\t"
-		     "# ending __downgrade_write\n"
-		     : "+m" (sem->count)
-		     : [sem] "a" (sem), [bias] "er" (-RWSEM_WAITING_BIAS)
-		     : "memory", "cc");
+	ASM_CALL("# beginning __downgrade_write\n\t"
+		 LOCK_PREFIX _ASM_ADD "%[bias],(%[sem])\n\t"
+		 /*
+		  * transitions 0xZZZZ0001 -> 0xYYYY0001 (i386)
+		  * 0xZZZZZZZZ00000001 -> 0xYYYYYYYY00000001 (x86_64)
+		  */
+		  "  jns       1f\n\t"
+		  "  call call_rwsem_downgrade_wake\n\t"
+		  "1:\n\t"
+		  "# ending __downgrade_write\n\t",
+		  OUTPUTS("+m" (sem->count)),
+		  INPUTS([sem] "a" (sem), [bias] "er" (-RWSEM_WAITING_BIAS)),
+		  CLOBBERS("memory", "cc"));
 }
 
 #endif /* __KERNEL__ */

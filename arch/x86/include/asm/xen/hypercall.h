@@ -114,9 +114,8 @@ extern struct { char _entry[32]; } hypercall_page[];
 	register unsigned long __arg3 asm(__HYPERCALL_ARG3REG) = __arg3; \
 	register unsigned long __arg4 asm(__HYPERCALL_ARG4REG) = __arg4; \
 	register unsigned long __arg5 asm(__HYPERCALL_ARG5REG) = __arg5; \
-	register void *__sp asm(_ASM_SP);
 
-#define __HYPERCALL_0PARAM	"=r" (__res), "+r" (__sp)
+#define __HYPERCALL_0PARAM	"=r" (__res)
 #define __HYPERCALL_1PARAM	__HYPERCALL_0PARAM, "+r" (__arg1)
 #define __HYPERCALL_2PARAM	__HYPERCALL_1PARAM, "+r" (__arg2)
 #define __HYPERCALL_3PARAM	__HYPERCALL_2PARAM, "+r" (__arg3)
@@ -146,10 +145,10 @@ extern struct { char _entry[32]; } hypercall_page[];
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_0ARG();						\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_0PARAM				\
-		      : __HYPERCALL_ENTRY(name)				\
-		      : __HYPERCALL_CLOBBER0);				\
+	ASM_CALL(__HYPERCALL,						\
+		 OUTPUTS(__HYPERCALL_0PARAM),				\
+		 INPUTS(__HYPERCALL_ENTRY(name)),			\
+		 CLOBBERS(__HYPERCALL_CLOBBER0));			\
 	(type)__res;							\
 })
 
@@ -157,10 +156,10 @@ extern struct { char _entry[32]; } hypercall_page[];
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_1ARG(a1);						\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_1PARAM				\
-		      : __HYPERCALL_ENTRY(name)				\
-		      : __HYPERCALL_CLOBBER1);				\
+	ASM_CALL(__HYPERCALL,						\
+		 OUTPUTS(__HYPERCALL_1PARAM),				\
+		 INPUTS(__HYPERCALL_ENTRY(name)),			\
+		 CLOBBERS(__HYPERCALL_CLOBBER1));			\
 	(type)__res;							\
 })
 
@@ -168,10 +167,10 @@ extern struct { char _entry[32]; } hypercall_page[];
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_2ARG(a1, a2);					\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_2PARAM				\
-		      : __HYPERCALL_ENTRY(name)				\
-		      : __HYPERCALL_CLOBBER2);				\
+	ASM_CALL(__HYPERCALL,						\
+		 OUTPUTS(__HYPERCALL_2PARAM),				\
+		 INPUTS(__HYPERCALL_ENTRY(name)),			\
+		 CLOBBERS(__HYPERCALL_CLOBBER2));			\
 	(type)__res;							\
 })
 
@@ -179,10 +178,10 @@ extern struct { char _entry[32]; } hypercall_page[];
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_3ARG(a1, a2, a3);					\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_3PARAM				\
-		      : __HYPERCALL_ENTRY(name)				\
-		      : __HYPERCALL_CLOBBER3);				\
+	ASM_CALL(__HYPERCALL,						\
+		 OUTPUTS(__HYPERCALL_3PARAM),				\
+		 INPUTS(__HYPERCALL_ENTRY(name)),			\
+		 CLOBBERS(__HYPERCALL_CLOBBER3));			\
 	(type)__res;							\
 })
 
@@ -190,10 +189,10 @@ extern struct { char _entry[32]; } hypercall_page[];
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_4ARG(a1, a2, a3, a4);				\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_4PARAM				\
-		      : __HYPERCALL_ENTRY(name)				\
-		      : __HYPERCALL_CLOBBER4);				\
+	ASM_CALL(__HYPERCALL,						\
+		 OUTPUTS(__HYPERCALL_4PARAM),				\
+		 INPUTS(__HYPERCALL_ENTRY(name)),			\
+		 CLOBBERS(__HYPERCALL_CLOBBER4));			\
 	(type)__res;							\
 })
 
@@ -201,10 +200,10 @@ extern struct { char _entry[32]; } hypercall_page[];
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_5ARG(a1, a2, a3, a4, a5);				\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_5PARAM				\
-		      : __HYPERCALL_ENTRY(name)				\
-		      : __HYPERCALL_CLOBBER5);				\
+	ASM_CALL(__HYPERCALL,						\
+		 OUTPUTS(__HYPERCALL_5PARAM),				\
+		 INPUTS(__HYPERCALL_ENTRY(name)),			\
+		 CLOBBERS(__HYPERCALL_CLOBBER5));			\
 	(type)__res;							\
 })
 
@@ -218,10 +217,10 @@ privcmd_call(unsigned call,
 	__HYPERCALL_5ARG(a1, a2, a3, a4, a5);
 
 	stac();
-	asm volatile("call *%[call]"
-		     : __HYPERCALL_5PARAM
-		     : [call] "a" (&hypercall_page[call])
-		     : __HYPERCALL_CLOBBER5);
+	ASM_CALL("call *%[call]",
+		 OUTPUTS(__HYPERCALL_5PARAM),
+		 INPUTS([call] "a" (&hypercall_page[call])),
+		 CLOBBERS(__HYPERCALL_CLOBBER5));
 	clac();
 
 	return (long)__res;

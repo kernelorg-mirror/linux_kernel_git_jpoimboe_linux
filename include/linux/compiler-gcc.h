@@ -128,6 +128,25 @@
 #define __always_unused		__attribute__((unused))
 #define __mode(x)               __attribute__((mode(x)))
 
+#ifdef CONFIG_FRAME_POINTER
+/*
+ * All x86 inline asm statements with a 'call' instruction must use this macro.
+ * It ensures that GCC sets up the containing function's frame pointer before
+ * inserting the asm.
+ *
+ * WARNING: Positional operand names ("%0") and constraints ("0" (foo)) are
+ * 	    not allowed.
+ */
+#define ASM_CALL(str, outputs, inputs, clobbers...)			\
+({									\
+	register void *__sp asm(_ASM_SP);				\
+	asm volatile(str						\
+		     : "+r" (__sp) ARGS_APPEND(outputs)			\
+		     : inputs						\
+		     CLOBBERS_APPEND(clobbers));			\
+})
+#endif
+
 /* gcc version specific checks */
 
 #if GCC_VERSION < 30200

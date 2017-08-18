@@ -193,13 +193,8 @@ they mean, and suggestions for how to fix them.
 
    If it's a GCC-compiled .c file, the error may be because the function
    uses an inline asm() statement which has a "call" instruction.  An
-   asm() statement with a call instruction must declare the use of the
-   stack pointer in its output operand.  For example, on x86_64:
-
-     register void *__sp asm("rsp");
-     asm volatile("call func" : "+r" (__sp));
-
-   Otherwise the stack frame may not get created before the call.
+   asm() statement with a call instruction must use the ASM_CALL macro,
+   which forces the frame pointer to be saved before the call.
 
 
 2. file.o: warning: objtool: .text+0x53: unreachable instruction
@@ -221,7 +216,7 @@ they mean, and suggestions for how to fix them.
    change ENDPROC to END.
 
 
-4. file.o: warning: objtool: func(): can't find starting instruction
+3. file.o: warning: objtool: func(): can't find starting instruction
    or
    file.o: warning: objtool: func()+0x11dd: can't decode instruction
 
@@ -230,7 +225,7 @@ they mean, and suggestions for how to fix them.
    section like .data or .rodata.
 
 
-5. file.o: warning: objtool: func()+0x6: unsupported instruction in callable function
+4. file.o: warning: objtool: func()+0x6: unsupported instruction in callable function
 
    This is a kernel entry/exit instruction like sysenter or iret.  Such
    instructions aren't allowed in a callable function, and are most
@@ -239,7 +234,7 @@ they mean, and suggestions for how to fix them.
    annotated with the unwind hint macros in asm/unwind_hints.h.
 
 
-6. file.o: warning: objtool: func()+0x26: sibling call from callable instruction with modified stack frame
+5. file.o: warning: objtool: func()+0x26: sibling call from callable instruction with modified stack frame
 
    This is a dynamic jump or a jump to an undefined symbol.  Objtool
    assumed it's a sibling call and detected that the frame pointer
@@ -253,7 +248,7 @@ they mean, and suggestions for how to fix them.
    the unwind hint macros in asm/unwind_hints.h.
 
 
-7. file: warning: objtool: func()+0x5c: stack state mismatch
+6. file: warning: objtool: func()+0x5c: stack state mismatch
 
    The instruction's frame pointer state is inconsistent, depending on
    which execution path was taken to reach the instruction.
@@ -270,7 +265,7 @@ they mean, and suggestions for how to fix them.
    asm/unwind_hints.h.
 
 
-8. file.o: warning: objtool: funcA() falls through to next function funcB()
+7. file.o: warning: objtool: funcA() falls through to next function funcB()
 
    This means that funcA() doesn't end with a return instruction or an
    unconditional jump, and that objtool has determined that the function
