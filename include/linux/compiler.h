@@ -624,4 +624,33 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
 	(_________p1); \
 })
 
+#define __ARG17(_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12,	\
+		_13, _14, _15, _16, _17, ...) _17
+
+/* Return 1 if the macro has arguments, 0 otherwise. */
+#define HAS_ARGS(...) __ARG17(0, ## __VA_ARGS__, 1, 1, 1, 1, 1, 1, 1,	\
+			      1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+/* Macros for passing inline asm constraints as macro arguments */
+#define ASM_ARGS(args...) args
+#define ASM_OUTPUTS ASM_ARGS
+#define ASM_INPUTS ASM_ARGS
+#define ASM_CLOBBERS ASM_ARGS
+
+/* If the macro has arguments, prepend them with a comma. */
+#define ARGS_APPEND(...) , ## __VA_ARGS__
+
+#define __CLOBBERS_APPEND_0(...)
+#define __CLOBBERS_APPEND_1(...)  : __VA_ARGS__
+
+#define __CLOBBERS_APPEND(has_args, ...) \
+	__CLOBBERS_APPEND_ ## has_args (__VA_ARGS__)
+
+#define _CLOBBERS_APPEND(has_args, ...) \
+	__CLOBBERS_APPEND(has_args, __VA_ARGS__)
+
+/* If the macro has arguments, prepend them with a colon. */
+#define CLOBBERS_APPEND(...) \
+	_CLOBBERS_APPEND(HAS_ARGS(__VA_ARGS__), __VA_ARGS__)
+
 #endif /* __LINUX_COMPILER_H */

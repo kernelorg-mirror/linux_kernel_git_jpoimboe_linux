@@ -498,10 +498,10 @@ do {									\
 		       "cmpxchg16b " __percpu_arg([p1]) "\n\t"		\
 		       "setz %[ret]\n\t",				\
 		       X86_FEATURE_CX16,				\
-		       ASM_OUTPUT2([ret] "=a" (__ret),			\
-				   [p1] "+m" (pcp1), "+m" (pcp2),	\
-				   "+d" (__o2)),			\
-		       "b" (__n1), "c" (__n2), "a" (__o1) : "rsi");	\
+		       ASM_OUTPUTS([ret] "=a" (__ret), [p1] "+m" (pcp1),\
+				   "+m" (pcp2), "+d" (__o2)),		\
+		       ASM_INPUTS("b" (__n1), "c" (__n2), "a" (__o1)),	\
+		       ASM_CLOBBERS("rsi"));				\
 	__ret;								\
 })
 

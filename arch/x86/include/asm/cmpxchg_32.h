@@ -75,36 +75,36 @@ static inline u64 __cmpxchg64_local(volatile u64 *ptr, u64 old, u64 new)
  * to simulate the cmpxchg8b on the 80386 and 80486 CPU.
  */
 
-#define cmpxchg64(ptr, o, n)					\
-({								\
-	__typeof__(*(ptr)) __ret;				\
-	__typeof__(*(ptr)) __old = (o);				\
-	__typeof__(*(ptr)) __new = (n);				\
-	alternative_io(LOCK_PREFIX_HERE				\
-			"call cmpxchg8b_emu",			\
-			"lock; cmpxchg8b (%%esi)" ,		\
-		       X86_FEATURE_CX8,				\
-		       "=A" (__ret),				\
-		       "S" ((ptr)), "A" (__old),		\
-		       "b" ((unsigned int)__new),		\
-		       "c" ((unsigned int)(__new>>32))		\
-		       : "memory");				\
+#define cmpxchg64(ptr, o, n)						\
+({									\
+	__typeof__(*(ptr)) __ret;					\
+	__typeof__(*(ptr)) __old = (o);					\
+	__typeof__(*(ptr)) __new = (n);					\
+	alternative_io(LOCK_PREFIX_HERE					\
+			"call cmpxchg8b_emu",				\
+			"lock; cmpxchg8b (%%esi)" ,			\
+		       X86_FEATURE_CX8,					\
+		       ASM_OUTPUTS("=A" (__ret)),			\
+		       ASM_INPUTS("S" ((ptr)), "A" (__old),		\
+				  "b" ((unsigned int)__new),		\
+				  "c" ((unsigned int)(__new>>32))),	\
+		       ASM_CLOBBERS("memory"));				\
 	__ret; })
 
 
-#define cmpxchg64_local(ptr, o, n)				\
-({								\
-	__typeof__(*(ptr)) __ret;				\
-	__typeof__(*(ptr)) __old = (o);				\
-	__typeof__(*(ptr)) __new = (n);				\
-	alternative_io("call cmpxchg8b_emu",			\
-		       "cmpxchg8b (%%esi)" ,			\
-		       X86_FEATURE_CX8,				\
-		       "=A" (__ret),				\
-		       "S" ((ptr)), "A" (__old),		\
-		       "b" ((unsigned int)__new),		\
-		       "c" ((unsigned int)(__new>>32))		\
-		       : "memory");				\
+#define cmpxchg64_local(ptr, o, n)					\
+({									\
+	__typeof__(*(ptr)) __ret;					\
+	__typeof__(*(ptr)) __old = (o);					\
+	__typeof__(*(ptr)) __new = (n);					\
+	alternative_io("call cmpxchg8b_emu",				\
+		       "cmpxchg8b (%%esi)" ,				\
+		       X86_FEATURE_CX8,					\
+		       ASM_OUTPUTS("=A" (__ret)),			\
+		       ASM_INPUTS("S" ((ptr)), "A" (__old),		\
+				  "b" ((unsigned int)__new),		\
+				  "c" ((unsigned int)(__new>>32))),	\
+		       ASM_CLOBBERS("memory"));				\
 	__ret; })
 
 #endif

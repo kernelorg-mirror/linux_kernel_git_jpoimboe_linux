@@ -171,43 +171,37 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	asm volatile(ALTERNATIVE_2(oldinstr, newinstr1, feature1, newinstr2, feature2) ::: "memory")
 
 /*
- * Alternative inline assembly with input.
+ * Alternative inline assembly with user-specified constraints.  Use the
+ * ASM_OUTPUTS(), ASM_INPUTS(), and ASM_CLOBBERS() macros to combine the
+ * arguments as needed.
  *
  * Pecularities:
  * No memory clobber here.
- * Argument numbers start with 1.
  * Best is to use constraints that are fixed size (like (%1) ... "r")
  * If you use variable sized constraints like "m" or "g" in the
  * replacement make sure to pad to the worst case length.
  * Leaving an unused argument 0 to keep API compatibility.
  */
-#define alternative_input(oldinstr, newinstr, feature, input...)	\
+#define alternative_io(oldinstr, newinstr, feature, outputs, inputs,	\
+		       clobbers...)					\
 	asm volatile (ALTERNATIVE(oldinstr, newinstr, feature)		\
-		: : "i" (0), ## input)
+		      : outputs						\
+		      : inputs						\
+		      CLOBBERS_APPEND(clobbers))
 
 /*
- * This is similar to alternative_input. But it has two features and
- * respective instructions.
+ * Like alternative_io, but for replacing a direct call with another one.
  *
- * If CPU has feature2, newinstr2 is used.
- * Otherwise, if CPU has feature1, newinstr1 is used.
- * Otherwise, oldinstr is used.
+ * Positional operand names ("%0") and constraints ("0" (foo)) are not allowed.
  */
-#define alternative_input_2(oldinstr, newinstr1, feature1, newinstr2,	     \
-			   feature2, input...)				     \
-	asm volatile(ALTERNATIVE_2(oldinstr, newinstr1, feature1,	     \
-		newinstr2, feature2)					     \
-		: : "i" (0), ## input)
-
-/* Like alternative_input, but with a single output argument */
-#define alternative_io(oldinstr, newinstr, feature, output, input...)	\
-	asm volatile (ALTERNATIVE(oldinstr, newinstr, feature)		\
-		: output : "i" (0), ## input)
-
-/* Like alternative_io, but for replacing a direct call with another one. */
-#define alternative_call(oldfunc, newfunc, feature, output, input...)	\
-	asm volatile (ALTERNATIVE("call %P[old]", "call %P[new]", feature) \
-		: output : [old] "i" (oldfunc), [new] "i" (newfunc), ## input)
+#define alternative_call(oldfunc, newfunc, feature, outputs, inputs,	\
+			 clobbers...)					\
+	asm volatile (ALTERNATIVE("call %P[old]", "call %P[new]",	\
+				  feature),				\
+		      : outputs						\
+		      : [old] "i" (oldfunc), [new] "i" (newfunc)	\
+		        ARGS_APPEND(inputs)				\
+		      CLOBBERS_APPEND(clobbers))
 
 /*
  * Like alternative_call, but there are two features and respective functions.
@@ -215,28 +209,18 @@ static inline int alternatives_text_reserved(void *start, void *end)
  * Otherwise, if CPU has feature1, function1 is used.
  * Otherwise, old function is used.
  */
-#define alternative_call_2(oldfunc, newfunc1, feature1, newfunc2, feature2,   \
-			   output, input...)				      \
-{									      \
-	register void *__sp asm(_ASM_SP);				      \
-	asm volatile (ALTERNATIVE_2("call %P[old]", "call %P[new1]", feature1,\
-		"call %P[new2]", feature2)				      \
-		: output, "+r" (__sp)					      \
-		: [old] "i" (oldfunc), [new1] "i" (newfunc1),		      \
-		  [new2] "i" (newfunc2), ## input);			      \
+#define alternative_call_2(oldfunc, newfunc1, feature1, newfunc2,	\
+			   feature2, outputs, inputs, clobbers...)	\
+{									\
+	register void *__sp asm(_ASM_SP);				\
+	asm volatile (ALTERNATIVE_2("call %P[old]",			\
+				    "call %P[new1]", feature1,		\
+				    "call %P[new2]", feature2)		\
+		      : "+r" (__sp) ARGS_APPEND(outputs)		\
+		      : [old] "i" (oldfunc), [new1] "i" (newfunc1),	\
+			[new2] "i" (newfunc2) ARGS_APPEND(inputs)	\
+		      CLOBBERS_APPEND(clobbers));			\
 }
-
-/*
- * use this macro(s) if you need more than one output parameter
- * in alternative_io
- */
-#define ASM_OUTPUT2(a...) a
-
-/*
- * use this macro if you need clobbers but no inputs in
- * alternative_{input,io,call}()
- */
-#define ASM_NO_INPUT_CLOBBER(clbr...) "i" (0) : clbr
 
 #endif /* __ASSEMBLY__ */
 

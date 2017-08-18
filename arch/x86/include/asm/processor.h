@@ -780,9 +780,10 @@ extern char			ignore_fpu_irq;
  */
 static inline void prefetch(const void *x)
 {
-	alternative_input(BASE_PREFETCH, "prefetchnta %P[x]",
-			  X86_FEATURE_XMM,
-			  [x] "m" (*(const char *)x));
+	alternative_io(BASE_PREFETCH, "prefetchnta %P[x]",
+		       X86_FEATURE_XMM,
+		       ASM_OUTPUTS(),
+		       ASM_INPUTS([x] "m" (*(const char *)x)));
 }
 
 /*
@@ -792,9 +793,10 @@ static inline void prefetch(const void *x)
  */
 static inline void prefetchw(const void *x)
 {
-	alternative_input(BASE_PREFETCH, "prefetchw %P[x]",
-			  X86_FEATURE_3DNOWPREFETCH,
-			  [x] "m" (*(const char *)x));
+	alternative_io(BASE_PREFETCH, "prefetchw %P[x]",
+		       X86_FEATURE_3DNOWPREFETCH,
+		       ASM_OUTPUTS(),
+		       ASM_INPUTS([x] "m" (*(const char *)x)));
 }
 
 static inline void spin_lock_prefetch(const void *x)

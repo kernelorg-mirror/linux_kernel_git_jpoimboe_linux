@@ -44,8 +44,9 @@ static inline void clear_page(void *page)
 	alternative_call_2(clear_page_orig,
 			   clear_page_rep, X86_FEATURE_REP_GOOD,
 			   clear_page_erms, X86_FEATURE_ERMS,
-			   "+D" (page),
-			   ASM_NO_INPUT_CLOBBER("memory", "rax", "rcx"));
+			   ASM_OUTPUTS("+D" (page)),
+			   ASM_INPUTS(),
+			   ASM_CLOBBERS("memory", "rax", "rcx"));
 }
 
 void copy_page(void *to, void *from);
