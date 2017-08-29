@@ -81,7 +81,7 @@ d           = %r8
 e           = %rdx
 y3          = %rsi
 
-TBL   = %rbp
+TBL   = %r12 # clobbered by T1
 
 a     = %rax
 b     = %rbx
@@ -96,11 +96,10 @@ y0    = %r13
 y1    = %r14
 y2    = %r15
 
-y4    = %r12
-
 # Local variables (stack frame)
 XFER_SIZE = 4*8
 SRND_SIZE = 1*8
+TBL_SIZE = 1*8
 INP_SIZE = 1*8
 INPEND_SIZE = 1*8
 RSPSAVE_SIZE = 1*8
@@ -108,7 +107,8 @@ GPRSAVE_SIZE = 6*8
 
 frame_XFER = 0
 frame_SRND = frame_XFER + XFER_SIZE
-frame_INP = frame_SRND + SRND_SIZE
+frame_TBL = frame_SRND + SRND_SIZE
+frame_INP = frame_TBL + TBL_SIZE
 frame_INPEND = frame_INP + INP_SIZE
 frame_RSPSAVE = frame_INPEND + INPEND_SIZE
 frame_GPRSAVE = frame_RSPSAVE + RSPSAVE_SIZE
@@ -601,7 +601,7 @@ ENTRY(sha512_transform_rorx)
 	vmovdqa	PSHUFFLE_BYTE_FLIP_MASK(%rip), BYTE_FLIP_MASK
 
 loop0:
-	lea	K512(%rip), TBL
+	movq	$K512, frame_TBL(%rsp)
 
 	## byte swap first 16 dwords
 	COPY_YMM_AND_BSWAP	Y_0, (INP), BYTE_FLIP_MASK
@@ -616,39 +616,46 @@ loop0:
 
 .align 16
 loop1:
+	mov frame_TBL(%rsp), TBL
 	vpaddq	(TBL), Y_0, XFER
 	vmovdqa XFER, frame_XFER(%rsp)
 	FOUR_ROUNDS_AND_SCHED
 
+	mov frame_TBL(%rsp), TBL
 	vpaddq	1*32(TBL), Y_0, XFER
 	vmovdqa XFER, frame_XFER(%rsp)
 	FOUR_ROUNDS_AND_SCHED
 
+	mov frame_TBL(%rsp), TBL
 	vpaddq	2*32(TBL), Y_0, XFER
 	vmovdqa XFER, frame_XFER(%rsp)
 	FOUR_ROUNDS_AND_SCHED
 
+	mov frame_TBL(%rsp), TBL
 	vpaddq	3*32(TBL), Y_0, XFER
 	vmovdqa XFER, frame_XFER(%rsp)
-	add	$(4*32), TBL
 	FOUR_ROUNDS_AND_SCHED
 
+	addq	$(4*32), frame_TBL(%rsp)
 	subq	$1, frame_SRND(%rsp)
 	jne	loop1
 
 	movq	$2, frame_SRND(%rsp)
 loop2:
+	mov frame_TBL(%rsp), TBL
 	vpaddq	(TBL), Y_0, XFER
 	vmovdqa XFER, frame_XFER(%rsp)
 	DO_4ROUNDS
+
+	mov frame_TBL(%rsp), TBL
 	vpaddq	1*32(TBL), Y_1, XFER
 	vmovdqa XFER, frame_XFER(%rsp)
-	add	$(2*32), TBL
 	DO_4ROUNDS
 
 	vmovdqa	Y_2, Y_0
 	vmovdqa	Y_3, Y_1
 
+	add	$(2*32), frame_TBL(%rsp)
 	subq	$1, frame_SRND(%rsp)
 	jne	loop2
 
