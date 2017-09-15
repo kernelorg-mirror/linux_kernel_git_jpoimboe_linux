@@ -113,10 +113,9 @@ extern struct { char _entry[32]; } hypercall_page[];
 	register unsigned long __arg2 asm(__HYPERCALL_ARG2REG) = __arg2; \
 	register unsigned long __arg3 asm(__HYPERCALL_ARG3REG) = __arg3; \
 	register unsigned long __arg4 asm(__HYPERCALL_ARG4REG) = __arg4; \
-	register unsigned long __arg5 asm(__HYPERCALL_ARG5REG) = __arg5; \
-	register void *__sp asm(_ASM_SP);
+	register unsigned long __arg5 asm(__HYPERCALL_ARG5REG) = __arg5
 
-#define __HYPERCALL_0PARAM	"=r" (__res), "+r" (__sp)
+#define __HYPERCALL_0PARAM	"=r" (__res)
 #define __HYPERCALL_1PARAM	__HYPERCALL_0PARAM, "+r" (__arg1)
 #define __HYPERCALL_2PARAM	__HYPERCALL_1PARAM, "+r" (__arg2)
 #define __HYPERCALL_3PARAM	__HYPERCALL_2PARAM, "+r" (__arg3)
@@ -135,7 +134,7 @@ extern struct { char _entry[32]; } hypercall_page[];
 #define __HYPERCALL_5ARG(a1,a2,a3,a4,a5)				\
 	__HYPERCALL_4ARG(a1,a2,a3,a4)	__arg5 = (unsigned long)(a5);
 
-#define __HYPERCALL_CLOBBER5	"memory"
+#define __HYPERCALL_CLOBBER5	"memory" ASM_CALL_CLOBBERS_APPEND
 #define __HYPERCALL_CLOBBER4	__HYPERCALL_CLOBBER5, __HYPERCALL_ARG5REG
 #define __HYPERCALL_CLOBBER3	__HYPERCALL_CLOBBER4, __HYPERCALL_ARG4REG
 #define __HYPERCALL_CLOBBER2	__HYPERCALL_CLOBBER3, __HYPERCALL_ARG3REG

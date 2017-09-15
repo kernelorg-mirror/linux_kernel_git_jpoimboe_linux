@@ -677,8 +677,6 @@ static inline void sync_core(void)
 	 * Like all of Linux's memory ordering operations, this is a
 	 * compiler barrier as well.
 	 */
-	register void *__sp asm(_ASM_SP);
-
 #ifdef CONFIG_X86_32
 	asm volatile (
 		"pushfl\n\t"
@@ -686,7 +684,7 @@ static inline void sync_core(void)
 		"pushl $1f\n\t"
 		"iret\n\t"
 		"1:"
-		: "+r" (__sp) : : "memory");
+		: : : "memory" ASM_CALL_CLOBBERS_APPEND);
 #else
 	unsigned int tmp;
 
@@ -703,7 +701,8 @@ static inline void sync_core(void)
 		"iretq\n\t"
 		UNWIND_HINT_RESTORE
 		"1:"
-		: [tmp] "=&r" (tmp), "+r" (__sp) : : "cc", "memory");
+		: [tmp] "=&r" (tmp)
+		: : "cc", "memory" ASM_CALL_CLOBBERS_APPEND);
 #endif
 }
 

@@ -193,11 +193,15 @@ they mean, and suggestions for how to fix them.
 
    If it's a GCC-compiled .c file, the error may be because the function
    uses an inline asm() statement which has a "call" instruction.  An
-   asm() statement with a call instruction must declare the use of the
-   stack pointer in its output operand.  For example, on x86_64:
+   asm() statement with a call instruction must add the stack pointer to
+   its clobber list.  For example, on x86_64:
 
-     register void *__sp asm("rsp");
-     asm volatile("call func" : "+r" (__sp));
+     asm volatile("call func" : : : ASM_CALL_CLOBBERS);
+
+   If you need to specify additional clobbers, use the "APPEND" version
+   of the macro:
+
+     asm volatile("call func" : : : "memory" ASM_CALL_CLOBBERS_APPEND);
 
    Otherwise the stack frame may not get created before the call.
 

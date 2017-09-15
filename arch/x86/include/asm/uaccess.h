@@ -166,12 +166,12 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0UL), 0ULL, 0UL))
 ({									\
 	int __ret_gu;							\
 	register __inttype(*(ptr)) __val_gu asm("%"_ASM_DX);		\
-	register void *__sp asm(_ASM_SP);				\
 	__chk_user_ptr(ptr);						\
 	might_fault();							\
 	asm volatile("call __get_user_%P[size]"				\
-		     : "=a" (__ret_gu), "=r" (__val_gu), "+r" (__sp)	\
-		     : "a" (ptr), [size] "i" (sizeof(*(ptr))));		\
+		     : "=a" (__ret_gu), "=r" (__val_gu)			\
+		     : "a" (ptr), [size] "i" (sizeof(*(ptr)))		\
+		     : ASM_CALL_CLOBBERS);				\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
 	__builtin_expect(__ret_gu, 0);					\
 })

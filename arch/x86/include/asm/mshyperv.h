@@ -179,7 +179,6 @@ static inline u64 hv_do_hypercall(u64 control, void *input, void *output)
 	u64 input_address = input ? virt_to_phys(input) : 0;
 	u64 output_address = output ? virt_to_phys(output) : 0;
 	u64 hv_status;
-	register void *__sp asm(_ASM_SP);
 
 #ifdef CONFIG_X86_64
 	if (!hv_hypercall_pg)
@@ -187,11 +186,12 @@ static inline u64 hv_do_hypercall(u64 control, void *input, void *output)
 
 	__asm__ __volatile__("mov %[out], %%r8\n"
 			     "call *%[pg]"
-			     : "=a" (hv_status), "+r" (__sp),
-			       "+c" (control), "+d" (input_address)
+			     : "=a" (hv_status), "+c" (control),
+			       "+d" (input_address)
 			     :  [out] "r" (output_address),
 			        [pg] "m" (hv_hypercall_pg)
-			     : "cc", "memory", "r8", "r9", "r10", "r11");
+			     : "cc", "memory", "r8", "r9", "r10", "r11"
+			       ASM_CALL_CLOBBERS_APPEND);
 #else
 	u32 input_address_hi = upper_32_bits(input_address);
 	u32 input_address_lo = lower_32_bits(input_address);
@@ -202,13 +202,13 @@ static inline u64 hv_do_hypercall(u64 control, void *input, void *output)
 		return U64_MAX;
 
 	__asm__ __volatile__("call *%[pg]"
-			     : "=A" (hv_status),
-			       "+c" (input_address_lo), "+r" (__sp)
+			     : "=A" (hv_status), "+c" (input_address_lo)
 			     : "A" (control),
 			       "b" (input_address_hi),
 			       "D"(output_address_hi), "S"(output_address_lo),
 			       [pg] "m" (hv_hypercall_pg)
-			     : "cc", "memory");
+			     : "cc", "memory"
+			       ASM_CALL_CLOBBERS_APPEND);
 #endif /* !x86_64 */
 	return hv_status;
 }
@@ -225,15 +225,15 @@ static inline u64 hv_do_hypercall(u64 control, void *input, void *output)
 static inline u64 hv_do_fast_hypercall8(u16 code, u64 input1)
 {
 	u64 hv_status, control = (u64)code | HV_HYPERCALL_FAST_BIT;
-	register void *__sp asm(_ASM_SP);
 
 #ifdef CONFIG_X86_64
 	{
 		__asm__ __volatile__("call *%[pg]"
-				     : "=a" (hv_status), "+r" (__sp),
-				       "+c" (control), "+d" (input1)
+				     : "=a" (hv_status), "+c" (control),
+				       "+d" (input1)
 				     : [pg] "m" (hv_hypercall_pg)
-				     : "cc", "r8", "r9", "r10", "r11");
+				     : "cc", "r8", "r9", "r10", "r11"
+				       ASM_CALL_CLOBBERS_APPEND);
 	}
 #else
 	{
@@ -242,12 +242,12 @@ static inline u64 hv_do_fast_hypercall8(u16 code, u64 input1)
 
 		__asm__ __volatile__ ("call *%[pg]"
 				      : "=A"(hv_status),
-					"+c"(input1_lo),
-					"+r"(__sp)
+					"+c"(input1_lo)
 				      :	"A" (control),
 					"b" (input1_hi),
 					[pg] "m" (hv_hypercall_pg)
-				      : "cc", "edi", "esi");
+				      : "cc", "edi", "esi"
+				        ASM_CALL_CLOBBERS_APPEND);
 	}
 #endif
 		return hv_status;

@@ -128,6 +128,12 @@
 #define __always_unused		__attribute__((unused))
 #define __mode(x)               __attribute__((mode(x)))
 
+#ifdef CONFIG_FRAME_POINTER
+# define ASM_CALL_CLOBBERS "sp"
+# define ASM_CALL_CLOBBERS_APPEND , ASM_CALL_CLOBBERS
+# define ASM_CALL_CLOBBERS_ARGS(args...) ASM_CALL_CLOBBERS, ## args
+#endif
+
 /* gcc version specific checks */
 
 #if GCC_VERSION < 30200

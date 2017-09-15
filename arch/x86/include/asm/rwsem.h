@@ -104,7 +104,6 @@ static inline bool __down_read_trylock(struct rw_semaphore *sem)
 ({									\
 	long tmp;							\
 	struct rw_semaphore* ret;					\
-	register void *__sp asm(_ASM_SP);				\
 									\
 	asm volatile("# beginning down_write\n\t"			\
 		     LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"	\
@@ -116,10 +115,9 @@ static inline bool __down_read_trylock(struct rw_semaphore *sem)
 		     "  call " slow_path "\n\t"				\
 		     "1:\n\t"						\
 		     "# ending down_write\n\t"				\
-		     : "+m" (sem->count), [tmp] "=d" (tmp), "=a" (ret),	\
-		       "+r" (__sp)					\
+		     : "+m" (sem->count), [tmp] "=d" (tmp), "=a" (ret)	\
 		     : [sem] "a" (sem), "d" (RWSEM_ACTIVE_WRITE_BIAS)	\
-		     : "memory", "cc");					\
+		     : "memory", "cc" ASM_CALL_CLOBBERS_APPEND);	\
 	ret;								\
 })
 

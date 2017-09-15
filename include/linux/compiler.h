@@ -653,4 +653,11 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
 #define CLOBBERS_APPEND(...) \
 	_CLOBBERS_APPEND(HAS_ARGS(__VA_ARGS__), __VA_ARGS__)
 
+#ifndef ASM_CALL_CLOBBERS
+# define ASM_CALL_CLOBBERS
+# define ASM_CALL_CLOBBERS_APPEND
+# define ASM_CALL_CLOBBERS_ARGS(args...) args
+#endif
+
+
 #endif /* __LINUX_COMPILER_H */
