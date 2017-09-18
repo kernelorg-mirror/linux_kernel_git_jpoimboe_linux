@@ -192,12 +192,22 @@ they mean, and suggestions for how to fix them.
    use the manual unwind hint macros in asm/unwind_hints.h.
 
    If it's a GCC-compiled .c file, the error may be because the function
-   uses an inline asm() statement which has a "call" instruction.  An
-   asm() statement with a call instruction must declare the use of the
-   stack pointer in its output operand.  For example, on x86_64:
+   uses an inline asm() statement which has a "call" instruction.  To
+   fix this, either:
 
-     register void *__sp asm("rsp");
-     asm volatile("call func" : "+r" (__sp));
+     a) list the stack pointer as an input/output constraint;
+
+        register void *__sp asm("rsp");
+        asm volatile("call func" : "+r" (__sp));
+
+     or
+
+     b) declare a global register variable for the stack pointer.
+
+	arch/x86/include/asm/asm.h:register unsigned int __sp_unused asm("esp");
+
+	This is the strategy used on x86_64.  It ensures that GCC always
+	sets up the frame pointer before inserting *any* inline asm.
 
    Otherwise the stack frame may not get created before the call.
 

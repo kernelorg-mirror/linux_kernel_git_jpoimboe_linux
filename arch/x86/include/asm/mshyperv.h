@@ -179,16 +179,15 @@ static inline u64 hv_do_hypercall(u64 control, void *input, void *output)
 	u64 input_address = input ? virt_to_phys(input) : 0;
 	u64 output_address = output ? virt_to_phys(output) : 0;
 	u64 hv_status;
-	register void *__sp asm(_ASM_SP);
 
 #ifdef CONFIG_X86_64
 	if (!hv_hypercall_pg)
 		return U64_MAX;
 
-	__asm__ __volatile__("mov %4, %%r8\n"
-			     "call *%5"
-			     : "=a" (hv_status), "+r" (__sp),
-			       "+c" (control), "+d" (input_address)
+	__asm__ __volatile__("mov %3, %%r8\n"
+			     "call *%4"
+			     : "=a" (hv_status), "+c" (control),
+			       "+d" (input_address)
 			     :  "r" (output_address), "m" (hv_hypercall_pg)
 			     : "cc", "memory", "r8", "r9", "r10", "r11");
 #else
@@ -200,9 +199,8 @@ static inline u64 hv_do_hypercall(u64 control, void *input, void *output)
 	if (!hv_hypercall_pg)
 		return U64_MAX;
 
-	__asm__ __volatile__("call *%7"
-			     : "=A" (hv_status),
-			       "+c" (input_address_lo), "+r" (__sp)
+	__asm__ __volatile__("call *%6"
+			     : "=A" (hv_status), "+c" (input_address_lo)
 			     : "A" (control),
 			       "b" (input_address_hi),
 			       "D"(output_address_hi), "S"(output_address_lo),
@@ -224,13 +222,12 @@ static inline u64 hv_do_hypercall(u64 control, void *input, void *output)
 static inline u64 hv_do_fast_hypercall8(u16 code, u64 input1)
 {
 	u64 hv_status, control = (u64)code | HV_HYPERCALL_FAST_BIT;
-	register void *__sp asm(_ASM_SP);
 
 #ifdef CONFIG_X86_64
 	{
-		__asm__ __volatile__("call *%4"
-				     : "=a" (hv_status), "+r" (__sp),
-				       "+c" (control), "+d" (input1)
+		__asm__ __volatile__("call *%3"
+				     : "=a" (hv_status), "+c" (control),
+				       "+d" (input1)
 				     : "m" (hv_hypercall_pg)
 				     : "cc", "r8", "r9", "r10", "r11");
 	}
@@ -239,10 +236,8 @@ static inline u64 hv_do_fast_hypercall8(u16 code, u64 input1)
 		u32 input1_hi = upper_32_bits(input1);
 		u32 input1_lo = lower_32_bits(input1);
 
-		__asm__ __volatile__ ("call *%5"
-				      : "=A"(hv_status),
-					"+c"(input1_lo),
-					"+r"(__sp)
+		__asm__ __volatile__ ("call *%4"
+				      : "=A"(hv_status), "+c"(input1_lo)
 				      :	"A" (control),
 					"b" (input1_hi),
 					"m" (hv_hypercall_pg)

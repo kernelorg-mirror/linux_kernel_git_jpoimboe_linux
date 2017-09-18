@@ -132,4 +132,13 @@
 /* For C file, we already have NOKPROBE_SYMBOL macro */
 #endif
 
+#ifndef __ASSEMBLY__
+/*
+ * This variable declaration has the side effect of forcing GCC to always set
+ * up the frame pointer before inserting any inline asm.  This is necessary
+ * because some inline asm statements have CALL instructions.
+ */
+register unsigned int __sp_unused asm("esp");
+#endif
+
 #endif /* _ASM_X86_ASM_H */
