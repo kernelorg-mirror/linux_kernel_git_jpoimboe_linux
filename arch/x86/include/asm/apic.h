@@ -53,6 +53,15 @@ extern int local_apic_timer_c2_ok;
 extern int disable_apic;
 extern unsigned int lapic_timer_frequency;
 
+extern enum apic_intr_mode_id apic_intr_mode;
+enum apic_intr_mode_id {
+	APIC_PIC,
+	APIC_VIRTUAL_WIRE,
+	APIC_VIRTUAL_WIRE_NO_CONFIG,
+	APIC_SYMMETRIC_IO,
+	APIC_SYMMETRIC_IO_NO_ROUTING
+};
+
 #ifdef CONFIG_SMP
 extern void __inquire_remote_apic(int apicid);
 #else /* CONFIG_SMP */
@@ -127,14 +136,13 @@ extern void disconnect_bsp_APIC(int virt_wire_setup);
 extern void disable_local_APIC(void);
 extern void lapic_shutdown(void);
 extern void sync_Arb_IDs(void);
-extern void init_bsp_APIC(void);
+extern void apic_intr_mode_init(void);
 extern void setup_local_APIC(void);
 extern void init_apic_mappings(void);
 void register_lapic_address(unsigned long address);
 extern void setup_boot_APIC_clock(void);
 extern void setup_secondary_APIC_clock(void);
 extern void lapic_update_tsc_freq(void);
-extern int APIC_init_uniprocessor(void);
 
 #ifdef CONFIG_X86_64
 static inline int apic_force_enable(unsigned long addr)
@@ -145,7 +153,7 @@ static inline int apic_force_enable(unsigned long addr)
 extern int apic_force_enable(unsigned long addr);
 #endif
 
-extern int apic_bsp_setup(bool upmode);
+extern void apic_bsp_setup(bool upmode);
 extern void apic_ap_setup(void);
 
 /*
@@ -170,6 +178,7 @@ static inline void disable_local_APIC(void) { }
 # define setup_boot_APIC_clock x86_init_noop
 # define setup_secondary_APIC_clock x86_init_noop
 static inline void lapic_update_tsc_freq(void) { }
+static inline void apic_intr_mode_init(void) { }
 #endif /* !CONFIG_X86_LOCAL_APIC */
 
 #ifdef CONFIG_X86_X2APIC
