@@ -561,6 +561,27 @@ int paravirt_disable_iospace(void);
 		      PVOP_CALLEE_CLOBBERS, ,				\
 		      pre, post, ##__VA_ARGS__)
 
+#define ____PVOP_NATIVE_CALL(rettype, native, op, clbr, call_clbr,	\
+			     extra_clbr, ...)				\
+({									\
+	rettype __ret;							\
+	PVOP_CALL_ARGS;							\
+	PVOP_TEST_NULL(op);						\
+	asm volatile(PV_ALTERNATIVE(native, PARAVIRT_CALL)		\
+		     : call_clbr, ASM_CALL_CONSTRAINT			\
+		     : paravirt_type(op), paravirt_clobber(clbr),	\
+		       ##__VA_ARGS__					\
+		     : "memory", "cc" extra_clbr);			\
+	if (sizeof(rettype) > sizeof(unsigned long))			\
+		__ret = (rettype)((((u64)__edx) << 32) | __eax);	\
+	else								\
+		__ret = (rettype)(__eax & PVOP_RETMASK(rettype));	\
+	__ret;								\
+})
+
+#define __PVOP_NATIVE_CALLEESAVE(rettype, native, op, ...)		\
+	____PVOP_NATIVE_CALL(rettype, native, op.func, CLBR_RET_REG,	\
+		      PVOP_CALLEE_CLOBBERS, , ##__VA_ARGS__)
 
 #define ____PVOP_VCALL(op, clbr, call_clbr, extra_clbr, pre, post, ...)	\
 	({								\
@@ -586,6 +607,22 @@ int paravirt_disable_iospace(void);
 		      PVOP_VCALLEE_CLOBBERS, ,				\
 		      pre, post, ##__VA_ARGS__)
 
+#define ____PVOP_NATIVE_VCALL(native, op, clbr, call_clbr, extra_clbr,	\
+			      ...)					\
+({									\
+	PVOP_VCALL_ARGS;						\
+	PVOP_TEST_NULL(op);						\
+	asm volatile(PV_ALTERNATIVE(native, PARAVIRT_CALL)		\
+		     : call_clbr, ASM_CALL_CONSTRAINT			\
+		     : paravirt_type(op),				\
+		       paravirt_clobber(clbr),				\
+		       ##__VA_ARGS__					\
+		     : "memory", "cc" extra_clbr);			\
+})
+
+#define __PVOP_NATIVE_VCALLEESAVE(native, op, ...)			\
+	____PVOP_NATIVE_VCALL(native, op.func, CLBR_RET_REG,		\
+		       PVOP_VCALLEE_CLOBBERS, , ##__VA_ARGS__)
 
 
 #define PVOP_CALL0(rettype, op)						\
@@ -595,8 +632,12 @@ int paravirt_disable_iospace(void);
 
 #define PVOP_CALLEE0(rettype, op)					\
 	__PVOP_CALLEESAVE(rettype, op, "", "")
+#define PVOP_NATIVE_CALLEE0(rettype, native, op)			\
+	__PVOP_NATIVE_CALLEESAVE(rettype, native, op)
 #define PVOP_VCALLEE0(op)						\
 	__PVOP_VCALLEESAVE(op, "", "")
+#define PVOP_NATIVE_VCALLEE0(native, op)				\
+	__PVOP_NATIVE_VCALLEESAVE(native, op)
 
 
 #define PVOP_CALL1(rettype, op, arg1)					\
@@ -608,6 +649,8 @@ int paravirt_disable_iospace(void);
 	__PVOP_CALLEESAVE(rettype, op, "", "", PVOP_CALL_ARG1(arg1))
 #define PVOP_VCALLEE1(op, arg1)						\
 	__PVOP_VCALLEESAVE(op, "", "", PVOP_CALL_ARG1(arg1))
+#define PVOP_NATIVE_VCALLEE1(native, op, arg1)				\
+	__PVOP_NATIVE_VCALLEESAVE(native, op, PVOP_CALL_ARG1(arg1))
 
 
 #define PVOP_CALL2(rettype, op, arg1, arg2)				\

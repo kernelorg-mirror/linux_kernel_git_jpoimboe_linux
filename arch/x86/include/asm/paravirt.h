@@ -767,24 +767,36 @@ static __always_inline bool pv_vcpu_is_preempted(long cpu)
 #define __PV_IS_CALLEE_SAVE(func)			\
 	((struct paravirt_callee_save) { func })
 
-static inline notrace unsigned long arch_local_save_flags(void)
+#ifdef CONFIG_X86_64
+# define NATIVE_SAVE_FL "pushfq; popq %%rax"
+# define NATIVE_RESTORE_FL "pushq %%rdi; popfq"
+#else
+# define NATIVE_SAVE_FL "pushf; pop %%eax"
+# define NATIVE_RESTORE_FL "push %%eax; popf"
+#endif
+
+#define NATIVE_IRQ_DISABLE "cli"
+#define NATIVE_IRQ_ENABLE "sti"
+
+static __always_inline unsigned long arch_local_save_flags(void)
 {
-	return PVOP_CALLEE0(unsigned long, pv_irq_ops.save_fl);
+	return PVOP_NATIVE_CALLEE0(unsigned long, NATIVE_SAVE_FL,
+				   pv_irq_ops.save_fl);
 }
 
-static inline notrace void arch_local_irq_restore(unsigned long f)
+static __always_inline notrace void arch_local_irq_restore(unsigned long f)
 {
-	PVOP_VCALLEE1(pv_irq_ops.restore_fl, f);
+	PVOP_NATIVE_VCALLEE1(NATIVE_RESTORE_FL, pv_irq_ops.restore_fl, f);
 }
 
-static inline notrace void arch_local_irq_disable(void)
+static __always_inline notrace void arch_local_irq_disable(void)
 {
-	PVOP_VCALLEE0(pv_irq_ops.irq_disable);
+	PVOP_NATIVE_VCALLEE0(NATIVE_IRQ_DISABLE, pv_irq_ops.irq_disable);
 }
 
-static inline notrace void arch_local_irq_enable(void)
+static __always_inline notrace void arch_local_irq_enable(void)
 {
-	PVOP_VCALLEE0(pv_irq_ops.irq_enable);
+	PVOP_NATIVE_VCALLEE0(NATIVE_IRQ_ENABLE, pv_irq_ops.irq_enable);
 }
 
 static inline notrace unsigned long arch_local_irq_save(void)

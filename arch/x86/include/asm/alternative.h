@@ -61,6 +61,7 @@ extern int alternatives_patched;
 
 extern void alternative_instructions(void);
 extern void apply_alternatives(struct alt_instr *start, struct alt_instr *end);
+extern void apply_pv_alternatives(void);
 
 struct module;
 
@@ -152,6 +153,21 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	ALTINSTR_REPLACEMENT(newinstr2, feature2, 2)			\
 	".popsection"
 
+#define PV_ALTERNATIVE(oldinstr, newinstr)				\
+	OLDINSTR(oldinstr, 1)						\
+	".pushsection .altinstructions_early,\"a\"\n"			\
+	ALTINSTR_ENTRY(X86_FEATURE_PV_OPS, 1)				\
+	".popsection\n"							\
+	".pushsection .parainstructions,\"a\"\n"			\
+	_ASM_ALIGN "\n"							\
+	_ASM_PTR " 661b\n"						\
+	".byte %c[paravirt_typenum]\n"					\
+	".byte " alt_total_slen "\n"					\
+	".short %c[paravirt_clobber]\n"					\
+	".popsection\n"							\
+	".pushsection .altinstr_replacement, \"ax\"\n"			\
+	ALTINSTR_REPLACEMENT(newinstr, feature, 1)			\
+	".popsection"
 /*
  * Alternative instructions for different CPU types or capabilities.
  *

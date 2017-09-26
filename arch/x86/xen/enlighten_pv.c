@@ -1226,6 +1226,7 @@ asmlinkage __visible void __init xen_start_kernel(void)
 	pv_info = xen_info;
 	pv_init_ops.patch = paravirt_patch_default;
 	pv_cpu_ops = xen_cpu_ops;
+	apply_pv_alternatives();
 
 	x86_platform.get_nmi_reason = xen_get_nmi_reason;
 
