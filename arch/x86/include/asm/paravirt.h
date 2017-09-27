@@ -13,6 +13,7 @@
 #include <asm/frame.h>
 #include <asm/pgtable_types.h>
 #include <asm/paravirt_types.h>
+#include <asm/special_insns.h>
 
 static inline void load_sp0(struct tss_struct *tss,
 			     struct thread_struct *thread)
@@ -50,9 +51,10 @@ static inline void write_cr0(unsigned long x)
 	PVOP_VCALL1(pv_cpu_ops.write_cr0, x);
 }
 
-static inline unsigned long read_cr2(void)
+static __always_inline unsigned long read_cr2(void)
 {
-	return PVOP_CALL0(unsigned long, pv_mmu_ops.read_cr2);
+	return PVOP_ALT_CALL0(unsigned long, NATIVE_READ_CR2,
+			      pv_mmu_ops.read_cr2);
 }
 
 static inline void write_cr2(unsigned long x)
@@ -60,14 +62,15 @@ static inline void write_cr2(unsigned long x)
 	PVOP_VCALL1(pv_mmu_ops.write_cr2, x);
 }
 
-static inline unsigned long __read_cr3(void)
+static __always_inline unsigned long __read_cr3(void)
 {
-	return PVOP_CALL0(unsigned long, pv_mmu_ops.read_cr3);
+	return PVOP_ALT_CALL0(unsigned long, NATIVE_READ_CR3,
+			      pv_mmu_ops.read_cr3);
 }
 
-static inline void write_cr3(unsigned long x)
+static __always_inline void write_cr3(unsigned long x)
 {
-	PVOP_VCALL1(pv_mmu_ops.write_cr3, x);
+	PVOP_ALT_VCALL1(NATIVE_WRITE_CR3, pv_mmu_ops.write_cr3, x);
 }
 
 static inline void __write_cr4(unsigned long x)
@@ -291,9 +294,10 @@ static inline void __flush_tlb_global(void)
 {
 	PVOP_VCALL0(pv_mmu_ops.flush_tlb_kernel);
 }
-static inline void __flush_tlb_single(unsigned long addr)
+static __always_inline void __flush_tlb_single(unsigned long addr)
 {
-	PVOP_VCALL1(pv_mmu_ops.flush_tlb_single, addr);
+	PVOP_ALT_VCALL1(NATIVE_FLUSH_TLB_SINGLE, pv_mmu_ops.flush_tlb_single,
+			addr);
 }
 
 static inline void flush_tlb_others(const struct cpumask *cpumask,
@@ -761,24 +765,25 @@ static __always_inline bool pv_vcpu_is_preempted(long cpu)
 #define __PV_IS_CALLEE_SAVE(func)			\
 	((struct paravirt_callee_save) { func })
 
-static inline notrace unsigned long arch_local_save_flags(void)
+static __always_inline unsigned long arch_local_save_flags(void)
 {
-	return PVOP_CALLEE0(unsigned long, pv_irq_ops.save_fl);
+	return PVOP_ALT_CALLEE0(unsigned long, NATIVE_SAVE_FL,
+				pv_irq_ops.save_fl);
 }
 
-static inline notrace void arch_local_irq_restore(unsigned long f)
+static __always_inline void arch_local_irq_restore(unsigned long f)
 {
-	PVOP_VCALLEE1(pv_irq_ops.restore_fl, f);
+	PVOP_ALT_VCALLEE1(NATIVE_RESTORE_FL, pv_irq_ops.restore_fl, f);
 }
 
-static inline notrace void arch_local_irq_disable(void)
+static __always_inline void arch_local_irq_disable(void)
 {
-	PVOP_VCALLEE0(pv_irq_ops.irq_disable);
+	PVOP_ALT_VCALLEE0(NATIVE_IRQ_DISABLE, pv_irq_ops.irq_disable);
 }
 
-static inline notrace void arch_local_irq_enable(void)
+static __always_inline void arch_local_irq_enable(void)
 {
-	PVOP_VCALLEE0(pv_irq_ops.irq_enable);
+	PVOP_ALT_VCALLEE0(NATIVE_IRQ_ENABLE, pv_irq_ops.irq_enable);
 }
 
 static inline notrace unsigned long arch_local_irq_save(void)

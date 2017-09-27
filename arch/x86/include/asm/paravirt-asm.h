@@ -86,16 +86,18 @@
 		pv_cpu_ops, PV_CPU_iret, CLBR_NONE)
 
 #define DISABLE_INTERRUPTS(clobbers)					\
-	PV_SITE(PV_SAVE_REGS(clobbers | CLBR_CALLEE_SAVE);		\
-		call PV_INDIRECT(pv_irq_ops+PV_IRQ_irq_disable);	\
-		PV_RESTORE_REGS(clobbers | CLBR_CALLEE_SAVE),		\
-		pv_irq_ops, PV_IRQ_irq_disable, clobbers)
+	PV_ALT_SITE(cli,						\
+		    PV_SAVE_REGS(clobbers | CLBR_CALLEE_SAVE);		\
+		    call PV_INDIRECT(pv_irq_ops+PV_IRQ_irq_disable);	\
+		    PV_RESTORE_REGS(clobbers | CLBR_CALLEE_SAVE),	\
+		    pv_irq_ops, PV_IRQ_irq_disable, clobbers)
 
 #define ENABLE_INTERRUPTS(clobbers)					\
-	PV_SITE(PV_SAVE_REGS(clobbers | CLBR_CALLEE_SAVE);		\
-		call PV_INDIRECT(pv_irq_ops+PV_IRQ_irq_enable);		\
-		PV_RESTORE_REGS(clobbers | CLBR_CALLEE_SAVE),		\
-		pv_irq_ops, PV_IRQ_irq_enable, clobbers)
+	PV_ALT_SITE(sti,						\
+		    PV_SAVE_REGS(clobbers | CLBR_CALLEE_SAVE);		\
+		    call PV_INDIRECT(pv_irq_ops+PV_IRQ_irq_enable);	\
+		    PV_RESTORE_REGS(clobbers | CLBR_CALLEE_SAVE),	\
+		    pv_irq_ops, PV_IRQ_irq_enable, clobbers)
 
 #ifdef CONFIG_X86_32
 
@@ -128,8 +130,9 @@
 	call PV_INDIRECT(pv_mmu_ops+PV_MMU_read_cr2)
 
 #define USERGS_SYSRET64							\
-	PV_SITE(jmp PV_INDIRECT(pv_cpu_ops+PV_CPU_usergs_sysret64),	\
-		pv_cpu_ops, PV_CPU_usergs_sysret64, CLBR_NONE)
+	PV_ALT_SITE(swapgs; sysret,					\
+		    jmp PV_INDIRECT(pv_cpu_ops+PV_CPU_usergs_sysret64),	\
+		    pv_cpu_ops, PV_CPU_usergs_sysret64, CLBR_NONE)
 
 #endif	/* !CONFIG_X86_32 */
 
