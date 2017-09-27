@@ -48,15 +48,15 @@ __kernel_vsyscall:
 	CFI_ADJUST_CFA_OFFSET	4
 	CFI_REL_OFFSET		ebp, 0
 
-	#define SYSENTER_SEQUENCE	"movl %esp, %ebp; sysenter"
-	#define SYSCALL_SEQUENCE	"movl %ecx, %ebp; syscall"
+	#define SYSENTER_SEQUENCE	movl %esp, %ebp; sysenter
+	#define SYSCALL_SEQUENCE	movl %ecx, %ebp; syscall
 
 #ifdef CONFIG_X86_64
 	/* If SYSENTER (Intel) or SYSCALL32 (AMD) is available, use it. */
-	ALTERNATIVE_2 "", SYSENTER_SEQUENCE, X86_FEATURE_SYSENTER32, \
-	                  SYSCALL_SEQUENCE,  X86_FEATURE_SYSCALL32
+	ALTERNATIVE_2(, SYSENTER_SEQUENCE, X86_FEATURE_SYSENTER32,
+			SYSCALL_SEQUENCE,  X86_FEATURE_SYSCALL32)
 #else
-	ALTERNATIVE "", SYSENTER_SEQUENCE, X86_FEATURE_SEP
+	ALTERNATIVE(, SYSENTER_SEQUENCE, X86_FEATURE_SEP)
 #endif
 
 	/* Enter using int $0x80 */

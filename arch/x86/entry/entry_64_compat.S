@@ -124,8 +124,8 @@ ENTRY(entry_SYSENTER_compat)
 	movq	%rsp, %rdi
 	call	do_fast_syscall_32
 	/* XEN PV guests always use IRET path */
-	ALTERNATIVE "testl %eax, %eax; jz .Lsyscall_32_done", \
-		    "jmp .Lsyscall_32_done", X86_FEATURE_XENPV
+	#define JMP_IF_IRET testl %eax, %eax; jz .Lsyscall_32_done
+	ALTERNATIVE(JMP_IF_IRET, jmp .Lsyscall_32_done, X86_FEATURE_XENPV)
 	jmp	sysret32_from_system_call
 
 .Lsysenter_fix_flags:
@@ -224,8 +224,8 @@ GLOBAL(entry_SYSCALL_compat_after_hwframe)
 	movq	%rsp, %rdi
 	call	do_fast_syscall_32
 	/* XEN PV guests always use IRET path */
-	ALTERNATIVE "testl %eax, %eax; jz .Lsyscall_32_done", \
-		    "jmp .Lsyscall_32_done", X86_FEATURE_XENPV
+	ALTERNATIVE(JMP_IF_IRET,
+		    jmp .Lsyscall_32_done, X86_FEATURE_XENPV)
 
 	/* Opportunistic SYSRET */
 sysret32_from_system_call:

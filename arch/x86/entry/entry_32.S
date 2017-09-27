@@ -443,8 +443,8 @@ ENTRY(entry_SYSENTER_32)
 	movl	%esp, %eax
 	call	do_fast_syscall_32
 	/* XEN PV guests always use IRET path */
-	ALTERNATIVE "testl %eax, %eax; jz .Lsyscall_32_done", \
-		    "jmp .Lsyscall_32_done", X86_FEATURE_XENPV
+	#define JMP_IF_IRET testl %eax, %eax; jz .Lsyscall_32_done
+	ALTERNATIVE(JMP_IF_IRET, jmp .Lsyscall_32_done, X86_FEATURE_XENPV)
 
 /* Opportunistic SYSEXIT */
 	TRACE_IRQS_ON			/* User mode traces as IRQs on. */
@@ -536,7 +536,7 @@ restore_all:
 	TRACE_IRQS_IRET
 .Lrestore_all_notrace:
 #ifdef CONFIG_X86_ESPFIX32
-	ALTERNATIVE	"jmp .Lrestore_nocheck", "", X86_BUG_ESPFIX
+	ALTERNATIVE(jmp .Lrestore_nocheck, , X86_BUG_ESPFIX)
 
 	movl	PT_EFLAGS(%esp), %eax		# mix EFLAGS, SS and CS
 	/*
@@ -692,9 +692,9 @@ ENTRY(simd_coprocessor_error)
 	pushl	$0
 #ifdef CONFIG_X86_INVD_BUG
 	/* AMD 486 bug: invd from userspace calls exception 19 instead of #GP */
-	ALTERNATIVE "pushl	$do_general_protection",	\
-		    "pushl	$do_simd_coprocessor_error",	\
-		    X86_FEATURE_XMM
+	ALTERNATIVE(pushl	$do_general_protection,
+		    pushl	$do_simd_coprocessor_error,
+		    X86_FEATURE_XMM)
 #else
 	pushl	$do_simd_coprocessor_error
 #endif

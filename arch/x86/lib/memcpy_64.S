@@ -28,8 +28,8 @@
  */
 ENTRY(__memcpy)
 ENTRY(memcpy)
-	ALTERNATIVE_2 "jmp memcpy_orig", "", X86_FEATURE_REP_GOOD, \
-		      "jmp memcpy_erms", X86_FEATURE_ERMS
+	ALTERNATIVE_2(jmp memcpy_orig, , X86_FEATURE_REP_GOOD,
+		      jmp memcpy_erms, X86_FEATURE_ERMS)
 
 	movq %rdi, %rax
 	movq %rdx, %rcx

@@ -925,7 +925,7 @@ ENTRY(native_load_gs_index)
 	SWAPGS
 .Lgs_change:
 	movl	%edi, %gs
-2:	ALTERNATIVE "", "mfence", X86_BUG_SWAPGS_FENCE
+2:	ALTERNATIVE(, mfence, X86_BUG_SWAPGS_FENCE)
 	SWAPGS
 	popfq
 	FRAME_END
@@ -938,12 +938,8 @@ EXPORT_SYMBOL(native_load_gs_index)
 	/* running with kernelgs */
 bad_gs:
 	SWAPGS					/* switch back to user gs */
-.macro ZAP_GS
-	/* This can't be a string because the preprocessor needs to see it. */
-	movl $__USER_DS, %eax
-	movl %eax, %gs
-.endm
-	ALTERNATIVE "", "ZAP_GS", X86_BUG_NULL_SEG
+	#define ZAP_GS movl $__USER_DS, %eax; movl %eax, %gs
+	ALTERNATIVE(, ZAP_GS, X86_BUG_NULL_SEG)
 	xorl	%eax, %eax
 	movl	%eax, %gs
 	jmp	2b

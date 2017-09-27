@@ -26,8 +26,8 @@ ENTRY(__memset)
 	 *
 	 * Otherwise, use original memset function.
 	 */
-	ALTERNATIVE_2 "jmp memset_orig", "", X86_FEATURE_REP_GOOD, \
-		      "jmp memset_erms", X86_FEATURE_ERMS
+	ALTERNATIVE_2(jmp memset_orig, , X86_FEATURE_REP_GOOD,
+		      jmp memset_erms, X86_FEATURE_ERMS)
 
 	movq %rdi,%r9
 	movq %rdx,%rcx

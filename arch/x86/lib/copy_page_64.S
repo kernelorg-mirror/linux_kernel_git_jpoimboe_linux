@@ -13,7 +13,7 @@
  */
 	ALIGN
 ENTRY(copy_page)
-	ALTERNATIVE "jmp copy_page_regs", "", X86_FEATURE_REP_GOOD
+	ALTERNATIVE(jmp copy_page_regs, , X86_FEATURE_REP_GOOD)
 	movl	$4096/8, %ecx
 	rep	movsq
 	ret
