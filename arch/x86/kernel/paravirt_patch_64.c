@@ -1,25 +1,26 @@
 #include <asm/paravirt.h>
 #include <asm/asm-offsets.h>
+#include <asm/special_insns.h>
 #include <linux/stringify.h>
 
-DEF_NATIVE(pv_irq_ops, irq_disable, "cli");
-DEF_NATIVE(pv_irq_ops, irq_enable, "sti");
-DEF_NATIVE(pv_irq_ops, restore_fl, "pushq %rdi; popfq");
-DEF_NATIVE(pv_irq_ops, save_fl, "pushfq; popq %rax");
-DEF_NATIVE(pv_mmu_ops, read_cr2, "movq %cr2, %rax");
-DEF_NATIVE(pv_mmu_ops, read_cr3, "movq %cr3, %rax");
-DEF_NATIVE(pv_mmu_ops, write_cr3, "movq %rdi, %cr3");
-DEF_NATIVE(pv_mmu_ops, flush_tlb_single, "invlpg (%rdi)");
+DEF_NATIVE(pv_irq_ops,	save_fl,		NATIVE_SAVE_FL);
+DEF_NATIVE(pv_irq_ops,	restore_fl,		NATIVE_RESTORE_FL);
+DEF_NATIVE(pv_irq_ops,	irq_disable,		NATIVE_IRQ_DISABLE);
+DEF_NATIVE(pv_irq_ops,	irq_enable,		NATIVE_IRQ_ENABLE);
+DEF_NATIVE(pv_mmu_ops,	read_cr2,		NATIVE_READ_CR2);
+DEF_NATIVE(pv_mmu_ops,	read_cr3,		NATIVE_READ_CR3);
+DEF_NATIVE(pv_mmu_ops,	write_cr3,		NATIVE_WRITE_CR3);
+DEF_NATIVE(pv_mmu_ops,	flush_tlb_single,	NATIVE_FLUSH_TLB_SINGLE);
 
-DEF_NATIVE(pv_cpu_ops, usergs_sysret64, "swapgs; sysretq");
-DEF_NATIVE(pv_cpu_ops, swapgs, "swapgs");
+DEF_NATIVE(pv_cpu_ops,	usergs_sysret64,	NATIVE_USERGS_SYSRET64);
+DEF_NATIVE(pv_cpu_ops,	swapgs,			NATIVE_SWAPGS);
 
-DEF_NATIVE(, mov32, "mov %edi, %eax");
-DEF_NATIVE(, mov64, "mov %rdi, %rax");
+DEF_NATIVE(,		mov32,			NATIVE_IDENTITY_32);
+DEF_NATIVE(,		mov64,			NATIVE_IDENTITY);
 
 #if defined(CONFIG_PARAVIRT_SPINLOCKS)
-DEF_NATIVE(pv_lock_ops, queued_spin_unlock, "movb $0, (%rdi)");
-DEF_NATIVE(pv_lock_ops, vcpu_is_preempted, "xor %rax, %rax");
+DEF_NATIVE(pv_lock_ops,	queued_spin_unlock,	NATIVE_QUEUED_SPIN_UNLOCK);
+DEF_NATIVE(pv_lock_ops,	vcpu_is_preempted,	NATIVE_ZERO);
 #endif
 
 unsigned paravirt_patch_ident_32(void *insnbuf, unsigned len)

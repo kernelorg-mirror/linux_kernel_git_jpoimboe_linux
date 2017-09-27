@@ -1,17 +1,18 @@
 #include <asm/paravirt.h>
+#include <asm/special_insns.h>
 
-DEF_NATIVE(pv_irq_ops, irq_disable, "cli");
-DEF_NATIVE(pv_irq_ops, irq_enable, "sti");
-DEF_NATIVE(pv_irq_ops, restore_fl, "push %eax; popf");
-DEF_NATIVE(pv_irq_ops, save_fl, "pushf; pop %eax");
-DEF_NATIVE(pv_cpu_ops, iret, "iret");
-DEF_NATIVE(pv_mmu_ops, read_cr2, "mov %cr2, %eax");
-DEF_NATIVE(pv_mmu_ops, write_cr3, "mov %eax, %cr3");
-DEF_NATIVE(pv_mmu_ops, read_cr3, "mov %cr3, %eax");
+DEF_NATIVE(pv_irq_ops,	save_fl,		NATIVE_SAVE_FL);
+DEF_NATIVE(pv_irq_ops,	restore_fl,		NATIVE_RESTORE_FL);
+DEF_NATIVE(pv_irq_ops,	irq_disable,		NATIVE_IRQ_DISABLE);
+DEF_NATIVE(pv_irq_ops,	irq_enable,		NATIVE_IRQ_ENABLE);
+DEF_NATIVE(pv_cpu_ops,	iret,			NATIVE_IRET);
+DEF_NATIVE(pv_mmu_ops,	read_cr2,		NATIVE_READ_CR2);
+DEF_NATIVE(pv_mmu_ops,	read_cr3,		NATIVE_READ_CR3);
+DEF_NATIVE(pv_mmu_ops,	write_cr3,		NATIVE_WRITE_CR3);
 
 #if defined(CONFIG_PARAVIRT_SPINLOCKS)
-DEF_NATIVE(pv_lock_ops, queued_spin_unlock, "movb $0, (%eax)");
-DEF_NATIVE(pv_lock_ops, vcpu_is_preempted, "xor %eax, %eax");
+DEF_NATIVE(pv_lock_ops,	queued_spin_unlock,	NATIVE_QUEUED_SPIN_UNLOCK);
+DEF_NATIVE(pv_lock_ops,	vcpu_is_preempted,	NATIVE_ZERO);
 #endif
 
 unsigned paravirt_patch_ident_32(void *insnbuf, unsigned len)
