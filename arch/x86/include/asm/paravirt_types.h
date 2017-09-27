@@ -137,7 +137,6 @@ struct pv_cpu_ops {
 
 	void (*set_iopl_mask)(unsigned mask);
 
-	void (*wbinvd)(void);
 	void (*io_delay)(void);
 
 	/* cpuid emulation, mostly so that caps bits can be disabled */

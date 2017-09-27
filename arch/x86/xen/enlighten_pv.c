@@ -1045,8 +1045,6 @@ static const struct pv_cpu_ops xen_cpu_ops __initconst = {
 	.write_cr8 = xen_write_cr8,
 #endif
 
-	.wbinvd = native_wbinvd,
-
 	.read_msr = xen_read_msr,
 	.write_msr = xen_write_msr,
 

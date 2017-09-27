@@ -98,11 +98,6 @@ static inline void halt(void)
 	PVOP_VCALL0(pv_irq_ops.halt);
 }
 
-static inline void wbinvd(void)
-{
-	PVOP_VCALL0(pv_cpu_ops.wbinvd);
-}
-
 #define get_kernel_rpl()  (pv_info.kernel_rpl)
 
 static inline u64 paravirt_read_msr(unsigned msr)

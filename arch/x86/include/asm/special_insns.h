@@ -128,7 +128,7 @@ static inline void __write_pkru(u32 pkru)
 }
 #endif
 
-static inline void native_wbinvd(void)
+static inline void wbinvd(void)
 {
 	asm volatile("wbinvd": : :"memory");
 }
@@ -181,11 +181,6 @@ static inline void write_cr3(unsigned long x)
 static inline void __write_cr4(unsigned long x)
 {
 	native_write_cr4(x);
-}
-
-static inline void wbinvd(void)
-{
-	native_wbinvd();
 }
 
 #ifdef CONFIG_X86_64
