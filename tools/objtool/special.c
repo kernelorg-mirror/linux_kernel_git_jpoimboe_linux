@@ -63,6 +63,16 @@ struct special_entry entries[] = {
 		.feature = ALT_FEATURE_OFFSET,
 	},
 	{
+		.sec = ".pv_altinstructions",
+		.group = true,
+		.size = ALT_ENTRY_SIZE,
+		.orig = ALT_ORIG_OFFSET,
+		.orig_len = ALT_ORIG_LEN_OFFSET,
+		.new = ALT_NEW_OFFSET,
+		.new_len = ALT_NEW_LEN_OFFSET,
+		.feature = ALT_FEATURE_OFFSET,
+	},
+	{
 		.sec = "__jump_table",
 		.jump_or_nop = true,
 		.size = JUMP_ENTRY_SIZE,
