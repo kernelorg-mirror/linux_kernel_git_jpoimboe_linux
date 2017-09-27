@@ -21,6 +21,16 @@
 	 .short clobbers;						\
 	.popsection
 
+#define PV_ALT_SITE(oldinstr, newinstr, ops, off, clobbers)		\
+	__ALTERNATIVE(.pv_altinstructions, oldinstr, newinstr,		\
+		      X86_FEATURE_PV_OPS);				\
+	.pushsection .parainstructions, "a";				\
+	_ASM_ALIGN;							\
+	_ASM_PTR 140b;							\
+	.byte PV_TYPE(ops, off);					\
+	.byte 142b-140b;						\
+	.short clobbers;						\
+	.popsection
 
 #define COND_PUSH(set, mask, reg)			\
 	.if ((~(set)) & mask); push %reg; .endif

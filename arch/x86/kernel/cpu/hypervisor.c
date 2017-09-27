@@ -71,6 +71,8 @@ void __init init_hypervisor_platform(void)
 	if (!x86_hyper)
 		return;
 
+	apply_pv_alternatives();
+
 	if (x86_hyper->init_platform)
 		x86_hyper->init_platform();
 }

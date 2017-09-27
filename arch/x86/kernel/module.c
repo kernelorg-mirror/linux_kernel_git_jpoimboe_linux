@@ -213,8 +213,8 @@ int module_finalize(const Elf_Ehdr *hdr,
 		    const Elf_Shdr *sechdrs,
 		    struct module *me)
 {
-	const Elf_Shdr *s, *text = NULL, *alt = NULL, *locks = NULL,
-		*para = NULL, *orc = NULL, *orc_ip = NULL;
+	const Elf_Shdr *s, *text = NULL, *alt = NULL, *pv_alt = NULL,
+		*locks = NULL, *para = NULL, *orc = NULL, *orc_ip = NULL;
 	char *secstrings = (void *)hdr + sechdrs[hdr->e_shstrndx].sh_offset;
 
 	for (s = sechdrs; s < sechdrs + hdr->e_shnum; s++) {
@@ -222,6 +222,8 @@ int module_finalize(const Elf_Ehdr *hdr,
 			text = s;
 		if (!strcmp(".altinstructions", secstrings + s->sh_name))
 			alt = s;
+		if (!strcmp(".pv_altinstructions", secstrings + s->sh_name))
+			pv_alt = s;
 		if (!strcmp(".smp_locks", secstrings + s->sh_name))
 			locks = s;
 		if (!strcmp(".parainstructions", secstrings + s->sh_name))
@@ -236,6 +238,11 @@ int module_finalize(const Elf_Ehdr *hdr,
 		/* patch .altinstructions */
 		void *aseg = (void *)alt->sh_addr;
 		apply_alternatives(aseg, aseg + alt->sh_size);
+	}
+	if (pv_alt) {
+		/* patch .altinstructions */
+		void *seg = (void *)pv_alt->sh_addr;
+		apply_alternatives(seg, seg + pv_alt->sh_size);
 	}
 	if (locks && text) {
 		void *lseg = (void *)locks->sh_addr;

@@ -250,6 +250,12 @@ SECTIONS
 		*(.altinstructions)
 		__alt_instructions_end = .;
 	}
+	. = ALIGN(8);
+	.pv_altinstructions : AT(ADDR(.pv_altinstructions) - LOAD_OFFSET) {
+		__pv_alt_instructions = .;
+		*(.pv_altinstructions)
+		__pv_alt_instructions_end = .;
+	}
 
 	/*
 	 * And here are the replacement instructions. The linker sticks

@@ -39,14 +39,14 @@
  * @newinstr. ".skip" directive takes care of proper instruction padding
  * in case @newinstr is longer than @oldinstr.
  */
-#define ALTERNATIVE(oldinstr, newinstr, feature)			\
+#define __ALTERNATIVE(section, oldinstr, newinstr, feature)		\
 140:;									\
 	oldinstr;							\
 141:;									\
 	.skip -(((144f-143f)-(141b-140b)) > 0) *			\
 		((144f-143f)-(141b-140b)),0x90;				\
 142:;									\
-	.pushsection .altinstructions, "a";				\
+	.pushsection section, "a";					\
 	altinstruction_entry 140b,143f,feature,142b-140b,144f-143f,142b-141b;\
 	.popsection;							\
 	.pushsection .altinstr_replacement, "ax";			\
@@ -54,6 +54,11 @@
 	newinstr;							\
 144:;									\
 	.popsection
+
+#define ARGS(args...) args
+
+#define ALTERNATIVE(oldinstr, newinstr, feature)			\
+	__ALTERNATIVE(.altinstructions, ARGS(oldinstr), ARGS(newinstr), feature)
 
 #define old_len			141b-140b
 #define new_len1		144f-143f

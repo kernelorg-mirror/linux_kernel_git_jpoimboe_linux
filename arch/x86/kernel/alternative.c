@@ -21,6 +21,7 @@
 #include <asm/tlbflush.h>
 #include <asm/io.h>
 #include <asm/fixmap.h>
+#include <asm/cpufeature.h>
 
 int __read_mostly alternatives_patched;
 
@@ -269,6 +270,7 @@ static void __init_or_module add_nops(void *insns, unsigned int len)
 }
 
 extern struct alt_instr __alt_instructions[], __alt_instructions_end[];
+extern struct alt_instr __pv_alt_instructions[], __pv_alt_instructions_end[];
 extern s32 __smp_locks[], __smp_locks_end[];
 void *text_poke_early(void *addr, const void *opcode, size_t len);
 
@@ -598,6 +600,17 @@ int alternatives_text_reserved(void *start, void *end)
 #endif /* CONFIG_SMP */
 
 #ifdef CONFIG_PARAVIRT
+/*
+ * Paravirt alternatives are applied much earlier than normal alternatives.
+ * They are only applied when running on a hypervisor.  They replace some
+ * native instructions with calls to pv ops.
+ */
+void __init apply_pv_alternatives(void)
+{
+	setup_force_cpu_cap(X86_FEATURE_PV_OPS);
+	apply_alternatives(__pv_alt_instructions, __pv_alt_instructions_end);
+}
+
 void __init_or_module apply_paravirt(struct paravirt_patch_site *start,
 				     struct paravirt_patch_site *end)
 {

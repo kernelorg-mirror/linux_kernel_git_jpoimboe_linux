@@ -375,6 +375,33 @@ int paravirt_disable_iospace(void);
 	"  .short " clobber "\n"					\
 	".popsection\n"
 
+/*
+ * Generate some native code, which, if running on a hypervisor, is replaced
+ * *twice*:
+ *
+ * - The first patch is done in early boot by apply_pv_alternatives(), to
+ *   enable the patch to boot in the virtualized environment.  It replaces the
+ *   native code with a call to the pv ops struct function pointer.
+ *
+ * - The second patch is done later by apply_paravirt(), for performance
+ *   reasons.  In most cases it converts the indirect call to a direct call in
+ *   order to improve CPU branch prediction.
+ *
+ * This is done for debugging improvement purposes, so that instructions listed
+ * in the kernel disassembly will match up with the most common runtime case
+ * (native instructions).
+ */
+#define _PV_ALT_SITE(oldinstr, newinstr, type, clobber)			\
+	__ALTERNATIVE(".pv_altinstructions", oldinstr, newinstr,	\
+		      X86_FEATURE_PV_OPS)				\
+	".pushsection .parainstructions,\"a\"\n"			\
+	_ASM_ALIGN "\n"							\
+	_ASM_PTR " 661b\n"						\
+	".byte " type "\n"						\
+	".byte " alt_total_slen "\n"					\
+	".short " clobber "\n"						\
+	".popsection\n"							\
+
 #define PARAVIRT_PATCH(x)						\
 	(offsetof(struct paravirt_patch_template, x) / sizeof(void *))
 
@@ -559,6 +586,33 @@ int paravirt_disable_iospace(void);
 		      PVOP_CALLEE_OUTPUTS, ,				\
 		      pre, post, ##__VA_ARGS__)
 
+#define ____PVOP_ALT_CALL(rettype, native, op, clbr, call_clbr,	\
+			     extra_clbr, ...)				\
+({									\
+	rettype __ret;							\
+	PVOP_CALL_ARGS;							\
+	PVOP_TEST_NULL(op);						\
+	asm volatile(PV_ALT_SITE(native, PV_CALL_STR)			\
+		     : call_clbr, ASM_CALL_CONSTRAINT			\
+		     : PV_INPUT_CONSTRAINTS(op, clbr),			\
+		       ##__VA_ARGS__					\
+		     : "memory", "cc" extra_clbr);			\
+	if (IS_ENABLED(CONFIG_X86_32) &&				\
+	    sizeof(rettype) > sizeof(unsigned long))			\
+		__ret = (rettype)((((u64)__edx) << 32) | __eax);	\
+	else								\
+		__ret = (rettype)(__eax & PVOP_RETMASK(rettype));	\
+	__ret;								\
+})
+
+#define __PVOP_ALT_CALL(rettype, native, op, ...)			\
+	____PVOP_ALT_CALL(rettype, native, op, CLBR_ANY,		\
+			     PVOP_CALL_OUTPUTS, EXTRA_CLOBBERS,		\
+			     ##__VA_ARGS__)
+
+#define __PVOP_ALT_CALLEESAVE(rettype, native, op, ...)			\
+	____PVOP_ALT_CALL(rettype, native, op.func, CLBR_RET_REG,	\
+			     PVOP_CALLEE_OUTPUTS, , ##__VA_ARGS__)
 
 #define ____PVOP_VCALL(op, clbr, call_clbr, extra_clbr, pre, post, ...)	\
 	({								\
@@ -583,28 +637,58 @@ int paravirt_disable_iospace(void);
 		      PVOP_VCALLEE_OUTPUTS, ,				\
 		      pre, post, ##__VA_ARGS__)
 
+#define ____PVOP_ALT_VCALL(native, op, clbr, call_clbr, extra_clbr,	\
+			      ...)					\
+({									\
+	PVOP_VCALL_ARGS;						\
+	PVOP_TEST_NULL(op);						\
+	asm volatile(PV_ALT_SITE(native, PV_CALL_STR)			\
+		     : call_clbr, ASM_CALL_CONSTRAINT			\
+		     : PV_INPUT_CONSTRAINTS(op, clbr),			\
+		       ##__VA_ARGS__					\
+		     : "memory", "cc" extra_clbr);			\
+})
+
+#define __PVOP_ALT_VCALL(native, op, ...)				\
+	____PVOP_ALT_VCALL(native, op, CLBR_ANY,			\
+			      PVOP_VCALL_OUTPUTS, VEXTRA_CLOBBERS,	\
+			      ##__VA_ARGS__)
+
+#define __PVOP_ALT_VCALLEESAVE(native, op, ...)				\
+	____PVOP_ALT_VCALL(native, op.func, CLBR_RET_REG,		\
+			      PVOP_VCALLEE_OUTPUTS, , ##__VA_ARGS__)
 
 
 #define PVOP_CALL0(rettype, op)						\
 	__PVOP_CALL(rettype, op, "", "")
+#define PVOP_ALT_CALL0(rettype, native, op)				\
+	__PVOP_ALT_CALL(rettype, native, op)
 #define PVOP_VCALL0(op)							\
 	__PVOP_VCALL(op, "", "")
 
 #define PVOP_CALLEE0(rettype, op)					\
 	__PVOP_CALLEESAVE(rettype, op, "", "")
+#define PVOP_ALT_CALLEE0(rettype, native, op)				\
+	__PVOP_ALT_CALLEESAVE(rettype, native, op)
 #define PVOP_VCALLEE0(op)						\
 	__PVOP_VCALLEESAVE(op, "", "")
+#define PVOP_ALT_VCALLEE0(native, op)					\
+	__PVOP_ALT_VCALLEESAVE(native, op)
 
 
 #define PVOP_CALL1(rettype, op, arg1)					\
 	__PVOP_CALL(rettype, op, "", "", PVOP_CALL_ARG1(arg1))
 #define PVOP_VCALL1(op, arg1)						\
 	__PVOP_VCALL(op, "", "", PVOP_CALL_ARG1(arg1))
+#define PVOP_ALT_VCALL1(native, op, arg1)				\
+	__PVOP_ALT_VCALL(native, op, PVOP_CALL_ARG1(arg1))
 
 #define PVOP_CALLEE1(rettype, op, arg1)					\
 	__PVOP_CALLEESAVE(rettype, op, "", "", PVOP_CALL_ARG1(arg1))
 #define PVOP_VCALLEE1(op, arg1)						\
 	__PVOP_VCALLEESAVE(op, "", "", PVOP_CALL_ARG1(arg1))
+#define PVOP_ALT_VCALLEE1(native, op, arg1)				\
+	__PVOP_ALT_VCALLEESAVE(native, op, PVOP_CALL_ARG1(arg1))
 
 
 #define PVOP_CALL2(rettype, op, arg1, arg2)				\
