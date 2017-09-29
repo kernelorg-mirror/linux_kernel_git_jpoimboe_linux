@@ -466,12 +466,12 @@ int paravirt_disable_iospace(void);
 #define PVOP_CALL_ARG2(x)		"d" ((unsigned long)(x))
 #define PVOP_CALL_ARG3(x)		"c" ((unsigned long)(x))
 
-#define PVOP_VCALL_CLOBBERS		"=a" (__eax), "=d" (__edx),	\
+#define PVOP_VCALL_OUTPUTS		"=a" (__eax), "=d" (__edx),	\
 					"=c" (__ecx)
-#define PVOP_CALL_CLOBBERS		PVOP_VCALL_CLOBBERS
+#define PVOP_CALL_OUTPUTS		PVOP_VCALL_OUTPUTS
 
-#define PVOP_VCALLEE_CLOBBERS		"=a" (__eax), "=d" (__edx)
-#define PVOP_CALLEE_CLOBBERS		PVOP_VCALLEE_CLOBBERS
+#define PVOP_VCALLEE_OUTPUTS		"=a" (__eax), "=d" (__edx)
+#define PVOP_CALLEE_OUTPUTS		PVOP_VCALLEE_OUTPUTS
 
 #define EXTRA_CLOBBERS
 #define VEXTRA_CLOBBERS
@@ -488,14 +488,14 @@ int paravirt_disable_iospace(void);
 #define PVOP_CALL_ARG3(x)		"d" ((unsigned long)(x))
 #define PVOP_CALL_ARG4(x)		"c" ((unsigned long)(x))
 
-#define PVOP_VCALL_CLOBBERS	"=D" (__edi),				\
+#define PVOP_VCALL_OUTPUTS	"=D" (__edi),				\
 				"=S" (__esi), "=d" (__edx),		\
 				"=c" (__ecx)
-#define PVOP_CALL_CLOBBERS	PVOP_VCALL_CLOBBERS, "=a" (__eax)
+#define PVOP_CALL_OUTPUTS	PVOP_VCALL_OUTPUTS, "=a" (__eax)
 
 /* void functions are still allowed [re]ax for scratch */
-#define PVOP_VCALLEE_CLOBBERS	"=a" (__eax)
-#define PVOP_CALLEE_CLOBBERS	PVOP_VCALLEE_CLOBBERS
+#define PVOP_VCALLEE_OUTPUTS	"=a" (__eax)
+#define PVOP_CALLEE_OUTPUTS	PVOP_VCALLEE_OUTPUTS
 
 #define EXTRA_CLOBBERS	 , "r8", "r9", "r10", "r11"
 #define VEXTRA_CLOBBERS	 , "rax", "r8", "r9", "r10", "r11"
@@ -552,12 +552,12 @@ int paravirt_disable_iospace(void);
 	})
 
 #define __PVOP_CALL(rettype, op, pre, post, ...)			\
-	____PVOP_CALL(rettype, op, CLBR_ANY, PVOP_CALL_CLOBBERS,	\
+	____PVOP_CALL(rettype, op, CLBR_ANY, PVOP_CALL_OUTPUTS,		\
 		      EXTRA_CLOBBERS, pre, post, ##__VA_ARGS__)
 
 #define __PVOP_CALLEESAVE(rettype, op, pre, post, ...)			\
 	____PVOP_CALL(rettype, op.func, CLBR_RET_REG,			\
-		      PVOP_CALLEE_CLOBBERS, ,				\
+		      PVOP_CALLEE_OUTPUTS, ,				\
 		      pre, post, ##__VA_ARGS__)
 
 
@@ -576,13 +576,13 @@ int paravirt_disable_iospace(void);
 	})
 
 #define __PVOP_VCALL(op, pre, post, ...)				\
-	____PVOP_VCALL(op, CLBR_ANY, PVOP_VCALL_CLOBBERS,		\
+	____PVOP_VCALL(op, CLBR_ANY, PVOP_VCALL_OUTPUTS,		\
 		       VEXTRA_CLOBBERS,					\
 		       pre, post, ##__VA_ARGS__)
 
 #define __PVOP_VCALLEESAVE(op, pre, post, ...)				\
 	____PVOP_VCALL(op.func, CLBR_RET_REG,				\
-		      PVOP_VCALLEE_CLOBBERS, ,				\
+		      PVOP_VCALLEE_OUTPUTS, ,				\
 		      pre, post, ##__VA_ARGS__)
 
 
