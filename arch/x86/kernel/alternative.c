@@ -410,20 +410,28 @@ void __init_or_module noinline apply_alternatives(struct alt_instr *start,
 		insnbuf_sz = a->replacementlen;
 
 		/*
-		 * 0xe8 is a relative jump; fix the offset.
-		 *
-		 * Instruction length is checked before the opcode to avoid
-		 * accessing uninitialized bytes for zero-length replacements.
+		 * Fix the address offsets for call and jump instructions which
+		 * use PC-relative addressing.
 		 */
 		if (a->replacementlen == 5 && *insnbuf == 0xe8) {
+			/* direct call */
 			*(s32 *)(insnbuf + 1) += replacement - instr;
-			DPRINTK("Fix CALL offset: 0x%x, CALL 0x%lx",
+			DPRINTK("Fix direct CALL offset: 0x%x, CALL 0x%lx",
 				*(s32 *)(insnbuf + 1),
 				(unsigned long)instr + *(s32 *)(insnbuf + 1) + 5);
-		}
 
-		if (a->replacementlen && is_jmp(replacement[0]))
+		} else if (a->replacementlen == 6 && *insnbuf == 0xff &&
+			   *(insnbuf+1) == 0x15) {
+			/* indirect call */
+			*(s32 *)(insnbuf + 2) += replacement - instr;
+			DPRINTK("Fix indirect CALL offset: 0x%x, CALL *0x%lx",
+				*(s32 *)(insnbuf + 2),
+				(unsigned long)instr + *(s32 *)(insnbuf + 2) + 6);
+
+		} else if (a->replacementlen && is_jmp(replacement[0])) {
+			/* direct jump */
 			recompute_jump(a, instr, replacement, insnbuf);
+		}
 
 		if (a->instrlen > a->replacementlen) {
 			add_nops(insnbuf + a->replacementlen,
