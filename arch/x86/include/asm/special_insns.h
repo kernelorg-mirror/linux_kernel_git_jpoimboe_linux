@@ -7,14 +7,14 @@
 #include <asm/nops.h>
 
 #ifdef CONFIG_X86_64
-# define _REG_ARG1			"%rdi"
-# define NATIVE_IDENTITY_32		"mov %edi, %eax"
+# define _REG_ARG1			"%%rdi"
+# define NATIVE_IDENTITY_32		"mov %%edi, %%eax"
 # define NATIVE_USERGS_SYSRET64		"swapgs; sysretq"
 #else
-# define _REG_ARG1			"%eax"
+# define _REG_ARG1			"%%eax"
 #endif
 
-#define _REG_RET			"%" _ASM_AX
+#define _REG_RET			"%%" _ASM_AX
 
 #define NATIVE_ZERO			"xor " _REG_ARG1 ", " _REG_ARG1
 #define NATIVE_IDENTITY			"mov " _REG_ARG1 ", " _REG_RET
@@ -22,9 +22,9 @@
 #define NATIVE_RESTORE_FL		"push " _REG_ARG1 "; popf"
 #define NATIVE_IRQ_DISABLE		"cli"
 #define NATIVE_IRQ_ENABLE		"sti"
-#define NATIVE_READ_CR2			"mov %cr2, " _REG_RET
-#define NATIVE_READ_CR3			"mov %cr3, " _REG_RET
-#define NATIVE_WRITE_CR3		"mov " _REG_ARG1 ", %cr3"
+#define NATIVE_READ_CR2			"mov %%cr2, " _REG_RET
+#define NATIVE_READ_CR3			"mov %%cr3, " _REG_RET
+#define NATIVE_WRITE_CR3		"mov " _REG_ARG1 ", %%cr3"
 #define NATIVE_FLUSH_TLB_SINGLE		"invlpg (" _REG_ARG1 ")"
 #define NATIVE_SWAPGS			"swapgs"
 #define NATIVE_IRET			"iret"
