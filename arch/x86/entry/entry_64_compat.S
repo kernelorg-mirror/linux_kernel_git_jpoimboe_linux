@@ -13,6 +13,7 @@
 #include <asm/irqflags.h>
 #include <asm/asm.h>
 #include <asm/smap.h>
+#include <asm/paravirt-asm.h>
 #include <linux/linkage.h>
 #include <linux/err.h>
 

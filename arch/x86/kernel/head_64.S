@@ -25,7 +25,7 @@
 
 #ifdef CONFIG_PARAVIRT
 #include <asm/asm-offsets.h>
-#include <asm/paravirt.h>
+#include <asm/paravirt-asm.h>
 #define GET_CR2_INTO(reg) GET_CR2_INTO_RAX ; movq %rax, reg
 #else
 #define GET_CR2_INTO(reg) movq %cr2, reg
