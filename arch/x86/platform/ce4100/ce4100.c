@@ -22,6 +22,7 @@
 #include <asm/io.h>
 #include <asm/io_apic.h>
 #include <asm/emergency-restart.h>
+#include <asm/x86_init.h>
 
 /*
  * The CE4100 platform has an internal 8051 Microcontroller which is

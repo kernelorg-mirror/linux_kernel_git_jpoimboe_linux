@@ -3,6 +3,7 @@
 
 #include <asm/setup.h>
 #include <asm/bios_ebda.h>
+#include <asm/x86_init.h>
 
 void __init x86_early_init_platform_quirks(void)
 {
