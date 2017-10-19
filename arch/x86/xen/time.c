@@ -56,7 +56,7 @@ static u64 xen_clocksource_get_cycles(struct clocksource *cs)
 	return xen_clocksource_read();
 }
 
-static void xen_read_wallclock(struct timespec *ts)
+static void xen_read_wallclock(struct timespec64 *ts)
 {
 	struct shared_info *s = HYPERVISOR_shared_info;
 	struct pvclock_wall_clock *wall_clock = &(s->wc);
@@ -67,12 +67,12 @@ static void xen_read_wallclock(struct timespec *ts)
 	put_cpu_var(xen_vcpu);
 }
 
-static void xen_get_wallclock(struct timespec *now)
+static void xen_get_wallclock(struct timespec64 *now)
 {
 	xen_read_wallclock(now);
 }
 
-static int xen_set_wallclock(const struct timespec *now)
+static int xen_set_wallclock(const struct timespec64 *now)
 {
 	return -1;
 }
@@ -373,7 +373,7 @@ static const struct pv_time_ops xen_time_ops __initconst = {
 static void __init xen_time_init(void)
 {
 	int cpu = smp_processor_id();
-	struct timespec tp;
+	struct timespec64 tp;
 
 	/* As Dom0 is never moved, no penalty on using TSC there */
 	if (xen_initial_domain())
@@ -391,7 +391,7 @@ static void __init xen_time_init(void)
 
 	/* Set initial system time with full resolution */
 	xen_read_wallclock(&tp);
-	do_settimeofday(&tp);
+	do_settimeofday64(&tp);
 
 	setup_force_cpu_cap(X86_FEATURE_TSC);
 

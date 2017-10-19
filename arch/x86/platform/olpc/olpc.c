@@ -26,6 +26,7 @@
 #include <asm/setup.h>
 #include <asm/olpc.h>
 #include <asm/olpc_ofw.h>
+#include <asm/x86_init.h>
 
 struct olpc_platform_t olpc_platform_info;
 EXPORT_SYMBOL_GPL(olpc_platform_info);

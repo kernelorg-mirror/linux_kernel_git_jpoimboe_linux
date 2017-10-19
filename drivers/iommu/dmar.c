@@ -41,6 +41,7 @@
 #include <linux/iommu.h>
 #include <asm/irq_remapping.h>
 #include <asm/iommu_table.h>
+#include <asm/x86_init.h>
 
 #include "irq_remapping.h"
 

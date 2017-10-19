@@ -35,6 +35,7 @@
 #include <asm/intel_scu_ipc.h>
 #include <asm/apb_timer.h>
 #include <asm/reboot.h>
+#include <asm/x86_init.h>
 
 #include "intel_mid_weak_decls.h"
 
