@@ -1,6 +1,7 @@
 #ifndef _ASM_X86_PLATFORM_H
 #define _ASM_X86_PLATFORM_H
 
+#include <linux/time64.h>
 #include <asm/bootparam.h>
 
 struct mpc_bus;
@@ -139,8 +140,6 @@ struct x86_cpuinit_ops {
 	void (*fixup_cpu_id)(struct cpuinfo_x86 *c, int node);
 };
 
-struct timespec;
-
 /**
  * struct x86_legacy_devices - legacy x86 devices
  *
@@ -221,8 +220,8 @@ struct x86_legacy_features {
 struct x86_platform_ops {
 	unsigned long (*calibrate_cpu)(void);
 	unsigned long (*calibrate_tsc)(void);
-	void (*get_wallclock)(struct timespec *ts);
-	int (*set_wallclock)(const struct timespec *ts);
+	void (*get_wallclock)(struct timespec64 *ts);
+	int (*set_wallclock)(const struct timespec64 *ts);
 	void (*iommu_shutdown)(void);
 	bool (*is_untracked_pat_range)(u64 start, u64 end);
 	void (*nmi_init)(void);
