@@ -81,18 +81,18 @@ static void pt_dump_debug_remove_files(void)
 
 static int __init pt_dump_debug_init(void)
 {
-	pe_knl = debugfs_create_file("kernel_page_tables", S_IRUSR, NULL, NULL,
+	pe_knl = debugfs_create_file("kernel_page_tables", 0400, NULL, NULL,
 				     &ptdump_fops);
 	if (!pe_knl)
 		return -ENOMEM;
 
-	pe_curknl = debugfs_create_file("current_page_tables_knl", S_IRUSR,
+	pe_curknl = debugfs_create_file("current_page_tables_knl", 0400,
 					NULL, NULL, &ptdump_curknl_fops);
 	if (!pe_curknl)
 		goto err;
 
 #ifdef CONFIG_KAISER
-	pe_curusr = debugfs_create_file("current_page_tables_usr", S_IRUSR,
+	pe_curusr = debugfs_create_file("current_page_tables_usr", 0400,
 					NULL, NULL, &ptdump_curusr_fops);
 	if (!pe_curusr)
 		goto err;
