@@ -201,14 +201,6 @@ ENTRY(entry_SYSCALL_64)
 
 	swapgs
 	movq	%rsp, PER_CPU_VAR(rsp_scratch)
-
-	/*
-	 * The kernel CR3 is needed to map the process stack, but we
-	 * need a scratch register to be able to load CR3.  %rsp is
-	 * clobberable right now, so use it as a scratch register.
-	 * %rsp will look crazy here for a couple instructions.
-	 */
-	SWITCH_TO_KERNEL_CR3 scratch_reg=%rsp
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
 
 	/* Construct struct pt_regs on stack */
