@@ -34,6 +34,7 @@
 #include <linux/mm.h>
 #include <linux/uaccess.h>
 
+#include <asm/hypervisor.h>
 #include <asm/cmdline.h>
 #include <asm/kaiser.h>
 #include <asm/pgtable.h>
@@ -52,6 +53,8 @@ DEFINE_STATIC_KEY_TRUE(kaiser_enabled_key);
 void __init kaiser_check_cmdline(void)
 {
 	if (cmdline_find_option_bool(boot_command_line, "nokaiser"))
+		kaiser_enabled = false;
+	if (hypervisor_is_type(X86_HYPER_XEN_PV))
 		kaiser_enabled = false;
 }
 
