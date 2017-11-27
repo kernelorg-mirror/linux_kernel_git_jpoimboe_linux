@@ -428,6 +428,8 @@ void __init kaiser_init(void)
 	if (!kaiser_enabled)
 		return;
 
+	printk("All your KAISER are belong to us\n");
+
 	kaiser_init_all_pgds();
 
 	for_each_possible_cpu(cpu) {
