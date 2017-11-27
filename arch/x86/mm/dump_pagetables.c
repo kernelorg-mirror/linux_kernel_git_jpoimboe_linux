@@ -504,8 +504,10 @@ void ptdump_walk_pgd_level(struct seq_file *m, pgd_t *pgd)
 
 void ptdump_walk_pgd_level_debugfs(struct seq_file *m, pgd_t *pgd, bool shadow)
 {
+#ifdef CONFIG_KAISER
 	if (shadow && kaiser_enabled)
-		pgd += PTRS_PER_PGD;
+		pgd = kernel_to_shadow_pgdp(pgd);
+#endif
 	ptdump_walk_pgd_level_core(m, pgd, false, false);
 }
 EXPORT_SYMBOL_GPL(ptdump_walk_pgd_level_debugfs);
@@ -518,7 +520,7 @@ void ptdump_walk_shadow_pgd_level_checkwx(void)
 	if (!kaiser_enabled)
 		return;
 	pr_info("x86/mm: Checking shadow page tables\n");
-	pgd += PTRS_PER_PGD;
+	pgd = kernel_to_shadow_pgdp(pgd);
 	ptdump_walk_pgd_level_core(NULL, pgd, true, false);
 #endif
 }
