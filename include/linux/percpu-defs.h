@@ -182,16 +182,6 @@
 #define DEFINE_PER_CPU_PAGE_ALIGNED(type, name)				\
 	DEFINE_PER_CPU_SECTION(type, name, "..page_aligned")		\
 	__aligned(PAGE_SIZE)
-/*
- * Declaration/definition used for per-CPU variables that must be page aligned and need to be mapped in user mode.
- */
-#define DECLARE_PER_CPU_PAGE_ALIGNED_USER_MAPPED(type, name)		\
-	DECLARE_PER_CPU_SECTION(type, name, USER_MAPPED_SECTION"..page_aligned") \
-	__aligned(PAGE_SIZE)
-
-#define DEFINE_PER_CPU_PAGE_ALIGNED_USER_MAPPED(type, name)		\
-	DEFINE_PER_CPU_SECTION(type, name, USER_MAPPED_SECTION"..page_aligned") \
-	__aligned(PAGE_SIZE)
 
 /*
  * Declaration/definition used for per-CPU variables that must be read mostly.
