@@ -214,5 +214,10 @@ static inline void vmexit_fill_RSB(void)
 		      : "r" (loops) : "memory" );
 #endif
 }
+
+bool specctrl_force_enable_ibrs(void);
+bool specctrl_cond_enable_ibrs(bool full_retpoline);
+bool is_skylake_era(void);
+
 #endif /* __ASSEMBLY__ */
 #endif /* __NOSPEC_BRANCH_H__ */

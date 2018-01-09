@@ -79,6 +79,7 @@ enum spectre_v2_mitigation_cmd {
 	SPECTRE_V2_CMD_RETPOLINE,
 	SPECTRE_V2_CMD_RETPOLINE_GENERIC,
 	SPECTRE_V2_CMD_RETPOLINE_AMD,
+	SPECTRE_V2_CMD_IBRS,
 };
 
 static const char *spectre_v2_strings[] = {
@@ -87,6 +88,7 @@ static const char *spectre_v2_strings[] = {
 	[SPECTRE_V2_RETPOLINE_MINIMAL_AMD]	= "Vulnerable: Minimal AMD ASM retpoline",
 	[SPECTRE_V2_RETPOLINE_GENERIC]		= "Mitigation: Full generic retpoline",
 	[SPECTRE_V2_RETPOLINE_AMD]		= "Mitigation: Full AMD retpoline",
+	[SPECTRE_V2_IBRS]			= "Mitigation: Indirect Branch Restricted Speculation",
 };
 
 #undef pr_fmt
@@ -144,6 +146,8 @@ static enum spectre_v2_mitigation_cmd __init spectre_v2_parse_cmdline(void)
 		} else if (match_option(arg, ret, "retpoline,generic")) {
 			spec2_print_if_insecure("generic retpoline selected on command line.");
 			return SPECTRE_V2_CMD_RETPOLINE_GENERIC;
+		} else if (match_option(arg, ret, "ibrs")) {
+			return SPECTRE_V2_CMD_IBRS;
 		} else if (match_option(arg, ret, "auto")) {
 			return SPECTRE_V2_CMD_AUTO;
 		}
@@ -156,8 +160,8 @@ disable:
 	return SPECTRE_V2_CMD_NONE;
 }
 
-/* Check for Skylake-like CPUs (for RSB handling) */
-static bool __init is_skylake_era(void)
+/* Check for Skylake-like CPUs (for RSB and IBRS handling) */
+bool __init is_skylake_era(void)
 {
 	if (boot_cpu_data.x86_vendor == X86_VENDOR_INTEL &&
 	    boot_cpu_data.x86 == 6) {
@@ -175,6 +179,7 @@ static bool __init is_skylake_era(void)
 
 static void __init spectre_v2_select_mitigation(void)
 {
+	bool full_retpoline = IS_ENABLED(CONFIG_RETPOLINE) && retp_compiler();
 	enum spectre_v2_mitigation_cmd cmd = spectre_v2_parse_cmdline();
 	enum spectre_v2_mitigation mode = SPECTRE_V2_NONE;
 
@@ -190,9 +195,25 @@ static void __init spectre_v2_select_mitigation(void)
 	case SPECTRE_V2_CMD_NONE:
 		return;
 
+	case SPECTRE_V2_CMD_IBRS:
+		/* Command line requested IBRS. Try to enable it */
+		if (specctrl_force_enable_ibrs()) {
+			mode = SPECTRE_V2_IBRS;
+			goto set_mode;
+		}
+		/* FALLTRHU */
+
 	case SPECTRE_V2_CMD_FORCE:
 		/* FALLTRHU */
 	case SPECTRE_V2_CMD_AUTO:
+		/*
+		 * Check whether the CPU prefers to have IBRS or IBRS is
+		 * the only available mitigation.
+		 */
+		if (specctrl_cond_enable_ibrs(full_retpoline)) {
+			mode = SPECTRE_V2_IBRS;
+			goto set_mode;
+		}
 		goto retpoline_auto;
 
 	case SPECTRE_V2_CMD_RETPOLINE_AMD:
@@ -229,6 +250,7 @@ retpoline_auto:
 		setup_force_cpu_cap(X86_FEATURE_RETPOLINE);
 	}
 
+set_mode:
 	spectre_v2_enabled = mode;
 	pr_info("%s\n", spectre_v2_strings[mode]);
 
