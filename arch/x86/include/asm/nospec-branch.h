@@ -9,6 +9,13 @@
 
 #ifdef __ASSEMBLY__
 
+.macro ANNOTATE_NOSPEC
+	.Lannotate_\@:
+	.pushsection .discard.nospec
+	.long .Lannotate_\@ - .
+	.popsection
+.endm
+
 /*
  * These are the bare retpoline primitives for indirect jmp and call.
  * Do not use these directly; they only exist to make the ALTERNATIVE
@@ -46,6 +53,7 @@
  */
 .macro JMP_NOSPEC reg:req
 #ifdef CONFIG_RETPOLINE
+	ANNOTATE_NOSPEC
 	ALTERNATIVE_2 __stringify(jmp *\reg),				\
 		__stringify(RETPOLINE_JMP \reg), X86_FEATURE_RETPOLINE,	\
 		__stringify(lfence; jmp *\reg), X86_FEATURE_RETPOLINE_AMD
@@ -56,6 +64,7 @@
 
 .macro CALL_NOSPEC reg:req
 #ifdef CONFIG_RETPOLINE
+	ANNOTATE_NOSPEC
 	ALTERNATIVE_2 __stringify(call *\reg),				\
 		__stringify(RETPOLINE_CALL \reg), X86_FEATURE_RETPOLINE,\
 		__stringify(lfence; call *\reg), X86_FEATURE_RETPOLINE_AMD
@@ -111,15 +120,25 @@
 #else /* __ASSEMBLY__ */
 
 #if defined(CONFIG_X86_64) && defined(RETPOLINE)
+
+#define ANNOTATE_NOSPEC						\
+	"999:\n\t"						\
+	".pushsection .discard.nospec\n\t"			\
+	".long 999b - .\n\t"					\
+	".popsection\n\t"
+
 /*
  * Since the inline asm uses the %V modifier which is only in newer GCC,
  * the 64-bit one is dependent on RETPOLINE not CONFIG_RETPOLINE.
  */
-# define CALL_NOSPEC ALTERNATIVE(				\
+# define CALL_NOSPEC						\
+	ANNOTATE_NOSPEC						\
+	ALTERNATIVE(						\
 	"call *%[thunk_target]\n",				\
 	"call __x86_indirect_thunk_%V[thunk_target]\n",		\
 	X86_FEATURE_RETPOLINE)
 # define THUNK_TARGET(addr) [thunk_target] "r" (addr)
+
 #elif defined(CONFIG_X86_32) && defined(CONFIG_RETPOLINE)
 /*
  * For i386 we use the original ret-equivalent retpoline, because
