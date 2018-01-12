@@ -2280,6 +2280,7 @@ static void vmx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	if (per_cpu(current_vmcs, cpu) != vmx->loaded_vmcs->vmcs) {
 		per_cpu(current_vmcs, cpu) = vmx->loaded_vmcs->vmcs;
 		vmcs_load(vmx->loaded_vmcs->vmcs);
+		indirect_branch_prediction_barrier();
 	}
 
 	if (!already_loaded) {
@@ -3837,6 +3838,11 @@ static void free_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
 	free_vmcs(loaded_vmcs->vmcs);
 	loaded_vmcs->vmcs = NULL;
 	WARN_ON(loaded_vmcs->shadow_vmcs != NULL);
+	/*
+	 * The VMCS could be recycled, causing a false negative in vmx_vcpu_load
+	 * block speculative execution.
+	 */
+	indirect_branch_prediction_barrier();
 }
 
 static void free_kvm_area(void)
@@ -6804,6 +6810,8 @@ static __init int hardware_setup(void)
 	 */
 	if (boot_cpu_has(X86_FEATURE_SPEC_CTRL))
 		vmx_disable_intercept_for_msr(MSR_IA32_SPEC_CTRL, false);
+	if (boot_cpu_has(X86_FEATURE_IBPB))
+		vmx_disable_intercept_for_msr(MSR_IA32_PRED_CMD, false);
 
 	vmx_disable_intercept_for_msr(MSR_FS_BASE, false);
 	vmx_disable_intercept_for_msr(MSR_GS_BASE, false);
