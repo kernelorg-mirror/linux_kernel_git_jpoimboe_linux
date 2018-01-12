@@ -232,6 +232,24 @@ static inline void restart_indirect_branch_speculation(void)
 		native_wrmsrl(MSR_IA32_SPEC_CTRL, SPEC_CTRL_DISABLE_IBRS);
 }
 
+static inline u64 stop_indirect_branch_speculation_and_save(void)
+{
+	u64 val = 0;
+
+	if (static_cpu_has(X86_FEATURE_IBRS)) {
+		val = native_rdmsrl(MSR_IA32_SPEC_CTRL);
+		native_wrmsrl(MSR_IA32_SPEC_CTRL, SPEC_CTRL_ENABLE_IBRS);
+	}
+
+	return val;
+}
+
+static inline void restore_indirect_branch_speculation(u64 val)
+{
+	if (static_cpu_has(X86_FEATURE_IBRS))
+		native_wrmsrl(MSR_IA32_SPEC_CTRL, val);
+}
+
 void specctrl_init_ibpb(void);
 
 static inline void indirect_branch_prediction_barrier(void)
