@@ -184,6 +184,8 @@ struct vcpu_svm {
 		u64 gs_base;
 	} host;
 
+	u64 spec_ctrl;
+
 	u32 *msrpm;
 
 	ulong nmi_iret_rip;
@@ -249,6 +251,7 @@ static const struct svm_direct_access_msrs {
 	{ .index = MSR_CSTAR,				.always = true  },
 	{ .index = MSR_SYSCALL_MASK,			.always = true  },
 #endif
+	{ .index = MSR_IA32_SPEC_CTRL,          .always = true  },
 	{ .index = MSR_IA32_LASTBRANCHFROMIP,		.always = false },
 	{ .index = MSR_IA32_LASTBRANCHTOIP,		.always = false },
 	{ .index = MSR_IA32_LASTINTFROMIP,		.always = false },
@@ -3577,6 +3580,9 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_VM_CR:
 		msr_info->data = svm->nested.vm_cr_msr;
 		break;
+	case MSR_IA32_SPEC_CTRL:
+		msr_info->data = svm->spec_ctrl;
+		break;
 	case MSR_IA32_UCODE_REV:
 		msr_info->data = 0x01000065;
 		break;
@@ -3724,6 +3730,9 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
 		return svm_set_vm_cr(vcpu, data);
 	case MSR_VM_IGNNE:
 		vcpu_unimpl(vcpu, "unimplemented wrmsr: 0x%x data 0x%llx\n", ecx, data);
+		break;
+	case MSR_IA32_SPEC_CTRL:
+		svm->spec_ctrl = data;
 		break;
 	case MSR_IA32_APICBASE:
 		if (kvm_vcpu_apicv_active(vcpu))
@@ -4911,6 +4920,8 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 
 	clgi();
 
+	restore_indirect_branch_speculation(svm->spec_ctrl);
+
 	local_irq_enable();
 
 	asm volatile (
@@ -4988,6 +4999,8 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 
 	/* Eliminate branch target predictions from guest mode */
 	vmexit_fill_RSB();
+
+	svm->spec_ctrl = stop_indirect_branch_speculation_and_save();
 
 #ifdef CONFIG_X86_64
 	wrmsrl(MSR_GS_BASE, svm->host.gs_base);
