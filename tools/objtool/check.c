@@ -687,8 +687,17 @@ static int handle_jump_alt(struct objtool_file *file,
 			   struct instruction *orig_insn,
 			   struct instruction **new_insn)
 {
-	if (orig_insn->type == INSN_NOP)
+	struct instruction *next_insn = list_next_entry(orig_insn, list);
+
+	if (orig_insn->type == INSN_NOP) {
+		/*
+		 * If orig_insn is a NOP, then new_insn is the branch target
+		 * for when it would've been a JMP.
+		 */
+		next_insn->static_jump_dest = true;
+		(*new_insn)->static_jump_dest = true;
 		return 0;
+	}
 
 	if (orig_insn->type != INSN_JUMP_UNCONDITIONAL) {
 		WARN_FUNC("unsupported instruction at jump label",
@@ -696,7 +705,16 @@ static int handle_jump_alt(struct objtool_file *file,
 		return -1;
 	}
 
-	*new_insn = list_next_entry(orig_insn, list);
+	/*
+	 * Otherwise, orig_insn is a JMP and it will have orig_insn->jump_dest.
+	 * In this case we'll effectively NOP the alt by pointing new_insn at
+	 * next_insn.
+	 */
+	orig_insn->jump_dest->static_jump_dest = true;
+	next_insn->static_jump_dest = true;
+
+	*new_insn = next_insn;
+
 	return 0;
 }
 
@@ -1062,6 +1080,50 @@ static int read_unwind_hints(struct objtool_file *file)
 
 		cfa->offset = hint->sp_offset;
 		insn->state.type = hint->type;
+	}
+
+	return 0;
+}
+
+static int assert_static_jumps(struct objtool_file *file)
+{
+	struct section *sec, *relasec;
+	struct instruction *insn;
+	struct rela *rela;
+	int i;
+
+	sec = find_section_by_name(file->elf, ".discard.jump_assert");
+	if (!sec)
+		return 0;
+
+	relasec = sec->rela;
+	if (!relasec) {
+		WARN("missing .rela.discard.jump_assert section");
+		return -1;
+	}
+
+	if (sec->len % sizeof(unsigned long)) {
+		WARN("jump_assert size mismatch: %d %ld", sec->len, sizeof(unsigned long));
+		return -1;
+	}
+
+	for (i = 0; i < sec->len / sizeof(unsigned long); i++) {
+		rela = find_rela_by_dest(sec, i * sizeof(unsigned long));
+		if (!rela) {
+			WARN("can't find rela for jump_assert[%d]", i);
+			return -1;
+		}
+
+		insn = find_insn(file, rela->sym->sec, rela->addend);
+		if (!insn) {
+			WARN("can't find insn for jump_assert[%d]", i);
+			return -1;
+		}
+
+		if (!insn->static_jump_dest) {
+			WARN_FUNC("static assert FAIL", insn->sec, insn->offset);
+			return -1;
+		}
 	}
 
 	return 0;
@@ -1999,6 +2061,10 @@ int check(const char *_objname, bool _no_fp, bool no_unreachable, bool orc)
 	if (ret < 0)
 		goto out;
 	warnings += ret;
+
+	ret = assert_static_jumps(&file);
+	if (ret < 0)
+		return ret;
 
 	if (list_empty(&file.insn_list))
 		goto out;
