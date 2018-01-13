@@ -358,6 +358,7 @@ struct elf *elf_open(const char *name, int flags)
 
 	elf->fd = open(name, flags);
 	if (elf->fd == -1) {
+		fprintf(stderr, "objtool: can't open file %s\n", name);
 		perror("open");
 		goto err;
 	}
