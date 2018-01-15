@@ -271,6 +271,8 @@ set_mode:
 		setup_force_cpu_cap(X86_FEATURE_RSB_CTXSW);
 		pr_info("Filling RSB on context switch\n");
 	}
+	/* Initialize Indirect Branch Prediction Barrier if supported */
+	specctrl_init_ibpb();
 }
 
 #undef pr_fmt

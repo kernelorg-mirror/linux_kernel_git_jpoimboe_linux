@@ -31,3 +31,12 @@ bool __init specctrl_cond_enable_ibrs(bool full_retpoline)
 	specctrl_enable_ibrs();
 	return true;
 }
+
+void __init specctrl_init_ibpb(void)
+{
+	if (!boot_cpu_has(X86_FEATURE_SPEC_CTRL) &&
+	    !boot_cpu_has(X86_FEATURE_AMD_IBPB))
+		return;
+
+	setup_force_cpu_cap(X86_FEATURE_IBPB);
+}

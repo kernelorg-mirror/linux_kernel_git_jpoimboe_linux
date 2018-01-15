@@ -231,5 +231,14 @@ static inline void restart_indirect_branch_speculation(void)
 	if (static_cpu_has(X86_FEATURE_IBRS))
 		native_wrmsrl(MSR_IA32_SPEC_CTRL, SPEC_CTRL_DISABLE_IBRS);
 }
+
+void specctrl_init_ibpb(void);
+
+static inline void indirect_branch_prediction_barrier(void)
+{
+	if (static_cpu_has(X86_FEATURE_IBPB))
+		native_wrmsrl(MSR_IA32_PRED_CMD, PRED_CMD_IBPB);
+}
+
 #endif /* __ASSEMBLY__ */
 #endif /* __NOSPEC_BRANCH_H__ */

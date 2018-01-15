@@ -212,8 +212,9 @@
 
 #define X86_FEATURE_MBA			( 7*32+18) /* Memory Bandwidth Allocation */
 #define X86_FEATURE_RSB_CTXSW		( 7*32+19) /* Fill RSB on context switches */
-#define X86_FEATURE_SPEC_CTRL		( 7*32+20) /* Speculation Control */
+#define X86_FEATURE_SPEC_CTRL		( 7*32+20) /* Speculation Control - Intel only */
 #define X86_FEATURE_IBRS		( 7*32+21) /* Indirect Branch Restricted Speculation */
+#define X86_FEATURE_IBPB		( 7*32+22) /* Indirect Branch Prediction Barrier */
 
 /* Virtualization flags: Linux defined, word 8 */
 #define X86_FEATURE_TPR_SHADOW		( 8*32+ 0) /* Intel TPR Shadow */
@@ -273,6 +274,7 @@
 #define X86_FEATURE_CLZERO		(13*32+ 0) /* CLZERO instruction */
 #define X86_FEATURE_IRPERF		(13*32+ 1) /* Instructions Retired Count */
 #define X86_FEATURE_XSAVEERPTR		(13*32+ 2) /* Always save/restore FP error pointers */
+#define X86_FEATURE_AMD_IBPB		(13*32+12) /* Indirect Branch Prediction Barrier support */
 
 /* Thermal and Power Management Leaf, CPUID level 0x00000006 (EAX), word 14 */
 #define X86_FEATURE_DTHERM		(14*32+ 0) /* Digital Thermal Sensor */
