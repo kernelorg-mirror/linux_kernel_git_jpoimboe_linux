@@ -62,6 +62,29 @@ l_yes:
 	return true;
 }
 
+/*
+ * Annotation for objtool; asserts that the previous instruction is the
+ * jump_label patch site. Or rather, that the next instruction is a static
+ * branch target.
+ *
+ * Use like:
+ *
+ *	if (static_branch_likely(key)) {
+ *		arch_static_assert();
+ *		do_code();
+ *	}
+ *
+ * Also works with static_cpu_has().
+ */
+static __always_inline void arch_static_assert(void)
+{
+	asm volatile ("1:\n\t"
+		      ".pushsection .discard.jump_assert \n\t"
+		      _ASM_ALIGN  "\n\t"
+		      _ASM_PTR "1b \n\t"
+		      ".popsection \n\t");
+}
+
 #ifdef CONFIG_X86_64
 typedef u64 jump_label_t;
 #else
