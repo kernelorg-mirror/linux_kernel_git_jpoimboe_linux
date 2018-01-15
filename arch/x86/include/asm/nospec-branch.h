@@ -6,6 +6,7 @@
 #include <asm/alternative.h>
 #include <asm/alternative-asm.h>
 #include <asm/cpufeatures.h>
+#include <asm/msr.h>
 
 /*
  * Fill the CPU return stack buffer.
@@ -219,5 +220,16 @@ bool specctrl_force_enable_ibrs(void);
 bool specctrl_cond_enable_ibrs(bool full_retpoline);
 bool is_skylake_era(void);
 
+static inline void stop_indirect_branch_speculation(void)
+{
+	if (static_cpu_has(X86_FEATURE_IBRS))
+		native_wrmsrl(MSR_IA32_SPEC_CTRL, SPEC_CTRL_ENABLE_IBRS);
+}
+
+static inline void restart_indirect_branch_speculation(void)
+{
+	if (static_cpu_has(X86_FEATURE_IBRS))
+		native_wrmsrl(MSR_IA32_SPEC_CTRL, SPEC_CTRL_DISABLE_IBRS);
+}
 #endif /* __ASSEMBLY__ */
 #endif /* __NOSPEC_BRANCH_H__ */
