@@ -27,6 +27,7 @@ struct special_alt {
 	bool group;
 	bool skip_orig;
 	bool jump_or_nop;
+	bool static_cpu_has;
 
 	struct section *orig_sec;
 	unsigned long orig_off;

@@ -636,6 +636,12 @@ static int handle_group_alt(struct objtool_file *file,
 	fake_jump->ignore = true;
 
 	if (!special_alt->new_len) {
+		/*
+		 * The NOP case for _static_cpu_has()
+		 */
+		if (special_alt->static_cpu_has)
+			fake_jump->jump_dest->static_jump_dest = true;
+
 		*new_insn = fake_jump;
 		return 0;
 	}
@@ -663,6 +669,21 @@ static int handle_group_alt(struct objtool_file *file,
 			WARN_FUNC("can't find alternative jump destination",
 				  insn->sec, insn->offset);
 			return -1;
+		}
+
+		if (special_alt->static_cpu_has) {
+			if (insn->type != INSN_JUMP_UNCONDITIONAL) {
+				WARN_FUNC("not an unconditional jump in _static_cpu_has()",
+					  insn->sec, insn->offset);
+			}
+			if (insn->jump_dest == fake_jump) {
+				WARN_FUNC("jump inside alternative for _static_cpu_has()",
+					  insn->sec, insn->offset);
+			}
+			/*
+			 * The JMP+disp case for _static_cpu_has()
+			 */
+			insn->jump_dest->static_jump_dest = true;
 		}
 	}
 

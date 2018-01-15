@@ -40,6 +40,10 @@
 #define ALT_FEATURE_OFFSET	8
 #define ALT_ORIG_LEN_OFFSET	10
 #define ALT_NEW_LEN_OFFSET	11
+#define ALT_TYPE_OFFSET		13
+
+#define ALT_TYPE_DEFAULT	0
+#define ALT_TYPE_STATIC_CPU_HAS	1
 
 #define X86_FEATURE_POPCNT (4*32+23)
 
@@ -48,7 +52,6 @@ struct special_entry {
 	bool group, jump_or_nop;
 	unsigned char size, orig, new;
 	unsigned char orig_len, new_len; /* group only */
-	unsigned char feature; /* ALTERNATIVE macro CPU feature */
 };
 
 struct special_entry entries[] = {
@@ -60,7 +63,6 @@ struct special_entry entries[] = {
 		.orig_len = ALT_ORIG_LEN_OFFSET,
 		.new = ALT_NEW_OFFSET,
 		.new_len = ALT_NEW_LEN_OFFSET,
-		.feature = ALT_FEATURE_OFFSET,
 	},
 	{
 		.sec = "__jump_table",
@@ -84,24 +86,23 @@ static int get_alt_entry(struct elf *elf, struct special_entry *entry,
 {
 	struct rela *orig_rela, *new_rela;
 	unsigned long offset;
+	void *data;
 
 	offset = idx * entry->size;
+	data = sec->data->d_buf + offset;
 
 	alt->group = entry->group;
 	alt->jump_or_nop = entry->jump_or_nop;
 
 	if (alt->group) {
-		alt->orig_len = *(unsigned char *)(sec->data->d_buf + offset +
-						   entry->orig_len);
-		alt->new_len = *(unsigned char *)(sec->data->d_buf + offset +
-						  entry->new_len);
-	}
-
-	if (entry->feature) {
 		unsigned short feature;
+		unsigned char type;
 
-		feature = *(unsigned short *)(sec->data->d_buf + offset +
-					      entry->feature);
+		alt->orig_len = *(unsigned char *)(data + entry->orig_len);
+		alt->new_len = *(unsigned char *)(data + entry->new_len);
+
+		feature = *(unsigned short *)(data + ALT_FEATURE_OFFSET);
+		type = *(unsigned char *)(data + ALT_TYPE_OFFSET);
 
 		/*
 		 * It has been requested that we don't validate the !POPCNT
@@ -110,6 +111,9 @@ static int get_alt_entry(struct elf *elf, struct special_entry *entry,
 		 */
 		if (feature == X86_FEATURE_POPCNT)
 			alt->skip_orig = true;
+
+		if (type == ALT_TYPE_STATIC_CPU_HAS)
+			alt->static_cpu_has = true;
 	}
 
 	orig_rela = find_rela_by_dest(sec, offset + entry->orig);
