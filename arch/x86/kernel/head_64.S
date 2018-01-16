@@ -134,7 +134,10 @@ ENTRY(secondary_startup_64)
 
 	/* Ensure I am executing from virtual addresses */
 	movq	$1f, %rax
-	jmp	*%rax
+2:	jmp	*%rax
+	.pushsection .discard.retpoline_safe
+	.quad 2b
+	.popsection
 1:
 	UNWIND_HINT_EMPTY
 
