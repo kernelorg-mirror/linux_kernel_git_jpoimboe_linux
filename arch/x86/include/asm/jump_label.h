@@ -76,6 +76,7 @@ l_yes:
  *
  * Also works with static_cpu_has().
  */
+#define arch_static_assert arch_static_assert
 static __always_inline void arch_static_assert(void)
 {
 	asm volatile ("1:\n\t"

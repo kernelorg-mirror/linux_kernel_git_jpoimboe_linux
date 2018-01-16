@@ -323,6 +323,10 @@ extern bool ____wrong_branch_error(void);
 
 #ifdef HAVE_JUMP_LABEL
 
+#ifndef arch_static_assert
+#define arch_static_assert (void)
+#endif
+
 /*
  * Combine the right initial value (type) with the right branch order
  * to generate the desired result.
@@ -388,7 +392,7 @@ extern bool ____wrong_branch_error(void);
 		branch = !arch_static_branch_jump(&(x)->key, true);		\
 	else									\
 		branch = ____wrong_branch_error();				\
-	branch;									\
+	branch && (arch_static_assert(), true);					\
 })
 
 #define static_branch_unlikely(x)						\
@@ -400,7 +404,7 @@ extern bool ____wrong_branch_error(void);
 		branch = arch_static_branch(&(x)->key, false);			\
 	else									\
 		branch = ____wrong_branch_error();				\
-	branch;									\
+	branch && (arch_static_assert(), true);					\
 })
 
 #else /* !HAVE_JUMP_LABEL */
