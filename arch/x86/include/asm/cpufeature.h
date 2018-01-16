@@ -157,6 +157,7 @@ static __always_inline __pure bool _static_cpu_has(u16 bit)
 		 " .byte 3b - 1b\n"		/* src len */
 		 " .byte 5f - 4f\n"		/* repl len */
 		 " .byte 3b - 2b\n"		/* pad len */
+		 " .byte 0\n"			/* type */
 		 ".previous\n"
 		 ".section .altinstr_replacement,\"ax\"\n"
 		 "4: jmp %l[t_no]\n"
@@ -169,6 +170,7 @@ static __always_inline __pure bool _static_cpu_has(u16 bit)
 		 " .byte 3b - 1b\n"		/* src len */
 		 " .byte 0\n"			/* repl len */
 		 " .byte 0\n"			/* pad len */
+		 " .byte 0\n"			/* type */
 		 ".previous\n"
 		 ".section .altinstr_aux,\"ax\"\n"
 		 "6:\n"

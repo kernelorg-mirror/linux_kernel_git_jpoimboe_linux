@@ -45,6 +45,8 @@
 #define LOCK_PREFIX ""
 #endif
 
+#define ALT_TYPE_DEFAULT	0
+
 struct alt_instr {
 	s32 instr_offset;	/* original instruction */
 	s32 repl_offset;	/* offset to replacement instruction */
@@ -52,6 +54,7 @@ struct alt_instr {
 	u8  instrlen;		/* length of original instruction */
 	u8  replacementlen;	/* length of new instruction */
 	u8  padlen;		/* length of build-time padding */
+	u8  type;		/* type of alternative */
 } __packed;
 
 /*
@@ -127,7 +130,8 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	" .word " __stringify(feature) "\n"		/* feature bit     */ \
 	" .byte " alt_total_slen "\n"			/* source len      */ \
 	" .byte " alt_rlen(num) "\n"			/* replacement len */ \
-	" .byte " alt_pad_len "\n"			/* pad len */
+	" .byte " alt_pad_len "\n"			/* pad len */	      \
+	" .byte 0 \n"					/* type */
 
 #define ALTINSTR_REPLACEMENT(newinstr, feature, num)	/* replacement */     \
 	b_replacement(num)":\n\t" newinstr "\n" e_replacement(num) ":\n\t"
