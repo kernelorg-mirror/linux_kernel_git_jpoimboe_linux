@@ -520,6 +520,8 @@ static int add_jump_destinations(struct objtool_file *file)
 				  dest_off);
 			return -1;
 		}
+
+		insn->jump_dest->branch_target = true;
 	}
 
 	return 0;
@@ -1205,6 +1207,41 @@ static int read_retpoline_hints(struct objtool_file *file)
 	return 0;
 }
 
+static int grow_static_blocks(struct objtool_file *file)
+{
+	struct instruction *insn;
+	bool static_block = false;
+
+	for_each_insn(file, insn) {
+		if (!static_block && !insn->static_jump_dest)
+			continue;
+
+		if (insn->static_jump_dest) {
+			static_block = true;
+			continue;
+		}
+
+		if (insn->branch_target) {
+			static_block = false;
+			continue;
+		} else switch (insn->type) {
+		case INSN_JUMP_CONDITIONAL:
+		case INSN_JUMP_UNCONDITIONAL:
+		case INSN_JUMP_DYNAMIC:
+		case INSN_CALL:
+		case INSN_CALL_DYNAMIC:
+		case INSN_RETURN:
+		case INSN_BUG:
+			static_block = false;
+			continue;
+		}
+
+		insn->static_jump_dest = static_block;
+	}
+
+	return 0;
+}
+
 static int decode_sections(struct objtool_file *file)
 {
 	int ret;
@@ -1244,6 +1281,10 @@ static int decode_sections(struct objtool_file *file)
 		return ret;
 
 	ret = read_retpoline_hints(file);
+	if (ret)
+		return ret;
+
+	ret = grow_static_blocks(file);
 	if (ret)
 		return ret;
 
