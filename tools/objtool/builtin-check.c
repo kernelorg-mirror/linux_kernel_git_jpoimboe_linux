@@ -54,5 +54,5 @@ int cmd_check(int argc, const char **argv)
 
 	objname = argv[0];
 
-	return check(objname, no_fp, no_unreachable, retpoline, false);
+	return check(objname, false);
 }
