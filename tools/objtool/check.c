@@ -1207,36 +1207,73 @@ static int read_retpoline_hints(struct objtool_file *file)
 	return 0;
 }
 
+static void __grow_static_block(struct instruction *insn, bool *state)
+{
+	if (!*state && !insn->static_jump_dest)
+		return;
+
+	if (insn->static_jump_dest) {
+		*state = true;
+		return;
+	}
+
+	if (insn->branch_target) {
+		*state = false;
+		return;
+
+	} else switch (insn->type) {
+	case INSN_JUMP_CONDITIONAL:
+	case INSN_JUMP_UNCONDITIONAL:
+	case INSN_JUMP_DYNAMIC:
+	case INSN_CALL_DYNAMIC:
+	case INSN_RETURN:
+	case INSN_BUG:
+		*state = false;
+		return;
+	}
+
+	insn->static_jump_dest = *state;
+}
+
 static int grow_static_blocks(struct objtool_file *file)
 {
-	struct instruction *insn;
 	bool static_block = false;
+	struct symbol *func, *tmp;
+	struct instruction *insn;
+	struct section *sec;
 
 	for_each_insn(file, insn) {
-		if (!static_block && !insn->static_jump_dest)
-			continue;
+		__grow_static_block(insn, &static_block);
 
-		if (insn->static_jump_dest) {
+		if (insn->type == INSN_CALL) {
+			func = insn->call_dest;
+			if (!func)
+				continue;
+
+			if (static_block)
+				func->static_call = true;
+			else
+				func->non_static_call = true;
+		}
+	}
+
+	for_each_sec(file, sec) {
+		list_for_each_entry_safe(func, tmp, &sec->symbol_list, list) {
+			if (!func->static_call)
+				continue;
+
+			if (func->non_static_call)
+				continue;
+
+			/* static && !non_static -- only static callers */
+
 			static_block = true;
-			continue;
+			func_for_each_insn(file, func, insn) {
+				__grow_static_block(insn, &static_block);
+				if (!static_block)
+					break;
+			}
 		}
-
-		if (insn->branch_target) {
-			static_block = false;
-			continue;
-		} else switch (insn->type) {
-		case INSN_JUMP_CONDITIONAL:
-		case INSN_JUMP_UNCONDITIONAL:
-		case INSN_JUMP_DYNAMIC:
-		case INSN_CALL:
-		case INSN_CALL_DYNAMIC:
-		case INSN_RETURN:
-		case INSN_BUG:
-			static_block = false;
-			continue;
-		}
-
-		insn->static_jump_dest = static_block;
 	}
 
 	return 0;
