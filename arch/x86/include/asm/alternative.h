@@ -46,6 +46,7 @@
 #endif
 
 #define ALT_TYPE_DEFAULT	0
+#define ALT_TYPE_STATIC_CPU_HAS	1 /* objtool, static_cpu_has */
 
 struct alt_instr {
 	s32 instr_offset;	/* original instruction */
