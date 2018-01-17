@@ -21,12 +21,18 @@
 #include <stdbool.h>
 #include "elf.h"
 
+enum special_type {
+	alternative,
+	jump_label,
+	exception,
+};
+
 struct special_alt {
 	struct list_head list;
 
-	bool group;
+	enum special_type type;
+
 	bool skip_orig;
-	bool jump_or_nop;
 	bool static_cpu_has;
 
 	struct section *orig_sec;

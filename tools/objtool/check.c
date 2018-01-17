@@ -773,7 +773,7 @@ static int add_special_section_alts(struct objtool_file *file)
 			continue;
 
 		new_insn = NULL;
-		if (!special_alt->group || special_alt->new_len) {
+		if (special_alt->type != alternative || special_alt->new_len) {
 			new_insn = find_insn(file, special_alt->new_sec,
 					     special_alt->new_off);
 			if (!new_insn) {
@@ -785,16 +785,24 @@ static int add_special_section_alts(struct objtool_file *file)
 			}
 		}
 
-		if (special_alt->group) {
+		switch (special_alt->type) {
+		case alternative:
 			ret = handle_group_alt(file, special_alt, orig_insn,
 					       &new_insn);
 			if (ret)
 				goto out;
-		} else if (special_alt->jump_or_nop) {
+			break;
+
+		case jump_label:
 			ret = handle_jump_alt(file, special_alt, orig_insn,
 					      &new_insn);
 			if (ret)
 				goto out;
+
+			break;
+
+		default:
+			break;
 		}
 
 		alt = malloc(sizeof(*alt));
