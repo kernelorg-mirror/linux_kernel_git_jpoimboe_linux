@@ -354,6 +354,9 @@ extern struct pv_lock_ops pv_lock_ops;
 	"  .byte " type "\n"				\
 	"  .byte 772b-771b\n"				\
 	"  .short " clobber "\n"			\
+	".popsection\n"					\
+	".pushsection .discard.retpoline_safe\n"	\
+	_ASM_PTR " 771b\n"				\
 	".popsection\n"
 
 /* Generate patchable code, with the default asm parameters. */

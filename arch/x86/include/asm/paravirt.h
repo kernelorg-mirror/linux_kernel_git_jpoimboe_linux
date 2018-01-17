@@ -921,7 +921,10 @@ extern void default_banner(void);
 		 )
 
 #define GET_CR2_INTO_RAX				\
-	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_read_cr2)
+999:	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_read_cr2);	\
+	.pushsection .discard.retpoline_safe;		\
+	.quad 999b;					\
+	.popsection;
 
 #define USERGS_SYSRET64							\
 	PARA_SITE(PARA_PATCH(pv_cpu_ops, PV_CPU_usergs_sysret64),	\
