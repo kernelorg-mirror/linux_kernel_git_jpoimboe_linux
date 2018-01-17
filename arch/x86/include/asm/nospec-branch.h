@@ -3,6 +3,8 @@
 #ifndef __NOSPEC_BRANCH_H__
 #define __NOSPEC_BRANCH_H__
 
+#include <linux/jump_label.h>
+
 #include <asm/alternative.h>
 #include <asm/alternative-asm.h>
 #include <asm/cpufeatures.h>
@@ -222,14 +224,18 @@ bool is_skylake_era(void);
 
 static inline void stop_indirect_branch_speculation(void)
 {
-	if (static_cpu_has(X86_FEATURE_IBRS))
+	if (static_cpu_has(X86_FEATURE_IBRS)) {
+		arch_static_assert();
 		native_wrmsrl(MSR_IA32_SPEC_CTRL, SPEC_CTRL_ENABLE_IBRS);
+	}
 }
 
 static inline void restart_indirect_branch_speculation(void)
 {
-	if (static_cpu_has(X86_FEATURE_IBRS))
+	if (static_cpu_has(X86_FEATURE_IBRS)) {
+		arch_static_assert();
 		native_wrmsrl(MSR_IA32_SPEC_CTRL, SPEC_CTRL_DISABLE_IBRS);
+	}
 }
 
 static inline u64 stop_indirect_branch_speculation_and_save(void)
@@ -237,6 +243,7 @@ static inline u64 stop_indirect_branch_speculation_and_save(void)
 	u64 val = 0;
 
 	if (static_cpu_has(X86_FEATURE_IBRS)) {
+		arch_static_assert();
 		val = native_rdmsrl(MSR_IA32_SPEC_CTRL);
 		native_wrmsrl(MSR_IA32_SPEC_CTRL, SPEC_CTRL_ENABLE_IBRS);
 	}
@@ -246,16 +253,20 @@ static inline u64 stop_indirect_branch_speculation_and_save(void)
 
 static inline void restore_indirect_branch_speculation(u64 val)
 {
-	if (static_cpu_has(X86_FEATURE_IBRS))
+	if (static_cpu_has(X86_FEATURE_IBRS)) {
+		arch_static_assert();
 		native_wrmsrl(MSR_IA32_SPEC_CTRL, val);
+	}
 }
 
 void specctrl_init_ibpb(void);
 
 static inline void indirect_branch_prediction_barrier(void)
 {
-	if (static_cpu_has(X86_FEATURE_IBPB))
+	if (static_cpu_has(X86_FEATURE_IBPB)) {
+		arch_static_assert();
 		native_wrmsrl(MSR_IA32_PRED_CMD, PRED_CMD_IBPB);
+	}
 }
 
 #endif /* __ASSEMBLY__ */
