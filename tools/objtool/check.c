@@ -1978,6 +1978,25 @@ static void cleanup(struct objtool_file *file)
 	elf_close(file->elf);
 }
 
+/*
+ * With CONFIG_MODVERSIONS, the object name has '.tmp_' prepended to it.
+ * After the file has been opened, remove the prefix so warnings will look
+ * sensible.
+ */
+static void fix_objname(void)
+{
+	char *s;
+
+	s = strstr(objname, ".tmp_");
+	if (!s)
+		return;
+
+	for (; s[5]; s++)
+		s[0] = s[5];
+
+	s[0] = 0;
+}
+
 int check(const char *_objname, bool _no_fp, bool no_unreachable, bool orc)
 {
 	struct objtool_file file;
@@ -1989,6 +2008,8 @@ int check(const char *_objname, bool _no_fp, bool no_unreachable, bool orc)
 	file.elf = elf_open(objname, orc ? O_RDWR : O_RDONLY);
 	if (!file.elf)
 		return 1;
+
+	fix_objname();
 
 	INIT_LIST_HEAD(&file.insn_list);
 	hash_init(file.insn_hash);
