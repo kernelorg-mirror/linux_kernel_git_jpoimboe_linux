@@ -86,6 +86,7 @@ int create_orc(struct objtool_file *file)
 		orc->sp_offset = cfa->offset;
 		orc->bp_offset = bp->offset;
 		orc->type = insn->state.type;
+		orc->end = insn->state.end;
 	}
 
 	return 0;
