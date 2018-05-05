@@ -25,14 +25,14 @@
 
 #define ATOMIC_INIT(i)	{ (i) }
 
-#define __atomic_op_acquire(op, args...)				\
+#define __op_acquire(op, args...)					\
 ({									\
 	typeof(op##_relaxed(args)) __ret  = op##_relaxed(args);		\
 	__asm__ __volatile__(RISCV_ACQUIRE_BARRIER "" ::: "memory");	\
 	__ret;								\
 })
 
-#define __atomic_op_release(op, args...)				\
+#define __op_release(op, args...)					\
 ({									\
 	__asm__ __volatile__(RISCV_RELEASE_BARRIER "" ::: "memory");	\
 	op##_relaxed(args);						\
