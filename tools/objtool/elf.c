@@ -507,7 +507,10 @@ struct section *elf_create_section(struct elf *elf, const char *name,
 	/* Add section name to .shstrtab */
 	shstrtab = find_section_by_name(elf, ".shstrtab");
 	if (!shstrtab) {
-		WARN("can't find .shstrtab section");
+		shstrtab = find_section_by_name(elf, ".strtab");
+	}
+	if (!shstrtab) {
+		WARN("can't find .shstrtab or .strtab section");
 		return NULL;
 	}
 
