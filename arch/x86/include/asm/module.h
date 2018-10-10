@@ -5,11 +5,17 @@
 #include <asm-generic/module.h>
 #include <asm/orc_types.h>
 
+struct static_call_site;
+
 struct mod_arch_specific {
 #ifdef CONFIG_UNWINDER_ORC
 	unsigned int num_orcs;
 	int *orc_unwind_ip;
 	struct orc_entry *orc_unwind;
+#endif
+#ifdef CONFIG_HAVE_ARCH_STATIC_CALL
+	int num_static_call_sites;
+	struct static_call_site *static_call_sites;
 #endif
 };
 

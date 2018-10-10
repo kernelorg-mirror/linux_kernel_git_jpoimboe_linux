@@ -30,6 +30,7 @@
 #include <linux/gfp.h>
 #include <linux/jump_label.h>
 #include <linux/random.h>
+#include <linux/static_call.h>
 
 #include <asm/text-patching.h>
 #include <asm/page.h>
@@ -234,7 +235,7 @@ int module_finalize(const Elf_Ehdr *hdr,
 		    struct module *me)
 {
 	const Elf_Shdr *s, *text = NULL, *alt = NULL, *locks = NULL,
-		*para = NULL, *orc = NULL, *orc_ip = NULL;
+		*para = NULL, *orc = NULL, *orc_ip = NULL, *static_call = NULL;
 	char *secstrings = (void *)hdr + sechdrs[hdr->e_shstrndx].sh_offset;
 
 	for (s = sechdrs; s < sechdrs + hdr->e_shnum; s++) {
@@ -250,6 +251,8 @@ int module_finalize(const Elf_Ehdr *hdr,
 			orc = s;
 		if (!strcmp(".orc_unwind_ip", secstrings + s->sh_name))
 			orc_ip = s;
+		if (!strcmp(".static_call_sites", secstrings + s->sh_name))
+			static_call = s;
 	}
 
 	if (alt) {
@@ -276,6 +279,14 @@ int module_finalize(const Elf_Ehdr *hdr,
 	if (orc && orc_ip)
 		unwind_module_init(me, (void *)orc_ip->sh_addr, orc_ip->sh_size,
 				   (void *)orc->sh_addr, orc->sh_size);
+
+	if (static_call) {
+#ifdef CONFIG_ARCH_HAVE_STATIC_CALL
+		me->arch.static_call_sites = (void *)static_call->sh_addr;
+		me->arch.num_static_call_sites = static_call->sh_size /
+						 sizeof(struct static_call_site);
+#endif
+	}
 
 	return 0;
 }
