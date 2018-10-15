@@ -138,7 +138,8 @@ struct klp_object {
  * @list:	list node for global list of registered patches
  * @kobj:	kobject for sysfs resources
  * @enabled:	the patch is enabled (but operation may be incomplete)
- * @forced:	was involved in a forced transition
+ * @module_put: module reference taken and patch not forced
+ * @free_work:  work freeing the patch that has to be done in another context
  * @finish:	for waiting till it is safe to remove the patch module
  */
 struct klp_patch {
@@ -150,7 +151,8 @@ struct klp_patch {
 	struct list_head list;
 	struct kobject kobj;
 	bool enabled;
-	bool forced;
+	bool module_put;
+	struct work_struct free_work;
 	struct completion finish;
 };
 
@@ -202,10 +204,7 @@ struct klp_patch {
 	     func->old_name || func->new_addr || func->old_sympos; \
 	     func++)
 
-int klp_register_patch(struct klp_patch *);
-int klp_unregister_patch(struct klp_patch *);
 int klp_enable_patch(struct klp_patch *);
-int klp_disable_patch(struct klp_patch *);
 
 void arch_klp_init_object_loaded(struct klp_patch *patch,
 				 struct klp_object *obj);
