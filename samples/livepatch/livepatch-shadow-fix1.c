@@ -130,11 +130,11 @@ void livepatch_fix1_dummy_free(struct dummy *d)
 static struct klp_func funcs[] = {
 	{
 		.old_name = "dummy_alloc",
-		.new_func = livepatch_fix1_dummy_alloc,
+		.new_addr = (unsigned long)livepatch_fix1_dummy_alloc,
 	},
 	{
 		.old_name = "dummy_free",
-		.new_func = livepatch_fix1_dummy_free,
+		.new_addr = (unsigned long)livepatch_fix1_dummy_free,
 	}, { }
 };
 

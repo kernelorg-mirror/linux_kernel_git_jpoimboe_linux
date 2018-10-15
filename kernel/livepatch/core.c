@@ -675,7 +675,7 @@ static void klp_free_patch(struct klp_patch *patch)
 
 static int klp_init_func(struct klp_object *obj, struct klp_func *func)
 {
-	if (!func->old_name || !func->new_func)
+	if (!func->old_name || !func->new_addr)
 		return -EINVAL;
 
 	if (strlen(func->old_name) >= KSYM_NAME_LEN)
@@ -733,7 +733,7 @@ static int klp_init_object_loaded(struct klp_patch *patch,
 			return -ENOENT;
 		}
 
-		ret = kallsyms_lookup_size_offset((unsigned long)func->new_func,
+		ret = kallsyms_lookup_size_offset(func->new_addr,
 						  &func->new_size, NULL);
 		if (!ret) {
 			pr_err("kallsyms size lookup failed for '%s' replacement\n",

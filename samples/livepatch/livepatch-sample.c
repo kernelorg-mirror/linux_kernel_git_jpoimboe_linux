@@ -51,7 +51,7 @@ static int livepatch_cmdline_proc_show(struct seq_file *m, void *v)
 static struct klp_func funcs[] = {
 	{
 		.old_name = "cmdline_proc_show",
-		.new_func = livepatch_cmdline_proc_show,
+		.new_addr = (unsigned long)livepatch_cmdline_proc_show,
 	}, { }
 };
 

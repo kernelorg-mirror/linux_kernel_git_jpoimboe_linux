@@ -118,7 +118,7 @@ static void notrace klp_ftrace_handler(unsigned long ip,
 		}
 	}
 
-	klp_arch_set_pc(regs, (unsigned long)func->new_func);
+	klp_arch_set_pc(regs, func->new_addr);
 unlock:
 	preempt_enable_notrace();
 }

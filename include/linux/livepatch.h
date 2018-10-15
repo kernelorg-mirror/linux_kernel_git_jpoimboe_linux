@@ -37,7 +37,7 @@
 /**
  * struct klp_func - function structure for live patching
  * @old_name:	name of the function to be patched
- * @new_func:	pointer to the patched function code
+ * @new_addr:	address of the new function (function pointer)
  * @old_sympos: a hint indicating which symbol position the old function
  *		can be found (optional)
  * @old_addr:	the address of the function being patched
@@ -66,7 +66,7 @@
 struct klp_func {
 	/* external */
 	const char *old_name;
-	void *new_func;
+	unsigned long new_addr;
 	/*
 	 * The old_sympos field is optional and can be used to resolve
 	 * duplicate symbol names in livepatch objects. If this field is zero,
@@ -157,7 +157,7 @@ struct klp_patch {
 
 #define klp_for_each_func(obj, func) \
 	for (func = obj->funcs; \
-	     func->old_name || func->new_func || func->old_sympos; \
+	     func->old_name || func->new_addr || func->old_sympos; \
 	     func++)
 
 int klp_register_patch(struct klp_patch *);

@@ -153,7 +153,7 @@ static struct klp_func no_funcs[] = {
 static struct klp_func busymod_funcs[] = {
 	{
 		.old_name = "busymod_work_func",
-		.new_func = patched_work_func,
+		.new_addr = (unsigned long)patched_work_func,
 	}, { }
 };
 

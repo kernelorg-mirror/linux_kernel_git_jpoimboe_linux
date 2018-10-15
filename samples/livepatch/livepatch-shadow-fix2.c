@@ -107,11 +107,11 @@ void livepatch_fix2_dummy_free(struct dummy *d)
 static struct klp_func funcs[] = {
 	{
 		.old_name = "dummy_check",
-		.new_func = livepatch_fix2_dummy_check,
+		.new_addr = (unsigned long)livepatch_fix2_dummy_check,
 	},
 	{
 		.old_name = "dummy_free",
-		.new_func = livepatch_fix2_dummy_free,
+		.new_addr = (unsigned long)livepatch_fix2_dummy_free,
 	}, { }
 };
 

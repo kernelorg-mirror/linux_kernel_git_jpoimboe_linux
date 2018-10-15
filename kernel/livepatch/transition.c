@@ -217,7 +217,7 @@ static int klp_check_stack_func(struct klp_func *func,
 			  * Check for the to-be-unpatched function
 			  * (the func itself).
 			  */
-			func_addr = (unsigned long)func->new_func;
+			func_addr = func->new_addr;
 			func_size = func->new_size;
 		} else {
 			/*
@@ -235,7 +235,7 @@ static int klp_check_stack_func(struct klp_func *func,
 				struct klp_func *prev;
 
 				prev = list_next_entry(func, stack_node);
-				func_addr = (unsigned long)prev->new_func;
+				func_addr = prev->new_addr;
 				func_size = prev->new_size;
 			}
 		}
