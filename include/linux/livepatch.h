@@ -152,6 +152,46 @@ struct klp_patch {
 	struct completion finish;
 };
 
+#define KLP_FUNC(_old_func, _new_func) {			\
+		.old_name = #_old_func,				\
+		.new_addr = (unsigned long)(_new_func),		\
+	}
+#define KLP_FUNC_POS(_old_func, _new_func, _sympos) {		\
+		.old_name = #_old_func,				\
+		.new_addr = (unsigned long)_new_func,		\
+		.sympos = _sympos,				\
+	}
+#define KLP_FUNC_END { }
+
+#define KLP_OBJECT(_obj, _funcs) {				\
+		.name = #_obj,					\
+		.funcs = _funcs,				\
+	}
+#define KLP_OBJECT_CALLBACKS(_obj, _funcs,			\
+			     _pre_patch, _post_patch,		\
+			     _pre_unpatch, _post_unpatch) {	\
+		.name = #_obj,					\
+		.funcs = _funcs,				\
+		.callbacks.pre_patch = _pre_patch,		\
+		.callbacks.post_patch = _post_patch,		\
+		.callbacks.pre_unpatch = _pre_unpatch,		\
+		.callbacks.post_unpatch = _post_unpatch,	\
+	}
+/* name being NULL means vmlinux */
+#define KLP_VMLINUX(_funcs) {					\
+		.funcs = _funcs,				\
+	}
+#define KLP_VMLINUX_CALLBACKS(_funcs,				\
+			     _pre_patch, _post_patch,		\
+			     _pre_unpatch, _post_unpatch) {	\
+		.funcs = _funcs,				\
+		.callbacks.pre_patch = _pre_patch,		\
+		.callbacks.post_patch = _post_patch,		\
+		.callbacks.pre_unpatch = _pre_unpatch,		\
+		.callbacks.post_unpatch = _post_unpatch,	\
+	}
+#define KLP_OBJECT_END { }
+
 #define klp_for_each_object(patch, obj) \
 	for (obj = patch->objs; obj->funcs || obj->name; obj++)
 

@@ -49,17 +49,14 @@ static int livepatch_cmdline_proc_show(struct seq_file *m, void *v)
 }
 
 static struct klp_func funcs[] = {
-	{
-		.old_name = "cmdline_proc_show",
-		.new_addr = (unsigned long)livepatch_cmdline_proc_show,
-	}, { }
+	KLP_FUNC(cmdline_proc_show,
+		 livepatch_cmdline_proc_show),
+	KLP_FUNC_END
 };
 
 static struct klp_object objs[] = {
-	{
-		/* name being NULL means vmlinux */
-		.funcs = funcs,
-	}, { }
+	KLP_VMLINUX(funcs),
+	KLP_OBJECT_END
 };
 
 static struct klp_patch patch = {

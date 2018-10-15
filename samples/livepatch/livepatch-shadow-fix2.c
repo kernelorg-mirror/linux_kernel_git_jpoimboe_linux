@@ -105,21 +105,17 @@ void livepatch_fix2_dummy_free(struct dummy *d)
 }
 
 static struct klp_func funcs[] = {
-	{
-		.old_name = "dummy_check",
-		.new_addr = (unsigned long)livepatch_fix2_dummy_check,
-	},
-	{
-		.old_name = "dummy_free",
-		.new_addr = (unsigned long)livepatch_fix2_dummy_free,
-	}, { }
+	KLP_FUNC(dummy_check,
+		 livepatch_fix2_dummy_check),
+	KLP_FUNC(dummy_free,
+		 livepatch_fix2_dummy_free),
+	KLP_FUNC_END
 };
 
 static struct klp_object objs[] = {
-	{
-		.name = "livepatch_shadow_mod",
-		.funcs = funcs,
-	}, { }
+	KLP_OBJECT(livepatch_shadow_mod,
+		   funcs),
+	KLP_OBJECT_END
 };
 
 static struct klp_patch patch = {

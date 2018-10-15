@@ -128,21 +128,17 @@ void livepatch_fix1_dummy_free(struct dummy *d)
 }
 
 static struct klp_func funcs[] = {
-	{
-		.old_name = "dummy_alloc",
-		.new_addr = (unsigned long)livepatch_fix1_dummy_alloc,
-	},
-	{
-		.old_name = "dummy_free",
-		.new_addr = (unsigned long)livepatch_fix1_dummy_free,
-	}, { }
+	KLP_FUNC(dummy_alloc,
+		 livepatch_fix1_dummy_alloc),
+	KLP_FUNC(dummy_free,
+		 livepatch_fix1_dummy_free),
+	KLP_FUNC_END
 };
 
 static struct klp_object objs[] = {
-	{
-		.name = "livepatch_shadow_mod",
-		.funcs = funcs,
-	}, { }
+	KLP_OBJECT(livepatch_shadow_mod,
+		   funcs),
+	KLP_OBJECT_END
 };
 
 static struct klp_patch patch = {
