@@ -145,6 +145,47 @@ static struct klp_object *klp_find_object(struct klp_patch *patch,
 	return NULL;
 }
 
+static int klp_check_obj_conflict(struct klp_patch *patch,
+				  struct klp_object *old_obj)
+{
+	struct klp_object *obj;
+	struct klp_func *func, *old_func;
+
+	obj = klp_find_object(patch, old_obj);
+	if (!obj)
+		return 0;
+
+	klp_for_each_func(old_obj, old_func) {
+		func = klp_find_func(obj, old_func);
+		if (!func)
+			continue;
+
+		pr_err("Function '%s,%lu' in object '%s' has already been livepatched.\n",
+		       func->old_name, func->old_sympos ? func->old_sympos : 1,
+		       obj->name ? obj->name : "vmlinux");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int klp_check_patch_conflict(struct klp_patch *patch)
+{
+	struct klp_patch *old_patch;
+	struct klp_object *old_obj;
+	int ret;
+
+	list_for_each_entry(old_patch, &klp_patches, list) {
+		klp_for_each_object(old_patch, old_obj) {
+			ret = klp_check_obj_conflict(patch, old_obj);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
 struct klp_find_arg {
 	const char *objname;
 	const char *name;
@@ -878,10 +919,6 @@ static int klp_init_patch(struct klp_patch *patch)
 	INIT_WORK(&patch->free_work, klp_free_patch_fn);
 	init_completion(&patch->finish);
 
-	ret = klp_init_lists(patch);
-	if (ret)
-		return ret;
-
 	/*
 	 * A reference is taken on the patch module to prevent it from being
 	 * unloaded.
@@ -920,10 +957,6 @@ static int __klp_disable_patch(struct klp_patch *patch)
 		return -EINVAL;
 
 	if (klp_transition_patch)
-		return -EBUSY;
-
-	/* enforce stacking: only the last enabled patch can be disabled */
-	if (!list_is_last(&patch->list, &klp_patches))
 		return -EBUSY;
 
 	klp_init_transition(patch, KLP_UNPATCHED);
@@ -1040,7 +1073,18 @@ int klp_enable_patch(struct klp_patch *patch)
 		return -ENOSYS;
 	}
 
+	/* Allow to use the dynamic lists in the check for conflicts. */
+	ret = klp_init_lists(patch);
+	if (ret)
+		return ret;
+
 	mutex_lock(&klp_mutex);
+
+	if (!patch->replace && klp_check_patch_conflict(patch)) {
+		pr_err("Use cumulative livepatches for dependent changes.\n");
+		mutex_unlock(&klp_mutex);
+		return -EINVAL;
+	}
 
 	ret = klp_init_patch(patch);
 	if (ret)
