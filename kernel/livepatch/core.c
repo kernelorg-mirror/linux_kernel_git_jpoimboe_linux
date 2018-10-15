@@ -45,7 +45,8 @@
  */
 DEFINE_MUTEX(klp_mutex);
 
-static LIST_HEAD(klp_patches);
+/* Registered patches */
+LIST_HEAD(klp_patches);
 
 static struct kobject *klp_root_kobj;
 
@@ -647,6 +648,7 @@ static int klp_init_patch(struct klp_patch *patch)
 	mutex_lock(&klp_mutex);
 
 	patch->enabled = false;
+	patch->forced = false;
 	INIT_LIST_HEAD(&patch->list);
 	init_completion(&patch->finish);
 

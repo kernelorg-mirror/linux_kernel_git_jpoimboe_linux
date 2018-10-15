@@ -138,6 +138,7 @@ struct klp_object {
  * @list:	list node for global list of registered patches
  * @kobj:	kobject for sysfs resources
  * @enabled:	the patch is enabled (but operation may be incomplete)
+ * @forced:	was involved in a forced transition
  * @finish:	for waiting till it is safe to remove the patch module
  */
 struct klp_patch {
@@ -149,6 +150,7 @@ struct klp_patch {
 	struct list_head list;
 	struct kobject kobj;
 	bool enabled;
+	bool forced;
 	struct completion finish;
 };
 
