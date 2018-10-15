@@ -86,7 +86,7 @@ static void klp_complete_transition(void)
 		 klp_target_state == KLP_PATCHED ? "patching" : "unpatching");
 
 	if (klp_transition_patch->replace && klp_target_state == KLP_PATCHED)
-		klp_discard_replaced_patches(klp_transition_patch);
+		klp_discard_replaced_stuff(klp_transition_patch);
 
 	if (klp_target_state == KLP_UNPATCHED) {
 		/*
