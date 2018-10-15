@@ -47,6 +47,7 @@
  * @stack_node:	list node for klp_ops func_stack list
  * @old_size:	size of the old function
  * @new_size:	size of the new function
+ * @nop:        temporary patch to use the original code again; dyn. allocated
  * @patched:	the func has been added to the klp_ops list
  * @transition:	the func is currently being applied or reverted
  *
@@ -84,6 +85,7 @@ struct klp_func {
 	struct list_head node;
 	struct list_head stack_node;
 	unsigned long old_size, new_size;
+	bool nop;
 	bool patched;
 	bool transition;
 };
@@ -122,6 +124,7 @@ struct klp_callbacks {
  *		(NULL for vmlinux)
  * @func_list:	dynamic list of the function entries
  * @node:	list node for klp_patch obj_list
+ * @dynamic:    temporary object for nop functions; dynamically allocated
  * @patched:	the object's funcs have been added to the klp_ops list
  */
 struct klp_object {
@@ -135,6 +138,7 @@ struct klp_object {
 	struct list_head func_list;
 	struct list_head node;
 	struct module *mod;
+	bool dynamic;
 	bool patched;
 };
 
@@ -142,6 +146,7 @@ struct klp_object {
  * struct klp_patch - patch structure for live patching
  * @mod:	reference to the live patch module
  * @objs:	object entries for kernel objects to be patched
+ * @replace:	replace all already registered patches
  * @list:	list node for global list of registered patches
  * @kobj:	kobject for sysfs resources
  * @obj_list:	dynamic list of the object entries
@@ -154,6 +159,7 @@ struct klp_patch {
 	/* external */
 	struct module *mod;
 	struct klp_object *objs;
+	bool replace;
 
 	/* internal */
 	struct list_head list;
