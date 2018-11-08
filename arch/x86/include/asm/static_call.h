@@ -8,6 +8,12 @@
  * This trampoline is used for out-of-line static calls.  It has a direct jump
  * which gets patched by static_call_update().
  *
+ * With CONFIG_HAVE_STATIC_CALL_INLINE enabled, if a call site fits within a
+ * cache line, it gets promoted to an inline static call and the trampoline is
+ * no longer used for that site.  In this case the name of this trampoline has
+ * a magical aspect: objtool uses it to find static call sites so it can create
+ * the .static_call_sites section.
+ *
  * Trampolines are placed in the .static_call.text section to prevent two-byte
  * tail calls to the trampoline and two-byte jumps from the trampoline.
  *
