@@ -692,7 +692,7 @@ void *__init_or_module text_poke_early(void *addr, const void *opcode,
 void *text_poke(void *addr, const void *opcode, size_t len)
 {
 	unsigned long flags;
-	char *vaddr;
+	unsigned long vaddr;
 	struct page *pages[2];
 	int i;
 
@@ -714,14 +714,39 @@ void *text_poke(void *addr, const void *opcode, size_t len)
 	}
 	BUG_ON(!pages[0]);
 	local_irq_save(flags);
+
 	set_fixmap(FIX_TEXT_POKE0, page_to_phys(pages[0]));
 	if (pages[1])
 		set_fixmap(FIX_TEXT_POKE1, page_to_phys(pages[1]));
-	vaddr = (char *)fix_to_virt(FIX_TEXT_POKE0);
-	memcpy(&vaddr[(unsigned long)addr & ~PAGE_MASK], opcode, len);
+
+	vaddr = fix_to_virt(FIX_TEXT_POKE0) + ((unsigned long)addr & ~PAGE_MASK);
+
+	/*
+	 * Use a single access where possible.  Note that a single unaligned
+	 * multi-byte write will not necessarily be atomic on x86-32, or if the
+	 * address crosses a cache line boundary.
+	 */
+	switch (len) {
+	case 1:
+		WRITE_ONCE(*(u8 *)vaddr, *(u8 *)opcode);
+		break;
+	case 2:
+		WRITE_ONCE(*(u16 *)vaddr, *(u16 *)opcode);
+		break;
+	case 4:
+		WRITE_ONCE(*(u32 *)vaddr, *(u32 *)opcode);
+		break;
+	case 8:
+		WRITE_ONCE(*(u64 *)vaddr, *(u64 *)opcode);
+		break;
+	default:
+		memcpy((void *)vaddr, opcode, len);
+	}
+
 	clear_fixmap(FIX_TEXT_POKE0);
 	if (pages[1])
 		clear_fixmap(FIX_TEXT_POKE1);
+
 	local_flush_tlb();
 	sync_core();
 	/* Could also do a CLFLUSH here to speed up CPU recovery; but
