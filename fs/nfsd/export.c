@@ -1196,6 +1196,12 @@ static void exp_flags(struct seq_file *m, int flag, int fsid,
 	}
 }
 
+#include <linux/static_call.h>
+extern int my_func_add(int arg1, int arg2);
+extern int my_func_sub(int arg1, int arg2);
+DECLARE_STATIC_CALL(my_key, my_func_add);
+DECLARE_STATIC_CALL(my_mod_key, my_func_add);
+
 static int e_show(struct seq_file *m, void *p)
 {
 	struct cache_head *cp = p;
@@ -1205,6 +1211,8 @@ static int e_show(struct seq_file *m, void *p)
 	if (p == SEQ_START_TOKEN) {
 		seq_puts(m, "# Version 1.1\n");
 		seq_puts(m, "# Path Client(Flags) # IPs\n");
+		seq_printf(m, "# %d %d\n", static_call(my_key, 1, 2),
+			   static_call(my_mod_key, 1, 2));
 		return 0;
 	}
 

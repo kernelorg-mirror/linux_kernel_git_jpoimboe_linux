@@ -20,6 +20,7 @@
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include "internal.h"
+#include <linux/static_call.h>
 
 void __attribute__((weak)) arch_report_meminfo(struct seq_file *m)
 {
@@ -31,6 +32,18 @@ static void show_val_kb(struct seq_file *m, const char *s, unsigned long num)
 	seq_write(m, " kB\n", 4);
 }
 
+#include <linux/static_call.h>
+int my_func_add(int arg1, int arg2)
+{
+	return arg1 + arg2;
+}
+EXPORT_SYMBOL_GPL(my_func_add);
+
+DEFINE_STATIC_CALL(my_key, my_func_add); DECLARE_STATIC_CALL(my_key, my_func_add);
+EXPORT_STATIC_CALL_GPL(my_key);
+
+extern int my_func_sub(int arg1, int arg2);
+
 static int meminfo_proc_show(struct seq_file *m, void *v)
 {
 	struct sysinfo i;
@@ -40,6 +53,14 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 	unsigned long pages[NR_LRU_LISTS];
 	unsigned long sreclaimable, sunreclaim;
 	int lru;
+	int j;
+
+	for (j = 0; j < 1000; j++) {
+		if (j % 2 == 1)
+			static_call_update(my_key, my_func_add);
+		else
+			static_call_update(my_key, my_func_sub);
+	}
 
 	si_meminfo(&i);
 	si_swapinfo(&i);
