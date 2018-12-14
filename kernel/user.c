@@ -69,6 +69,14 @@ struct user_namespace init_user_ns = {
 };
 EXPORT_SYMBOL_GPL(init_user_ns);
 
+
+int my_func_sub(int arg1, int arg2)
+{
+	return arg1 - arg2;
+}
+EXPORT_SYMBOL_GPL(my_func_sub);
+
+
 /*
  * UID task count cache, to get fast user lookup in "alloc_uid"
  * when changing user ID's (ie setuid() and friends).

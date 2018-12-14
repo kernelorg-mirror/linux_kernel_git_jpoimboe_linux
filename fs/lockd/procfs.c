@@ -45,17 +45,38 @@ nlm_end_grace_write(struct file *file, const char __user *buf, size_t size,
 	return size;
 }
 
+#include <linux/static_call.h>
+extern int my_func_add(int arg1, int arg2);
+extern int my_func_sub(int arg1, int arg2);
+DECLARE_STATIC_CALL(my_mod_key, my_func_add);
+
+DEFINE_STATIC_CALL(my_mod_key, my_func_sub);
+EXPORT_STATIC_CALL_GPL(my_mod_key);
+
 static ssize_t
 nlm_end_grace_read(struct file *file, char __user *buf, size_t size,
 		   loff_t *pos)
 {
 	struct lockd_net *ln = net_generic(current->nsproxy->net_ns,
 					   lockd_net_id);
-	char resp[3];
+	char resp[5];
+	static int call;
 
 	resp[0] = list_empty(&ln->lockd_manager.list) ? 'Y' : 'N';
 	resp[1] = '\n';
-	resp[2] = '\0';
+	if (call++ % 2 == 0) {
+		if (static_call(my_mod_key, 1, 2) == -1) {
+			resp[2] = '-';
+			printk("add\n");
+			static_call_update(my_mod_key, my_func_add);
+		} else {
+			resp[2] = '+';
+			printk("sub\n");
+			static_call_update(my_mod_key, my_func_sub);
+		}
+	}
+	resp[3] = '\n';
+	resp[4] = '\0';
 
 	return simple_read_from_buffer(buf, size, pos, resp, sizeof(resp));
 }
@@ -66,6 +87,10 @@ static const struct file_operations lockd_end_grace_operations = {
 	.llseek		= default_llseek,
 	.release	= simple_transaction_release,
 };
+
+#include <linux/static_call.h>
+extern int my_func_add(int arg1, int arg2);
+DECLARE_STATIC_CALL(my_mod_key, my_func_add);
 
 int __init
 lockd_create_procfs(void)
@@ -81,6 +106,9 @@ lockd_create_procfs(void)
 		remove_proc_entry("fs/lockd", NULL);
 		return -ENOMEM;
 	}
+
+	printk("lockd static call: %d\n", static_call(my_mod_key, 1, 2));
+
 	return 0;
 }
 
