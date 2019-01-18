@@ -183,17 +183,16 @@ ENTRY(__vmx_vcpu_run)
 	 * Clear registers that contain guest values and will not be
 	 * restored to prevent speculative use of the guest's values.
 	 */
-1:
+1:	xor %ecx, %ecx
+	xor %edx, %edx
+	xor %esi, %esi
+	xor %edi, %edi
 #ifdef CONFIG_X86_64
 	xor %r8d,  %r8d
 	xor %r9d,  %r9d
 	xor %r10d, %r10d
 	xor %r11d, %r11d
 #endif
-	xor %ecx, %ecx
-	xor %edx, %edx
-	xor %esi, %esi
-	xor %edi, %edi
 
 	/* "POP" @regs. */
 	add $WORD_SIZE, %_ASM_SP
