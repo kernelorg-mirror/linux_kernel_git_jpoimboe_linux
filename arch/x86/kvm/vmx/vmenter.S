@@ -87,16 +87,33 @@ ENDPROC(vmx_vmexit)
  * __vmx_vcpu_run - Run a vCPU via a transition to VMX guest mode
  * @vmx:	struct vcpu_vmx *
  * @regs:	unsigned long * (to guest registers)
- * %RBX:	VMCS launched status (non-zero indicates already launched)
+ * @launched:	%true if the VMCS has been launched
  *
  * Returns:
- *	%RBX is 0 on VM-Exit, 1 on VM-Fail
+ *	0 on VM-Exit, 1 on VM-Fail
  */
 ENTRY(__vmx_vcpu_run)
-	/* Create a stack frame and save @regs. */
 	push %_ASM_BP
-	mov %_ASM_SP, %_ASM_BP
+	mov  %_ASM_SP, %_ASM_BP
+#ifdef CONFIG_X86_64
+	push %r15
+	push %r14
+	push %r13
+	push %r12
+#else
+	push %edi
+	push %esi
+#endif
+	push %_ASM_BX
+
+	/*
+	 * Save @regs, its register may be modified by vmx_update_host_rsp()
+	 * and it's also needed after VM-Exit.
+	 */
 	push %_ASM_ARG2
+
+	/* Copy @launched to BL, _ASM_ARG3 is volatile. */
+	mov %_ASM_ARG3B, %bl
 
 	/* Adjust RSP to account for the CALL to vmx_vmenter(). */
 	lea -WORD_SIZE(%_ASM_SP), %_ASM_ARG2
@@ -159,8 +176,8 @@ ENTRY(__vmx_vcpu_run)
 	mov %r15, VCPU_R15(%_ASM_AX)
 #endif
 
-	/* Clear EBX to indicate VM-Exit (as opposed to VM-Fail). */
-	xor %ebx, %ebx
+	/* Clear RAX to indicate VM-Exit (as opposed to VM-Fail). */
+	xor %eax, %eax
 
 	/*
 	 * Clear registers that contain guest values and will not be
@@ -172,10 +189,6 @@ ENTRY(__vmx_vcpu_run)
 	xor %r9d,  %r9d
 	xor %r10d, %r10d
 	xor %r11d, %r11d
-	xor %r12d, %r12d
-	xor %r13d, %r13d
-	xor %r14d, %r14d
-	xor %r15d, %r15d
 #endif
 	xor %ecx, %ecx
 	xor %edx, %edx
@@ -184,15 +197,21 @@ ENTRY(__vmx_vcpu_run)
 
 	/* "POP" @regs. */
 	add $WORD_SIZE, %_ASM_SP
-	pop  %_ASM_BP
+	pop %_ASM_BX
+
+#ifdef CONFIG_X86_64
+	pop %r12
+	pop %r13
+	pop %r14
+	pop %r15
+#else
+	pop %esi
+	pop %edi
+#endif
+	pop %_ASM_BP
 	ret
 
 	/* VM-Fail.  Out-of-line to avoid a taken Jcc after VM-Exit. */
-2:	mov $1, %ebx
-	/*
-	 * RAX holds a guest value and it's not cleared in the common
-	 * exit path as VM-Exit reloads it with the vcpu_vmx pointer.
-	 */
-	xor %eax, %eax
+2:	mov $1, %eax
 	jmp 1b
 ENDPROC(__vmx_vcpu_run)
