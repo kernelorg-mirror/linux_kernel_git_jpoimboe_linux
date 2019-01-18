@@ -6370,33 +6370,6 @@ void vmx_update_host_rsp(struct vcpu_vmx *vmx, unsigned long host_rsp)
 	}
 }
 
-#ifdef CONFIG_X86_64
-#define WORD_SIZE	8
-#else
-#define WORD_SIZE	4
-#endif
-
-#define _WORD_SIZE	__stringify(WORD_SIZE)
-
-#define VCPU_RAX	__stringify(VCPU_RAX_IDX * WORD_SIZE)
-#define VCPU_RCX	__stringify(VCPU_RCX_IDX * WORD_SIZE)
-#define VCPU_RDX	__stringify(VCPU_RDX_IDX * WORD_SIZE)
-#define VCPU_RBX	__stringify(VCPU_RBX_IDX * WORD_SIZE)
-/* Intentionally omit %RSP as it's context switched by hardware */
-#define VCPU_RBP	__stringify(VCPU_RBP_IDX * WORD_SIZE)
-#define VCPU_RSI	__stringify(VCPU_RSI_IDX * WORD_SIZE)
-#define VCPU_RDI	__stringify(VCPU_RDI_IDX * WORD_SIZE)
-#ifdef CONFIG_X86_64
-#define VCPU_R8		__stringify(VCPU_R8_IDX  * WORD_SIZE)
-#define VCPU_R9		__stringify(VCPU_R9_IDX  * WORD_SIZE)
-#define VCPU_R10	__stringify(VCPU_R10_IDX * WORD_SIZE)
-#define VCPU_R11	__stringify(VCPU_R11_IDX * WORD_SIZE)
-#define VCPU_R12	__stringify(VCPU_R12_IDX * WORD_SIZE)
-#define VCPU_R13	__stringify(VCPU_R13_IDX * WORD_SIZE)
-#define VCPU_R14	__stringify(VCPU_R14_IDX * WORD_SIZE)
-#define VCPU_R15	__stringify(VCPU_R15_IDX * WORD_SIZE)
-#endif
-
 static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 {
 	if (static_branch_unlikely(&vmx_l1d_should_flush))
@@ -6406,108 +6379,7 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 		write_cr2(vcpu->arch.cr2);
 
 	asm(
-		"push %%" _ASM_BP " \n\t"
-		"mov %%" _ASM_SP ", %%" _ASM_BP " \n\t"
-		"push %%" _ASM_ARG2 " \n\t"
-
-		/* Adjust RSP to account for the CALL to vmx_vmenter(). */
-		"lea -" _WORD_SIZE "(%%" _ASM_SP "), %%" _ASM_ARG2 " \n\t"
-		"call vmx_update_host_rsp \n\t"
-
-		/* Load RCX with @regs. */
-		"mov (%%" _ASM_SP "), %%" _ASM_CX " \n\t"
-
-		/* Check if vmlaunch or vmresume is needed */
-		"cmpb $0, %%bl \n\t"
-
-		/* Load guest registers.  Don't clobber flags. */
-		"mov " VCPU_RAX "(%%" _ASM_CX "), %%" _ASM_AX " \n\t"
-		"mov " VCPU_RBX "(%%" _ASM_CX "), %%" _ASM_BX " \n\t"
-		"mov " VCPU_RDX "(%%" _ASM_CX "), %%" _ASM_DX " \n\t"
-		"mov " VCPU_RSI "(%%" _ASM_CX "), %%" _ASM_SI " \n\t"
-		"mov " VCPU_RDI "(%%" _ASM_CX "), %%" _ASM_DI " \n\t"
-		"mov " VCPU_RBP "(%%" _ASM_CX "), %%" _ASM_BP " \n\t"
-#ifdef CONFIG_X86_64
-		"mov " VCPU_R8  "(%%" _ASM_CX "),  %%r8  \n\t"
-		"mov " VCPU_R9  "(%%" _ASM_CX "),  %%r9  \n\t"
-		"mov " VCPU_R10 "(%%" _ASM_CX "), %%r10 \n\t"
-		"mov " VCPU_R11 "(%%" _ASM_CX "), %%r11 \n\t"
-		"mov " VCPU_R12 "(%%" _ASM_CX "), %%r12 \n\t"
-		"mov " VCPU_R13 "(%%" _ASM_CX "), %%r13 \n\t"
-		"mov " VCPU_R14 "(%%" _ASM_CX "), %%r14 \n\t"
-		"mov " VCPU_R15 "(%%" _ASM_CX "), %%r15 \n\t"
-#endif
-		/* Load guest RCX.  This kills the vmx_vcpu pointer! */
-		"mov " VCPU_RCX"(%%" _ASM_CX "), %%" _ASM_CX " \n\t"
-
-		/* Enter guest mode */
-		"call vmx_vmenter\n\t"
-		"jbe 2f \n\t"
-
-		/* Temporarily save guest's RCX. */
-		"push %%" _ASM_CX " \n\t"
-
-		/* Reload RCX with @regs. */
-		"mov " _WORD_SIZE "(%%" _ASM_SP "), %%" _ASM_CX " \n\t"
-
-		/* Save all guest registers, including RCX from the stack */
-		"mov %%" _ASM_AX ", " VCPU_RAX "(%%" _ASM_CX ") \n\t"
-		"mov %%" _ASM_BX ", " VCPU_RBX "(%%" _ASM_CX ") \n\t"
-		__ASM_SIZE(pop) "   " VCPU_RCX "(%%" _ASM_CX ") \n\t"
-		"mov %%" _ASM_DX ", " VCPU_RDX "(%%" _ASM_CX ") \n\t"
-		"mov %%" _ASM_SI ", " VCPU_RSI "(%%" _ASM_CX ") \n\t"
-		"mov %%" _ASM_DI ", " VCPU_RDI "(%%" _ASM_CX ") \n\t"
-		"mov %%" _ASM_BP ", " VCPU_RBP "(%%" _ASM_CX ") \n\t"
-#ifdef CONFIG_X86_64
-		"mov %%r8,  " VCPU_R8  "(%%" _ASM_CX ") \n\t"
-		"mov %%r9,  " VCPU_R9  "(%%" _ASM_CX ") \n\t"
-		"mov %%r10, " VCPU_R10 "(%%" _ASM_CX ") \n\t"
-		"mov %%r11, " VCPU_R11 "(%%" _ASM_CX ") \n\t"
-		"mov %%r12, " VCPU_R12 "(%%" _ASM_CX ") \n\t"
-		"mov %%r13, " VCPU_R13 "(%%" _ASM_CX ") \n\t"
-		"mov %%r14, " VCPU_R14 "(%%" _ASM_CX ") \n\t"
-		"mov %%r15, " VCPU_R15 "(%%" _ASM_CX ") \n\t"
-#endif
-
-		/* Clear EBX to indicate VM-Exit (as opposed to VM-Fail). */
-		"xor %%ebx, %%ebx \n\t"
-
-		/*
-		 * Clear registers that contain guest values and will not be
-		 * restored to prevent speculative use of the guest's values.
-		 */
-		"1: \n\t"
-#ifdef CONFIG_X86_64
-		"xor %%r8d,  %%r8d \n\t"
-		"xor %%r9d,  %%r9d \n\t"
-		"xor %%r10d, %%r10d \n\t"
-		"xor %%r11d, %%r11d \n\t"
-		"xor %%r12d, %%r12d \n\t"
-		"xor %%r13d, %%r13d \n\t"
-		"xor %%r14d, %%r14d \n\t"
-		"xor %%r15d, %%r15d \n\t"
-#endif
-		"xor %%eax, %%eax \n\t"
-		"xor %%edx, %%edx \n\t"
-		"xor %%esi, %%esi \n\t"
-		"xor %%edi, %%edi \n\t"
-
-		/* "POP" the vcpu_vmx pointer. */
-		"add $" _WORD_SIZE ", %%" _ASM_SP " \n\t"
-		"pop  %%" _ASM_BP " \n\t"
-		"jmp 3f \n\t"
-
-		/* VM-Fail.  Out-of-line to avoid a taken Jcc after VM-Exit. */
-		"2: \n\t"
-		"mov $1, %%ebx \n\t"
-		/*
-		 * RCX holds a guest value and it's not cleared in the common
-		 * exit path as VM-Exit reloads it with the vcpu_vmx pointer.
-		 */
-		"xor %%ecx, %%ecx \n\t"
-		"jmp 1b \n\t"
-		"3: \n\t"
-
+		"call ____vmx_vcpu_run \n\t"
 	      : ASM_CALL_CONSTRAINT, "=ebx"(vmx->fail),
 #ifdef CONFIG_X86_64
 		"=D"((int){0}), "=S"((int){0})
@@ -6528,7 +6400,6 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 
 	vcpu->arch.cr2 = read_cr2();
 }
-STACK_FRAME_NON_STANDARD(__vmx_vcpu_run);
 
 static void vmx_vcpu_run(struct kvm_vcpu *vcpu)
 {
