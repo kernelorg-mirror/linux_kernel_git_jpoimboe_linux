@@ -6372,8 +6372,6 @@ void vmx_update_host_rsp(struct vcpu_vmx *vmx, unsigned long host_rsp)
 
 static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 {
-	vmx->__launched = vmx->loaded_vmcs->launched;
-
 	if (static_branch_unlikely(&vmx_l1d_should_flush))
 		vmx_l1d_flush(vcpu);
 
@@ -6394,7 +6392,8 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 		"mov (%%" _ASM_SP "), %%" _ASM_CX " \n\t"
 
 		/* Check if vmlaunch or vmresume is needed */
-		"cmpb $0, %c[launched](%%" _ASM_CX ") \n\t"
+		"cmpb $0, %%bl \n\t"
+
 		/* Load guest registers.  Don't clobber flags. */
 		"mov %c[rax](%%" _ASM_CX "), %%" _ASM_AX " \n\t"
 		"mov %c[rbx](%%" _ASM_CX "), %%" _ASM_BX " \n\t"
@@ -6463,7 +6462,7 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 		"xor %%esi, %%esi \n\t"
 		"xor %%edi, %%edi \n\t"
 		"pop  %%" _ASM_BP " \n\t"
-	      : ASM_CALL_CONSTRAINT,
+	      : ASM_CALL_CONSTRAINT, "=b"((int){0}),
 #ifdef CONFIG_X86_64
 		"=D"((int){0})
 	      : "D"(vmx),
@@ -6471,7 +6470,7 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 		"=a"((int){0})
 	      : "a"(vmx),
 #endif
-		[launched]"i"(offsetof(struct vcpu_vmx, __launched)),
+		"bl"(vmx->loaded_vmcs->launched),
 		[fail]"i"(offsetof(struct vcpu_vmx, fail)),
 		[rax]"i"(offsetof(struct vcpu_vmx, vcpu.arch.regs[VCPU_REGS_RAX])),
 		[rbx]"i"(offsetof(struct vcpu_vmx, vcpu.arch.regs[VCPU_REGS_RBX])),
@@ -6493,10 +6492,10 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 		[wordsize]"i"(sizeof(ulong))
 	      : "cc", "memory"
 #ifdef CONFIG_X86_64
-		, "rax", "rbx", "rcx", "rdx", "rsi"
+		, "rax", "rcx", "rdx", "rsi"
 		, "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
 #else
-		, "ebx", "ecx", "edx", "edi", "esi"
+		, "ecx", "edx", "edi", "esi"
 #endif
 	      );
 
