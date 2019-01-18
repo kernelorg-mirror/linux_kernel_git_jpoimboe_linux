@@ -35,6 +35,7 @@
 #include <asm/msr-index.h>
 #include <asm/asm.h>
 #include <asm/kvm_page_track.h>
+#include <asm/kvm_vcpu_regs.h>
 #include <asm/hyperv-tlfs.h>
 
 #define KVM_MAX_VCPUS 288
@@ -137,23 +138,23 @@ static inline gfn_t gfn_to_index(gfn_t gfn, gfn_t base_gfn, int level)
 #define ASYNC_PF_PER_VCPU 64
 
 enum kvm_reg {
-	VCPU_REGS_RAX = 0,
-	VCPU_REGS_RCX = 1,
-	VCPU_REGS_RDX = 2,
-	VCPU_REGS_RBX = 3,
-	VCPU_REGS_RSP = 4,
-	VCPU_REGS_RBP = 5,
-	VCPU_REGS_RSI = 6,
-	VCPU_REGS_RDI = 7,
+	VCPU_REGS_RAX = VCPU_RAX_IDX,
+	VCPU_REGS_RCX = VCPU_RCX_IDX,
+	VCPU_REGS_RDX = VCPU_RDX_IDX,
+	VCPU_REGS_RBX = VCPU_RBX_IDX,
+	VCPU_REGS_RSP = VCPU_RSP_IDX,
+	VCPU_REGS_RBP = VCPU_RBP_IDX,
+	VCPU_REGS_RSI = VCPU_RSI_IDX,
+	VCPU_REGS_RDI = VCPU_RDI_IDX,
 #ifdef CONFIG_X86_64
-	VCPU_REGS_R8 = 8,
-	VCPU_REGS_R9 = 9,
-	VCPU_REGS_R10 = 10,
-	VCPU_REGS_R11 = 11,
-	VCPU_REGS_R12 = 12,
-	VCPU_REGS_R13 = 13,
-	VCPU_REGS_R14 = 14,
-	VCPU_REGS_R15 = 15,
+	VCPU_REGS_R8  = VCPU_R8_IDX,
+	VCPU_REGS_R9  = VCPU_R9_IDX,
+	VCPU_REGS_R10 = VCPU_R10_IDX,
+	VCPU_REGS_R11 = VCPU_R11_IDX,
+	VCPU_REGS_R12 = VCPU_R12_IDX,
+	VCPU_REGS_R13 = VCPU_R13_IDX,
+	VCPU_REGS_R14 = VCPU_R14_IDX,
+	VCPU_REGS_R15 = VCPU_R15_IDX,
 #endif
 	VCPU_REGS_RIP,
 	NR_VCPU_REGS
