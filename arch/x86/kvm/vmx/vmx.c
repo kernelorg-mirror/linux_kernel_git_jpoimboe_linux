@@ -6415,15 +6415,13 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 
 		/* Enter guest mode */
 		"call vmx_vmenter\n\t"
+		"jbe 2f \n\t"
 
 		/* Temporarily save guest's RCX. */
 		"push %%" _ASM_CX " \n\t"
 
 		/* Reload the vcpu_vmx pointer to RCX. */
 		"mov %c[wordsize](%%" _ASM_SP "), %%" _ASM_CX " \n\t"
-
-		/* Set vmx->fail based on EFLAGS.{CF,ZF} */
-		"setbe %c[fail](%%" _ASM_CX ")\n\t"
 
 		/* Save all guest registers, including RCX from the stack */
 		"mov %%" _ASM_AX ", %c[rax](%%" _ASM_CX ") \n\t"
@@ -6442,10 +6440,17 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 		"mov %%r13, %c[r13](%%" _ASM_CX ") \n\t"
 		"mov %%r14, %c[r14](%%" _ASM_CX ") \n\t"
 		"mov %%r15, %c[r15](%%" _ASM_CX ") \n\t"
+#endif
+
+		/* Clear EBX to indicate VM-Exit (as opposed to VM-Fail). */
+		"xor %%ebx, %%ebx \n\t"
+
 		/*
-		* Clear registers that contain guest values and will not be
-		* restored to prevent speculative use of the guest's values.
-		*/
+		 * Clear registers that contain guest values and will not be
+		 * restored to prevent speculative use of the guest's values.
+		 */
+		"1: \n\t"
+#ifdef CONFIG_X86_64
 		"xor %%r8d,  %%r8d \n\t"
 		"xor %%r9d,  %%r9d \n\t"
 		"xor %%r10d, %%r10d \n\t"
@@ -6456,7 +6461,6 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 		"xor %%r15d, %%r15d \n\t"
 #endif
 		"xor %%eax, %%eax \n\t"
-		"xor %%ebx, %%ebx \n\t"
 		"xor %%edx, %%edx \n\t"
 		"xor %%esi, %%esi \n\t"
 		"xor %%edi, %%edi \n\t"
@@ -6464,7 +6468,20 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 		/* "POP" the vcpu_vmx pointer. */
 		"add $%c[wordsize], %%" _ASM_SP " \n\t"
 		"pop  %%" _ASM_BP " \n\t"
-	      : ASM_CALL_CONSTRAINT, "=b"((int){0}),
+		"jmp 3f \n\t"
+
+		/* VM-Fail.  Out-of-line to avoid a taken Jcc after VM-Exit. */
+		"2: \n\t"
+		"mov $1, %%ebx \n\t"
+		/*
+		 * RCX holds a guest value and it's not cleared in the common
+		 * exit path as VM-Exit reloads it with the vcpu_vmx pointer.
+		 */
+		"xor %%ecx, %%ecx \n\t"
+		"jmp 1b \n\t"
+		"3: \n\t"
+
+	      : ASM_CALL_CONSTRAINT, "=ebx"(vmx->fail),
 #ifdef CONFIG_X86_64
 		"=D"((int){0})
 	      : "D"(vmx),
@@ -6473,7 +6490,6 @@ static void __vmx_vcpu_run(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 	      : "a"(vmx),
 #endif
 		"bl"(vmx->loaded_vmcs->launched),
-		[fail]"i"(offsetof(struct vcpu_vmx, fail)),
 		[rax]"i"(offsetof(struct vcpu_vmx, vcpu.arch.regs[VCPU_REGS_RAX])),
 		[rbx]"i"(offsetof(struct vcpu_vmx, vcpu.arch.regs[VCPU_REGS_RBX])),
 		[rcx]"i"(offsetof(struct vcpu_vmx, vcpu.arch.regs[VCPU_REGS_RCX])),
