@@ -5,18 +5,20 @@
  *  - RWSEM_READER_OWNED (bit 0): The rwsem is owned by readers
  *  - RWSEM_ANONYMOUSLY_OWNED (bit 1): The rwsem is anonymously owned,
  *    i.e. the owner(s) cannot be readily determined. It can be reader
- *    owned or the owning writer is indeterminate.
+ *    owned or the owning writer is indeterminate. Optimistic spinning
+ *    should be disabled if this flag is set.
  *
  * When a writer acquires a rwsem, it puts its task_struct pointer
- * into the owner field. It is cleared after an unlock.
+ * into the owner field or the count itself (64-bit only. It should
+ * be cleared after an unlock.
  *
  * When a reader acquires a rwsem, it will also puts its task_struct
- * pointer into the owner field with both the RWSEM_READER_OWNED and
- * RWSEM_ANONYMOUSLY_OWNED bits set. On unlock, the owner field will
- * largely be left untouched. So for a free or reader-owned rwsem,
- * the owner value may contain information about the last reader that
- * acquires the rwsem. The anonymous bit is set because that particular
- * reader may or may not still own the lock.
+ * pointer into the owner field with the RWSEM_READER_OWNED bit set.
+ * On unlock, the owner field will largely be left untouched. So
+ * for a free or reader-owned rwsem, the owner value may contain
+ * information about the last reader that acquires the rwsem. The
+ * anonymous bit may also be set to permanently disable optimistic
+ * spinning on a reader-own rwsem until a writer comes along.
  *
  * That information may be helpful in debugging cases where the system
  * seems to hang on a reader owned rwsem especially if only one reader
@@ -101,8 +103,7 @@ static inline void rwsem_clear_owner(struct rw_semaphore *sem)
 static inline void __rwsem_set_reader_owned(struct rw_semaphore *sem,
 					    struct task_struct *owner)
 {
-	unsigned long val = (unsigned long)owner | RWSEM_READER_OWNED
-						 | RWSEM_ANONYMOUSLY_OWNED;
+	unsigned long val = (unsigned long)owner | RWSEM_READER_OWNED;
 
 	WRITE_ONCE(sem->owner, (struct task_struct *)val);
 }
@@ -125,6 +126,14 @@ static inline bool is_rwsem_owner_spinnable(struct task_struct *owner)
 static inline bool is_rwsem_owner_reader(struct task_struct *owner)
 {
 	return (unsigned long)owner & RWSEM_READER_OWNED;
+}
+
+/*
+ * Return true if the rwsem is spinnable.
+ */
+static inline bool is_rwsem_spinnable(struct rw_semaphore *sem)
+{
+	return is_rwsem_owner_spinnable(READ_ONCE(sem->owner));
 }
 
 /*
@@ -162,6 +171,22 @@ extern struct rw_semaphore *rwsem_down_write_failed(struct rw_semaphore *sem);
 extern struct rw_semaphore *rwsem_down_write_failed_killable(struct rw_semaphore *sem);
 extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *sem, long count);
 extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
+
+/*
+ * Set the RWSEM_ANONYMOUSLY_OWNED flag if the RWSEM_READER_OWNED flag
+ * remains set. Otherwise, the operation will be aborted.
+ */
+static inline void rwsem_set_nonspinnable(struct rw_semaphore *sem)
+{
+	long owner = (long)READ_ONCE(sem->owner);
+
+	while (is_rwsem_owner_reader((struct task_struct *)owner)) {
+		if (!is_rwsem_owner_spinnable((struct task_struct *)owner))
+			break;
+		owner = cmpxchg((long *)&sem->owner, owner,
+				owner | RWSEM_ANONYMOUSLY_OWNED);
+	}
+}
 
 /*
  * lock for reading
