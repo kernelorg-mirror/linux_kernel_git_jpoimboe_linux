@@ -312,7 +312,7 @@ static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
 
 	preempt_disable();
 	rcu_read_lock();
-	owner = READ_ONCE(sem->owner);
+	owner = rwsem_get_owner(sem);
 	if (owner) {
 		ret = is_rwsem_owner_spinnable(owner) &&
 		     (is_rwsem_owner_reader(owner) || owner_on_cpu(owner));
@@ -344,15 +344,21 @@ enum owner_state {
 
 static noinline enum owner_state rwsem_spin_on_owner(struct rw_semaphore *sem)
 {
-	struct task_struct *owner = READ_ONCE(sem->owner);
+	struct task_struct *owner = rwsem_get_owner(sem);
 	long count;
 
 	if (!is_rwsem_owner_spinnable(owner))
 		return OWNER_NONSPINNABLE;
 
 	rcu_read_lock();
-	while (owner && !is_rwsem_owner_reader(owner)
-		     && (READ_ONCE(sem->owner) == owner)) {
+	while (owner && !is_rwsem_owner_reader(owner)) {
+		struct task_struct *new_owner = rwsem_get_owner(sem);
+
+		if (new_owner != owner) {
+			owner = new_owner;
+			break;	/* The owner has changed */
+		}
+
 		/*
 		 * Ensure we emit the owner->on_cpu, dereference _after_
 		 * checking sem->owner still matches owner, if that fails,
@@ -379,7 +385,6 @@ static noinline enum owner_state rwsem_spin_on_owner(struct rw_semaphore *sem)
 	 * spinning except when here is no active locks and the handoff bit
 	 * is set. In this case, we have to stop spinning.
 	 */
-	owner = READ_ONCE(sem->owner);
 	if (!is_rwsem_owner_spinnable(owner))
 		return OWNER_NONSPINNABLE;
 	if (owner && !is_rwsem_owner_reader(owner))
