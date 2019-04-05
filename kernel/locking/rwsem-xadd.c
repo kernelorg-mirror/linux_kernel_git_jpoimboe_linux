@@ -92,7 +92,8 @@ enum rwsem_wake_type {
 /*
  * We limit the maximum number of readers that can be woken up for a
  * wake-up call to not penalizing the waking thread for spending too
- * much time doing it.
+ * much time doing it as well as the unlikely possiblity of overflowing
+ * the reader count.
  */
 #define MAX_READERS_WAKEUP	0x100
 
@@ -558,11 +559,34 @@ rwsem_waiter_is_first(struct rw_semaphore *sem, struct rwsem_waiter *waiter)
  * Wait for the read lock to be granted
  */
 static inline struct rw_semaphore __sched *
-__rwsem_down_read_failed_common(struct rw_semaphore *sem, int state)
+__rwsem_down_read_failed_common(struct rw_semaphore *sem, int state, long count)
 {
-	long count, adjustment = -RWSEM_READER_BIAS;
+	long adjustment = -RWSEM_READER_BIAS;
 	struct rwsem_waiter waiter;
 	DEFINE_WAKE_Q(wake_q);
+
+	if (unlikely(count < 0)) {
+		/*
+		 * The sign bit has been set meaning that too many active
+		 * readers are present. We need to decrement reader count &
+		 * enter wait queue immediately to avoid overflowing the
+		 * reader count.
+		 *
+		 * As preemption is not disabled, there is a remote
+		 * possibility that premption can happen in the narrow
+		 * timing window between incrementing and decrementing
+		 * the reader count and the task is put to sleep for a
+		 * considerable amount of time. If sufficient number
+		 * of such unfortunate sequence of events happen, we
+		 * may still overflow the reader count. It is extremely
+		 * unlikey, though. If this is a concern, we should consider
+		 * disable preemption during this timing window to make
+		 * sure that such unfortunate event will not happen.
+		 */
+		atomic_long_add(-RWSEM_READER_BIAS, &sem->count);
+		adjustment = 0;
+		goto queue;
+	}
 
 	if (!rwsem_can_spin_on_owner(sem))
 		goto queue;
@@ -664,16 +688,16 @@ out_nolock:
 }
 
 __visible struct rw_semaphore * __sched
-rwsem_down_read_failed(struct rw_semaphore *sem)
+rwsem_down_read_failed(struct rw_semaphore *sem, long cnt)
 {
-	return __rwsem_down_read_failed_common(sem, TASK_UNINTERRUPTIBLE);
+	return __rwsem_down_read_failed_common(sem, TASK_UNINTERRUPTIBLE, cnt);
 }
 EXPORT_SYMBOL(rwsem_down_read_failed);
 
 __visible struct rw_semaphore * __sched
-rwsem_down_read_failed_killable(struct rw_semaphore *sem)
+rwsem_down_read_failed_killable(struct rw_semaphore *sem, long cnt)
 {
-	return __rwsem_down_read_failed_common(sem, TASK_KILLABLE);
+	return __rwsem_down_read_failed_common(sem, TASK_KILLABLE, cnt);
 }
 EXPORT_SYMBOL(rwsem_down_read_failed_killable);
 
