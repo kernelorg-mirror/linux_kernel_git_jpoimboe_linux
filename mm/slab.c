@@ -1480,6 +1480,7 @@ static void store_stackinfo(struct kmem_cache *cachep, unsigned long *addr,
 	*addr++ = 0x12345678;
 	*addr++ = caller;
 	*addr++ = smp_processor_id();
+#ifdef BROKEN
 	size -= 3 * sizeof(unsigned long);
 	{
 		unsigned long *sptr = &caller;
@@ -1496,6 +1497,7 @@ static void store_stackinfo(struct kmem_cache *cachep, unsigned long *addr,
 		}
 
 	}
+#endif
 	*addr++ = 0x87654321;
 }
 
