@@ -18,6 +18,8 @@
 
 #define FAKE_JUMP_OFFSET -1
 
+#define JUMP_TABLE_SYM_PREFIX "jump_table."
+
 struct alternative {
 	struct list_head list;
 	struct instruction *insn;
@@ -997,6 +999,7 @@ static struct rela *find_switch_table(struct objtool_file *file,
 	struct instruction *orig_insn = insn;
 	struct section *rodata_sec;
 	unsigned long table_offset;
+	struct symbol *sym;
 
 	/*
 	 * Backward search using the @first_jump_src links, these help avoid
@@ -1035,9 +1038,18 @@ static struct rela *find_switch_table(struct objtool_file *file,
 
 		/*
 		 * Make sure the .rodata address isn't associated with a
-		 * symbol.  gcc jump tables are anonymous data.
+		 * symbol.  GCC jump tables are anonymous data.
+		 *
+		 * Also support C jump tables which are in the same format as
+		 * switch jump tables.  Each jump table should be a static
+		 * local const array named "jump_table" for objtool to
+		 * recognize it.  Note: GCC will add a numbered suffix to the
+		 * ELF symbol name, like "jump_table.12345", which it does for
+		 * all static local variables.
 		 */
-		if (find_symbol_containing(rodata_sec, table_offset))
+		sym = find_symbol_containing(rodata_sec, table_offset);
+		if (sym && strncmp(sym->name, JUMP_TABLE_SYM_PREFIX,
+				   strlen(JUMP_TABLE_SYM_PREFIX)))
 			continue;
 
 		rodata_rela = find_rela_by_dest(rodata_sec, table_offset);
