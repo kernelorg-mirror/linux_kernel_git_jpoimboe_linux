@@ -724,13 +724,13 @@ static int klp_init_object_loaded(struct klp_patch *patch,
 	module_disable_ro(patch->mod);
 	ret = klp_write_object_relocations(patch->mod, obj);
 	if (ret) {
-		module_enable_ro(patch->mod, true);
+		module_enable_ro(patch->mod);
 		mutex_unlock(&text_mutex);
 		return ret;
 	}
 
 	arch_klp_init_object_loaded(patch, obj);
-	module_enable_ro(patch->mod, true);
+	module_enable_ro(patch->mod);
 
 	mutex_unlock(&text_mutex);
 

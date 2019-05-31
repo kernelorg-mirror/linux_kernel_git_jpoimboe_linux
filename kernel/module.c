@@ -1956,7 +1956,7 @@ void module_disable_ro(const struct module *mod)
 	frob_rodata(&mod->init_layout, set_memory_rw);
 }
 
-void __module_enable_ro(const struct module *mod, bool after_init)
+static void __module_enable_ro(const struct module *mod)
 {
 	if (!rodata_enabled)
 		return;
@@ -1973,15 +1973,15 @@ void __module_enable_ro(const struct module *mod, bool after_init)
 
 	frob_rodata(&mod->init_layout, set_memory_ro);
 
-	if (after_init)
+	if (mod->state == MODULE_STATE_LIVE)
 		frob_ro_after_init(&mod->core_layout, set_memory_ro);
 }
 
-void module_enable_ro(const struct module *mod, bool after_init)
+void module_enable_ro(const struct module *mod)
 {
 	lockdep_assert_held(&text_mutex);
 
-	__module_enable_ro(mod, after_init);
+	__module_enable_ro(mod);
 }
 
 static void __module_enable_nx(const struct module *mod)
@@ -2041,7 +2041,7 @@ void set_all_modules_text_ro(void)
 	mutex_unlock(&module_mutex);
 }
 #else
-static void __module_enable_ro(const struct module *mod, bool after_init) { }
+static void __module_enable_ro(const struct module *mod) { }
 static void __module_enable_nx(const struct module *mod) { }
 #endif
 
@@ -3534,7 +3534,7 @@ static noinline int do_init_module(struct module *mod)
 	/* Switch to core kallsyms now init is done: kallsyms may be walking! */
 	rcu_assign_pointer(mod->kallsyms, &mod->core_kallsyms);
 #endif
-	__module_enable_ro(mod, true);
+	__module_enable_ro(mod);
 	mod_tree_remove_init(mod);
 	module_arch_freeing_init(mod);
 	mod->init_layout.base = NULL;
@@ -3641,7 +3641,7 @@ static int complete_formation(struct module *mod, struct load_info *info)
 	/* This relies on module_mutex for list integrity. */
 	module_bug_finalize(info->hdr, info->sechdrs, mod);
 
-	__module_enable_ro(mod, false);
+	__module_enable_ro(mod);
 	__module_enable_nx(mod);
 
 	/* Mark state as coming so strong_try_module_get() ignores us,

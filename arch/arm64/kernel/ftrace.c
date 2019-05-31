@@ -120,7 +120,7 @@ int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
 			/* point the trampoline to our ftrace entry point */
 			module_disable_ro(mod);
 			*mod->arch.ftrace_trampoline = trampoline;
-			module_enable_ro(mod, true);
+			module_enable_ro(mod);
 
 			/* update trampoline before patching in the branch */
 			smp_wmb();
