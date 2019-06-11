@@ -143,6 +143,12 @@ static bool is_axreg(u32 reg)
 	return reg == BPF_REG_0;
 }
 
+static bool is_sib_reg(u32 reg)
+{
+	/* R12 isn't used yet */
+	false;
+}
+
 /* Add modifiers if 'reg' maps to x86-64 registers R8..R15 */
 static u8 add_1mod(u8 byte, u32 reg)
 {
@@ -779,10 +785,19 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 		case BPF_ST | BPF_MEM | BPF_DW:
 			EMIT2(add_1mod(0x48, dst_reg), 0xC7);
 
-st:			if (is_imm8(insn->off))
-				EMIT2(add_1reg(0x40, dst_reg), insn->off);
+st:
+			if (is_imm8(insn->off))
+				EMIT1(add_1reg(0x40, dst_reg));
 			else
-				EMIT1_off32(add_1reg(0x80, dst_reg), insn->off);
+				EMIT1(add_1reg(0x80, dst_reg));
+
+			if (is_sib_reg(dst_reg))
+				EMIT1(add_1reg(0x20, dst_reg));
+
+			if (is_imm8(insn->off))
+				EMIT1(insn->off);
+			else
+				EMIT(insn->off, 4);
 
 			EMIT(imm32, bpf_size_to_x86_bytes(BPF_SIZE(insn->code)));
 			break;
@@ -811,11 +826,19 @@ st:			if (is_imm8(insn->off))
 			goto stx;
 		case BPF_STX | BPF_MEM | BPF_DW:
 			EMIT2(add_2mod(0x48, dst_reg, src_reg), 0x89);
-stx:			if (is_imm8(insn->off))
-				EMIT2(add_2reg(0x40, dst_reg, src_reg), insn->off);
+stx:
+			if (is_imm8(insn->off))
+				EMIT1(add_2reg(0x40, dst_reg, src_reg));
 			else
-				EMIT1_off32(add_2reg(0x80, dst_reg, src_reg),
-					    insn->off);
+				EMIT1(add_2reg(0x80, dst_reg, src_reg));
+
+			if (is_sib_reg(dst_reg))
+				EMIT1(add_1reg(0x20, dst_reg));
+
+			if (is_imm8(insn->off))
+				EMIT1(insn->off);
+			else
+				EMIT(insn->off, 4);
 			break;
 
 			/* LDX: dst_reg = *(u8*)(src_reg + off) */
@@ -837,16 +860,24 @@ stx:			if (is_imm8(insn->off))
 		case BPF_LDX | BPF_MEM | BPF_DW:
 			/* Emit 'mov rax, qword ptr [rax+0x14]' */
 			EMIT2(add_2mod(0x48, src_reg, dst_reg), 0x8B);
-ldx:			/*
+ldx:
+			/*
 			 * If insn->off == 0 we can save one extra byte, but
 			 * special case of x86 R13 which always needs an offset
 			 * is not worth the hassle
 			 */
 			if (is_imm8(insn->off))
-				EMIT2(add_2reg(0x40, src_reg, dst_reg), insn->off);
+				EMIT1(add_2reg(0x40, src_reg, dst_reg));
 			else
-				EMIT1_off32(add_2reg(0x80, src_reg, dst_reg),
-					    insn->off);
+				EMIT1(add_2reg(0x80, src_reg, dst_reg));
+
+			if (is_sib_reg(src_reg))
+				EMIT1(add_1reg(0x20, src_reg));
+
+			if (is_imm8(insn->off))
+				EMIT1(insn->off);
+			else
+				EMIT(insn->off, 4);
 			break;
 
 			/* STX XADD: lock *(u32*)(dst_reg + off) += src_reg */
@@ -859,11 +890,19 @@ ldx:			/*
 			goto xadd;
 		case BPF_STX | BPF_XADD | BPF_DW:
 			EMIT3(0xF0, add_2mod(0x48, dst_reg, src_reg), 0x01);
-xadd:			if (is_imm8(insn->off))
-				EMIT2(add_2reg(0x40, dst_reg, src_reg), insn->off);
+xadd:
+			if (is_imm8(insn->off))
+				EMIT1(add_2reg(0x40, dst_reg, src_reg));
 			else
-				EMIT1_off32(add_2reg(0x80, dst_reg, src_reg),
-					    insn->off);
+				EMIT1(add_2reg(0x80, dst_reg, src_reg));
+
+			if (is_sib_reg(dst_reg))
+				EMIT1(add_1reg(0x20, dst_reg));
+
+			if (is_imm8(insn->off))
+				EMIT1(insn->off);
+			else
+				EMIT(insn->off, 4);
 			break;
 
 			/* call */
