@@ -240,6 +240,28 @@ static void emit_prologue(u8 **pprog, u32 stack_depth, bool ebpf_from_cbpf)
 	*pprog = prog;
 }
 
+static void emit_epilogue(u8 **pprog)
+{
+	u8 *prog = *pprog;
+	int cnt = 0;
+
+	/* mov rbx, qword ptr [rbp+0] */
+	EMIT4(0x48, 0x8B, 0x5D, 0);
+	/* mov r13, qword ptr [rbp+8] */
+	EMIT4(0x4C, 0x8B, 0x6D, 8);
+	/* mov r14, qword ptr [rbp+16] */
+	EMIT4(0x4C, 0x8B, 0x75, 16);
+	/* mov r15, qword ptr [rbp+24] */
+	EMIT4(0x4C, 0x8B, 0x7D, 24);
+
+	/* add rbp, AUX_STACK_SPACE */
+	EMIT4(0x48, 0x83, 0xC5, AUX_STACK_SPACE);
+	EMIT1(0xC9); /* leave */
+	EMIT1(0xC3); /* ret */
+
+	*pprog = prog;
+}
+
 /*
  * Generate the following code:
  *
@@ -1036,19 +1058,8 @@ emit_jmp:
 			seen_exit = true;
 			/* Update cleanup_addr */
 			ctx->cleanup_addr = proglen;
-			/* mov rbx, qword ptr [rbp+0] */
-			EMIT4(0x48, 0x8B, 0x5D, 0);
-			/* mov r13, qword ptr [rbp+8] */
-			EMIT4(0x4C, 0x8B, 0x6D, 8);
-			/* mov r14, qword ptr [rbp+16] */
-			EMIT4(0x4C, 0x8B, 0x75, 16);
-			/* mov r15, qword ptr [rbp+24] */
-			EMIT4(0x4C, 0x8B, 0x7D, 24);
 
-			/* add rbp, AUX_STACK_SPACE */
-			EMIT4(0x48, 0x83, 0xC5, AUX_STACK_SPACE);
-			EMIT1(0xC9); /* leave */
-			EMIT1(0xC3); /* ret */
+			emit_epilogue(&prog);
 			break;
 
 		default:
