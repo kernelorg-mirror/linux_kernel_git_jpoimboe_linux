@@ -1538,8 +1538,6 @@ static void setup_local_APIC(void)
 	value &= ~APIC_TPRI_MASK;
 	apic_write(APIC_TASKPRI, value);
 
-	apic_pending_intr_clear();
-
 	/*
 	 * Now that we are all set up, enable the APIC
 	 */
@@ -1583,6 +1581,14 @@ static void setup_local_APIC(void)
 	 */
 	value |= SPURIOUS_APIC_VECTOR;
 	apic_write(APIC_SPIV, value);
+
+	/*
+	 * Clear eventually pending ISR bits. This needs to be done after
+	 * enabling the APIC, otherwise it doesn't work. At least that's
+	 * what experimentation showed. It's nowhere documented, but makes
+	 * sense.
+	 */
+	apic_pending_intr_clear();
 
 	/*
 	 * Set up LVT0, LVT1:
