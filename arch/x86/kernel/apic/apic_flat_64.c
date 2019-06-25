@@ -8,21 +8,14 @@
  * Martin Bligh, Andi Kleen, James Bottomley, John Stultz, and
  * James Cleverdon.
  */
-#include <linux/acpi.h>
-#include <linux/errno.h>
-#include <linux/threads.h>
 #include <linux/cpumask.h>
-#include <linux/string.h>
-#include <linux/kernel.h>
-#include <linux/ctype.h>
-#include <linux/hardirq.h>
 #include <linux/export.h>
+#include <linux/acpi.h>
 
-#include <asm/smp.h>
-#include <asm/ipi.h>
-#include <asm/apic.h>
-#include <asm/apic_flat_64.h>
 #include <asm/jailhouse_para.h>
+#include <asm/apic.h>
+
+#include "local.h"
 
 static struct apic apic_physflat;
 static struct apic apic_flat;
@@ -87,7 +80,9 @@ static void flat_send_IPI_allbutself(int vector)
 {
 	int cpu = smp_processor_id();
 
-	if (IS_ENABLED(CONFIG_HOTPLUG_CPU) || vector == NMI_VECTOR) {
+	if (static_branch_likely(&apic_use_ipi_shorthand)) {
+		__default_send_IPI_shortcut(APIC_DEST_ALLBUT, vector);
+	} else {
 		if (!cpumask_equal(cpu_online_mask, cpumask_of(cpu))) {
 			unsigned long mask = cpumask_bits(cpu_online_mask)[0];
 
@@ -96,20 +91,15 @@ static void flat_send_IPI_allbutself(int vector)
 
 			_flat_send_IPI_mask(mask, vector);
 		}
-	} else if (num_online_cpus() > 1) {
-		__default_send_IPI_shortcut(APIC_DEST_ALLBUT,
-					    vector, apic->dest_logical);
 	}
 }
 
 static void flat_send_IPI_all(int vector)
 {
-	if (vector == NMI_VECTOR) {
+	if (static_branch_likely(&apic_use_ipi_shorthand))
+		__default_send_IPI_shortcut(APIC_DEST_ALLINC, vector);
+	else
 		flat_send_IPI_mask(cpu_online_mask, vector);
-	} else {
-		__default_send_IPI_shortcut(APIC_DEST_ALLINC,
-					    vector, apic->dest_logical);
-	}
 }
 
 static unsigned int flat_get_apic_id(unsigned long x)
@@ -227,12 +217,19 @@ static void physflat_init_apic_ldr(void)
 
 static void physflat_send_IPI_allbutself(int vector)
 {
-	default_send_IPI_mask_allbutself_phys(cpu_online_mask, vector);
+	if (static_branch_likely(&apic_use_ipi_shorthand)) {
+		__default_send_IPI_shortcut(APIC_DEST_ALLBUT, vector);
+	} else {
+		default_send_IPI_mask_allbutself_phys(cpu_online_mask, vector);
+	}
 }
 
 static void physflat_send_IPI_all(int vector)
 {
-	default_send_IPI_mask_sequence_phys(cpu_online_mask, vector);
+	if (static_branch_likely(&apic_use_ipi_shorthand))
+		__default_send_IPI_shortcut(APIC_DEST_ALLBUT, vector);
+	else
+		default_send_IPI_mask_sequence_phys(cpu_online_mask, vector);
 }
 
 static int physflat_probe(void)
