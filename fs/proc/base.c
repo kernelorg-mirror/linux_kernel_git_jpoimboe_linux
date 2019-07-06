@@ -510,7 +510,7 @@ static ssize_t lstats_write(struct file *file, const char __user *buf,
 
 	if (!task)
 		return -ESRCH;
-	clear_all_latency_tracing(task);
+	clear_tsk_latency_tracing(task);
 	put_task_struct(task);
 
 	return count;
@@ -2535,6 +2535,11 @@ static ssize_t proc_pid_attr_write(struct file * file, const char __user * buf,
 		rcu_read_unlock();
 		return -EACCES;
 	}
+	/* Prevent changes to overridden credentials. */
+	if (current_cred() != current_real_cred()) {
+		rcu_read_unlock();
+		return -EBUSY;
+	}
 	rcu_read_unlock();
 
 	if (count > PAGE_SIZE)
@@ -3072,8 +3077,7 @@ static const struct file_operations proc_tgid_base_operations = {
 
 struct pid *tgid_pidfd_to_pid(const struct file *file)
 {
-	if (!d_is_dir(file->f_path.dentry) ||
-	    (file->f_op != &proc_tgid_base_operations))
+	if (file->f_op != &proc_tgid_base_operations)
 		return ERR_PTR(-EBADF);
 
 	return proc_pid(file_inode(file));

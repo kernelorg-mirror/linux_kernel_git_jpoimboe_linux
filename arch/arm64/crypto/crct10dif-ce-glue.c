@@ -1,11 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Accelerated CRC-T10DIF using arm64 NEON and Crypto Extensions instructions
  *
  * Copyright (C) 2016 - 2017 Linaro Ltd <ard.biesheuvel@linaro.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/cpufeature.h>
@@ -16,6 +13,7 @@
 #include <linux/string.h>
 
 #include <crypto/internal/hash.h>
+#include <crypto/internal/simd.h>
 
 #include <asm/neon.h>
 #include <asm/simd.h>
@@ -38,7 +36,7 @@ static int crct10dif_update_pmull_p8(struct shash_desc *desc, const u8 *data,
 {
 	u16 *crc = shash_desc_ctx(desc);
 
-	if (length >= CRC_T10DIF_PMULL_CHUNK_SIZE && may_use_simd()) {
+	if (length >= CRC_T10DIF_PMULL_CHUNK_SIZE && crypto_simd_usable()) {
 		kernel_neon_begin();
 		*crc = crc_t10dif_pmull_p8(*crc, data, length);
 		kernel_neon_end();
@@ -54,7 +52,7 @@ static int crct10dif_update_pmull_p64(struct shash_desc *desc, const u8 *data,
 {
 	u16 *crc = shash_desc_ctx(desc);
 
-	if (length >= CRC_T10DIF_PMULL_CHUNK_SIZE && may_use_simd()) {
+	if (length >= CRC_T10DIF_PMULL_CHUNK_SIZE && crypto_simd_usable()) {
 		kernel_neon_begin();
 		*crc = crc_t10dif_pmull_p64(*crc, data, length);
 		kernel_neon_end();
