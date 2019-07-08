@@ -651,6 +651,13 @@ int3_exception_notify(struct notifier_block *self, unsigned long val, void *data
 	return NOTIFY_STOP;
 }
 
+#ifdef CONFIG_X86_32
+# define INT3_TEST_CLOBBERS "memory", "cc", "ecx", "edx"
+#else
+# define INT3_TEST_CLOBBERS "memory", "cc", "rax", "rcx", "rdx", "rsi", "r8", \
+			    "r9", "r10", "r11"
+#endif
+
 static void __init int3_selftest(void)
 {
 	static __initdata struct notifier_block int3_exception_nb = {
@@ -676,7 +683,7 @@ static void __init int3_selftest(void)
 		      "int3_selftest_ip:\n\t"
 		      __ASM_SEL(.long, .quad) " 1b\n\t"
 		      ".popsection\n\t"
-		      : : __ASM_SEL_RAW(a, D) (&val) : "memory");
+		      : : __ASM_SEL_RAW(a, D) (&val) : INT3_TEST_CLOBBERS);
 
 	BUG_ON(val != 1);
 
