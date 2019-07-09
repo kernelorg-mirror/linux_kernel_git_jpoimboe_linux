@@ -850,15 +850,7 @@ config BLK_CGROUP
 	CONFIG_CFQ_GROUP_IOSCHED=y; for enabling throttling policy, set
 	CONFIG_BLK_DEV_THROTTLING=y.
 
-	See Documentation/cgroup-v1/blkio-controller.txt for more information.
-
-config DEBUG_BLK_CGROUP
-	bool "IO controller debugging"
-	depends on BLK_CGROUP
-	default n
-	---help---
-	Enable some debugging help. Currently it exports additional stat
-	files in a cgroup which can be useful for debugging.
+	See Documentation/cgroup-v1/blkio-controller.rst for more information.
 
 config CGROUP_WRITEBACK
 	bool
