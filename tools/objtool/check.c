@@ -899,7 +899,8 @@ out:
 }
 
 static int add_switch_table(struct objtool_file *file, struct instruction *insn,
-			    struct rela *table, struct rela *next_table)
+			    struct rela *table, struct rela *next_table,
+			    struct symbol *table_sym)
 {
 	struct rela *rela = table;
 	struct instruction *alt_insn;
@@ -908,7 +909,9 @@ static int add_switch_table(struct objtool_file *file, struct instruction *insn,
 	unsigned int prev_offset = 0;
 
 	list_for_each_entry_from(rela, &table->rela_sec->rela_list, list) {
-		if (rela == next_table)
+		if (table_sym && rela->offset - table->offset >= table_sym->len)
+			break;
+		if (!table_sym && rela == next_table)
 			break;
 
 		/* Make sure the switch table entries are consecutive: */
@@ -993,7 +996,8 @@ static int add_switch_table(struct objtool_file *file, struct instruction *insn,
  */
 static struct rela *find_switch_table(struct objtool_file *file,
 				      struct symbol *func,
-				      struct instruction *insn)
+				      struct instruction *insn,
+				      struct symbol **table_sym)
 {
 	struct rela *text_rela, *rodata_rela;
 	struct instruction *orig_insn = insn;
@@ -1044,8 +1048,8 @@ static struct rela *find_switch_table(struct objtool_file *file,
 		 * need to be placed in the C_JUMP_TABLE_SECTION section.  They
 		 * have symbols associated with them.
 		 */
-		if (find_symbol_containing(rodata_sec, table_offset) &&
-		    strcmp(rodata_sec->name, C_JUMP_TABLE_SECTION))
+		*table_sym = find_symbol_containing(rodata_sec, table_offset);
+		if (*table_sym && strcmp(rodata_sec->name, C_JUMP_TABLE_SECTION))
 			continue;
 
 		rodata_rela = find_rela_by_dest(rodata_sec, table_offset);
@@ -1071,6 +1075,7 @@ static int add_func_switch_tables(struct objtool_file *file,
 {
 	struct instruction *insn, *last = NULL, *prev_jump = NULL;
 	struct rela *rela, *prev_rela = NULL;
+	struct symbol *table_sym;
 	int ret;
 
 	func_for_each_insn_all(file, func, insn) {
@@ -1094,27 +1099,45 @@ static int add_func_switch_tables(struct objtool_file *file,
 		if (insn->type != INSN_JUMP_DYNAMIC)
 			continue;
 
-		rela = find_switch_table(file, func, insn);
+		rela = find_switch_table(file, func, insn, &table_sym);
 		if (!rela)
 			continue;
 
 		/*
-		 * We found a switch table, but we don't know yet how big it
-		 * is.  Don't add it until we reach the end of the function or
-		 * the beginning of another switch table in the same function.
+		 * We found a switch table.  If we previously found a table
+		 * with unknown size, the size is now known, so add it:
 		 */
 		if (prev_jump) {
-			ret = add_switch_table(file, prev_jump, prev_rela, rela);
+			ret = add_switch_table(file, prev_jump, prev_rela, rela,
+					       NULL);
 			if (ret)
 				return ret;
+
+			prev_jump = NULL;
 		}
 
-		prev_jump = insn;
-		prev_rela = rela;
+		if (table_sym) {
+			/* The size of the current table is known, add it: */
+			ret = add_switch_table(file, insn, rela, NULL, table_sym);
+			if (ret)
+				return ret;
+		} else {
+			/*
+			 * The size of the current table is unknown.  Wait
+			 * until we get to another table or to the end of the
+			 * function before adding it:
+			 */
+			prev_jump = insn;
+			prev_rela = rela;
+		}
 	}
 
 	if (prev_jump) {
-		ret = add_switch_table(file, prev_jump, prev_rela, NULL);
+		/*
+		 * Reached the end of the function.  If the previously found
+		 * table's size was unknown, add it.
+		 */
+		ret = add_switch_table(file, prev_jump, prev_rela, NULL, NULL);
 		if (ret)
 			return ret;
 	}
