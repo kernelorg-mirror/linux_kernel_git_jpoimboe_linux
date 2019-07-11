@@ -902,7 +902,7 @@ static int add_switch_table(struct objtool_file *file, struct instruction *insn,
 			    struct rela *table, struct rela *next_table)
 {
 	struct rela *rela = table;
-	struct instruction *alt_insn;
+	struct instruction *alt_insn, *prev_insn;
 	struct alternative *alt;
 	struct symbol *pfunc = insn->func->pfunc;
 	unsigned int prev_offset = 0;
@@ -924,6 +924,20 @@ static int add_switch_table(struct objtool_file *file, struct instruction *insn,
 		if (!alt_insn)
 			break;
 
+		if (!alt_insn->func) {
+			/*
+			 * Clang 9 has a quirk where a switch table may have
+			 * unused entries in the middle of the table which
+			 * point to just past the end of the function.  They're
+			 * still part of the table but can be ignored.
+			 */
+			prev_insn = list_prev_entry(alt_insn, list);
+			if (prev_insn->func && prev_insn->func->pfunc == pfunc)
+				goto skip;
+
+			break;
+		}
+
 		/* Make sure the jmp dest is in the function or subfunction: */
 		if (alt_insn->func->pfunc != pfunc)
 			break;
@@ -936,6 +950,7 @@ static int add_switch_table(struct objtool_file *file, struct instruction *insn,
 
 		alt->insn = alt_insn;
 		list_add_tail(&alt->list, &insn->alts);
+skip:
 		prev_offset = rela->offset;
 	}
 
