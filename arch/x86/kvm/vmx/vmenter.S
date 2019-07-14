@@ -4,6 +4,7 @@
 #include <asm/bitsperlong.h>
 #include <asm/kvm_vcpu_regs.h>
 #include <asm/nospec-branch.h>
+#include <asm/frame.h>
 
 #define WORD_SIZE (BITS_PER_LONG / 8)
 
@@ -44,19 +45,22 @@
  * to vmx_vmexit.
  */
 ENTRY(vmx_vmenter)
+	FRAME_BEGIN
 	/* EFLAGS.ZF is set if VMCS.LAUNCHED == 0 */
 	je 2f
 
 1:	vmresume
-	ret
+	jmp 4f
 
 2:	vmlaunch
-	ret
+	jmp 4f
 
 3:	cmpb $0, kvm_rebooting
 	jne 4f
 	call kvm_spurious_fault
-4:	ret
+
+4:	FRAME_END
+	ret
 
 	.pushsection .fixup, "ax"
 5:	jmp 3b
