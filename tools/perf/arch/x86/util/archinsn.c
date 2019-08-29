@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
+#include <asm/insn.h>
 #include "perf.h"
 #include "archinsn.h"
-#include "util/intel-pt-decoder/insn.h"
 #include "machine.h"
 #include "thread.h"
 #include "symbol.h"
