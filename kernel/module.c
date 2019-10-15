@@ -3683,10 +3683,6 @@ static int complete_formation(struct module *mod, struct load_info *info)
 	/* This relies on module_mutex for list integrity. */
 	module_bug_finalize(info->hdr, info->sechdrs, mod);
 
-	module_enable_ro(mod, false);
-	module_enable_nx(mod);
-	module_enable_x(mod);
-
 	/* Mark state as coming so strong_try_module_get() ignores us,
 	 * but kallsyms etc. can see us. */
 	mod->state = MODULE_STATE_COMING;
@@ -3851,6 +3847,10 @@ static int load_module(struct load_info *info, const char __user *uargs,
 	err = prepare_coming_module(mod);
 	if (err)
 		goto bug_cleanup;
+
+	module_enable_ro(mod, false);
+	module_enable_nx(mod);
+	module_enable_x(mod);
 
 	/* Module is ready to execute: parsing args may do that. */
 	after_dashes = parse_args(mod->name, mod->args, mod->kp, mod->num_kp,
