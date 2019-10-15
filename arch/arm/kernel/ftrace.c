@@ -22,6 +22,7 @@
 #include <asm/ftrace.h>
 #include <asm/insn.h>
 #include <asm/set_memory.h>
+#include <asm/patch.h>
 
 #ifdef CONFIG_THUMB2_KERNEL
 #define	NOP		0xf85deb04	/* pop.w {lr} */
@@ -31,13 +32,15 @@
 
 #ifdef CONFIG_DYNAMIC_FTRACE
 
+static int patch_text_remap = 0;
+
 static int __ftrace_modify_code(void *data)
 {
 	int *command = data;
 
-	set_kernel_text_rw();
+	patch_text_remap++;
 	ftrace_modify_all_code(*command);
-	set_kernel_text_ro();
+	patch_text_remap--;
 
 	return 0;
 }
@@ -59,13 +62,13 @@ static unsigned long adjust_address(struct dyn_ftrace *rec, unsigned long addr)
 
 int ftrace_arch_code_modify_prepare(void)
 {
-	set_all_modules_text_rw();
+	patch_text_remap++;
 	return 0;
 }
 
 int ftrace_arch_code_modify_post_process(void)
 {
-	set_all_modules_text_ro();
+	patch_text_remap--;
 	/* Make sure any TLB misses during machine stop are cleared. */
 	flush_tlb_all();
 	return 0;
@@ -97,10 +100,7 @@ static int ftrace_modify_code(unsigned long pc, unsigned long old,
 			return -EINVAL;
 	}
 
-	if (probe_kernel_write((void *)pc, &new, MCOUNT_INSN_SIZE))
-		return -EPERM;
-
-	flush_icache_range(pc, pc + MCOUNT_INSN_SIZE);
+	__patch_text_real((void *)pc, new, patch_text_remap);
 
 	return 0;
 }
