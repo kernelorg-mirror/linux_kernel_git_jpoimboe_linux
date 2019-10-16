@@ -5564,6 +5564,8 @@ static int ftrace_cmp_ips(const void *a, const void *b)
 	return 0;
 }
 
+static int referenced_filters(struct dyn_ftrace *rec);
+
 static int ftrace_process_locs(struct module *mod,
 			       unsigned long *start,
 			       unsigned long *end)
@@ -5656,6 +5658,49 @@ static int ftrace_process_locs(struct module *mod,
 	ftrace_update_code(mod, start_pg);
 	if (!mod)
 		local_irq_restore(flags);
+
+#ifdef CONFIG_MODULES
+	if (ftrace_disabled || !mod)
+		goto out_loop;
+
+	do_for_each_ftrace_rec(pg, rec) {
+		int cnt;
+		/*
+		 * do_for_each_ftrace_rec() is a double loop.
+		 * module text shares the pg. If a record is
+		 * not part of this module, then skip this pg,
+		 * which the "break" will do.
+		 */
+		if (!within_module_core(rec->ip, mod) &&
+		    !within_module_init(rec->ip, mod))
+			break;
+
+		cnt = 0;
+
+		/*
+		 * When adding a module, we need to check if tracers are
+		 * currently enabled and if they are, and can trace this record,
+		 * we need to enable the module functions as well as update the
+		 * reference counts for those function records.
+		 */
+		if (ftrace_start_up)
+			cnt += referenced_filters(rec);
+
+		/* This clears FTRACE_FL_DISABLED */
+		rec->flags = cnt;
+
+		if (ftrace_start_up && cnt) {
+			int failed = __ftrace_replace_code(rec, 1);
+			if (failed) {
+				ftrace_bug(failed, rec);
+				goto out_loop;
+			}
+		}
+
+	} while_for_each_ftrace_rec();
+
+ out_loop:
+#endif
 	ret = 0;
  out:
 	mutex_unlock(&ftrace_lock);
@@ -5823,83 +5868,12 @@ void ftrace_release_mod(struct module *mod)
 
 void ftrace_module_enable(struct module *mod)
 {
-	struct dyn_ftrace *rec;
-	struct ftrace_page *pg;
-
-	mutex_lock(&ftrace_lock);
-
-	if (ftrace_disabled)
-		goto out_unlock;
-
-	/*
-	 * If the tracing is enabled, go ahead and enable the record.
-	 *
-	 * The reason not to enable the record immediately is the
-	 * inherent check of ftrace_make_nop/ftrace_make_call for
-	 * correct previous instructions.  Making first the NOP
-	 * conversion puts the module to the correct state, thus
-	 * passing the ftrace_make_call check.
-	 *
-	 * We also delay this to after the module code already set the
-	 * text to read-only, as we now need to set it back to read-write
-	 * so that we can modify the text.
-	 */
-	if (ftrace_start_up)
-		ftrace_arch_code_modify_prepare();
-
-	do_for_each_ftrace_rec(pg, rec) {
-		int cnt;
-		/*
-		 * do_for_each_ftrace_rec() is a double loop.
-		 * module text shares the pg. If a record is
-		 * not part of this module, then skip this pg,
-		 * which the "break" will do.
-		 */
-		if (!within_module_core(rec->ip, mod) &&
-		    !within_module_init(rec->ip, mod))
-			break;
-
-		cnt = 0;
-
-		/*
-		 * When adding a module, we need to check if tracers are
-		 * currently enabled and if they are, and can trace this record,
-		 * we need to enable the module functions as well as update the
-		 * reference counts for those function records.
-		 */
-		if (ftrace_start_up)
-			cnt += referenced_filters(rec);
-
-		/* This clears FTRACE_FL_DISABLED */
-		rec->flags = cnt;
-
-		if (ftrace_start_up && cnt) {
-			int failed = __ftrace_replace_code(rec, 1);
-			if (failed) {
-				ftrace_bug(failed, rec);
-				goto out_loop;
-			}
-		}
-
-	} while_for_each_ftrace_rec();
-
- out_loop:
-	if (ftrace_start_up)
-		ftrace_arch_code_modify_post_process();
-
- out_unlock:
-	mutex_unlock(&ftrace_lock);
+	if (!(ftrace_disabled || !mod->num_ftrace_callsites)) {
+		ftrace_process_locs(mod, mod->ftrace_callsites,
+				    mod->ftrace_callsites + mod->num_ftrace_callsites);
+	}
 
 	process_cached_mods(mod->name);
-}
-
-void ftrace_module_init(struct module *mod)
-{
-	if (ftrace_disabled || !mod->num_ftrace_callsites)
-		return;
-
-	ftrace_process_locs(mod, mod->ftrace_callsites,
-			    mod->ftrace_callsites + mod->num_ftrace_callsites);
 }
 
 static void save_ftrace_mod_rec(struct ftrace_mod_map *mod_map,
