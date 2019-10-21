@@ -231,6 +231,10 @@ void klp_shadow_free_all(unsigned long id, klp_shadow_dtor_t dtor);
 struct klp_state *klp_get_state(struct klp_patch *patch, unsigned long id);
 struct klp_state *klp_get_prev_state(unsigned long id);
 
+int klp_apply_relocate_add(Elf64_Shdr *sechdrs, const char *strtab,
+			   unsigned int symindex, unsigned int relsec,
+			   struct module *me);
+
 #else /* !CONFIG_LIVEPATCH */
 
 static inline int klp_module_coming(struct module *mod) { return 0; }
