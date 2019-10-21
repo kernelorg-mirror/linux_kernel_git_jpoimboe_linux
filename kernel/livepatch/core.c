@@ -256,6 +256,15 @@ static int klp_resolve_symbols(Elf_Shdr *relasec, struct module *pmod)
 	return 0;
 }
 
+int __weak klp_apply_relocate_add(Elf64_Shdr *sechdrs,
+			      const char *strtab,
+			      unsigned int symindex,
+			      unsigned int relsec,
+			      struct module *me)
+{
+	return apply_relocate_add(sechdrs, strtab, symindex, relsec, me);
+}
+
 static int klp_write_object_relocations(struct module *pmod,
 					struct klp_object *obj)
 {
@@ -296,7 +305,7 @@ static int klp_write_object_relocations(struct module *pmod,
 		if (ret)
 			break;
 
-		ret = apply_relocate_add(pmod->klp_info->sechdrs,
+		ret = klp_apply_relocate_add(pmod->klp_info->sechdrs,
 					 pmod->core_kallsyms.strtab,
 					 pmod->klp_info->symndx, i, pmod);
 		if (ret)
@@ -726,15 +735,11 @@ static int klp_init_object_loaded(struct klp_patch *patch,
 
 	mutex_lock(&text_mutex);
 
-	module_disable_ro(patch->mod);
 	ret = klp_write_object_relocations(patch->mod, obj);
 	if (ret) {
-		module_enable_ro(patch->mod, true);
 		mutex_unlock(&text_mutex);
 		return ret;
 	}
-
-	module_enable_ro(patch->mod, true);
 
 	mutex_unlock(&text_mutex);
 
