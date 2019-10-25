@@ -239,6 +239,17 @@ static int klp_resolve_symbols(Elf_Shdr *relasec, struct module *pmod)
 		if (ret)
 			return ret;
 
+		/*
+		 * Prevent module patches from using livepatch relas for
+		 * vmlinux symbols.  Presumably such symbols are exported and
+		 * normal relas can instead be used at patch module loading
+		 * time.
+		 */
+		if (!vmlinux && core_kernel_text(addr)) {
+			pr_err("unsupported livepatch symbol\n");
+			return -EINVAL;
+		}
+
 		sym->st_value = addr;
 	}
 
