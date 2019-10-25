@@ -717,12 +717,6 @@ static int klp_init_func(struct klp_object *obj, struct klp_func *func)
 			   func->old_sympos ? func->old_sympos : 1);
 }
 
-/* Arches may override this to finish any remaining arch-specific tasks */
-void __weak arch_klp_init_object_loaded(struct klp_patch *patch,
-					struct klp_object *obj)
-{
-}
-
 /* parts of the initialization that is done only when the object is loaded */
 static int klp_init_object_loaded(struct klp_patch *patch,
 				  struct klp_object *obj)
@@ -740,7 +734,6 @@ static int klp_init_object_loaded(struct klp_patch *patch,
 		return ret;
 	}
 
-	arch_klp_init_object_loaded(patch, obj);
 	module_enable_ro(patch->mod, true);
 
 	mutex_unlock(&text_mutex);
