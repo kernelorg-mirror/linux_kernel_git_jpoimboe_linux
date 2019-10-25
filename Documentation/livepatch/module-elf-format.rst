@@ -298,17 +298,7 @@ Examples:
   Note that the 'Ndx' (Section index) for these symbols is SHN_LIVEPATCH (0xff20).
   "OS" means OS-specific.
 
-5. Architecture-specific sections
-=================================
-Architectures may override arch_klp_init_object_loaded() to perform
-additional arch-specific tasks when a target module loads, such as applying
-arch-specific sections. On x86 for example, we must apply per-object
-.altinstructions and .parainstructions sections when a target module loads.
-These sections must be prefixed with ".klp.arch.$objname." so that they can
-be easily identified when iterating through a patch module's Elf sections
-(See arch/x86/kernel/livepatch.c for a complete example).
-
-6. Symbol table and Elf section access
+5. Symbol table and Elf section access
 ======================================
 A livepatch module's symbol table is accessible through module->symtab.
 
