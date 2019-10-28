@@ -256,27 +256,60 @@ static int klp_resolve_symbols(Elf_Shdr *relasec, struct module *pmod)
 	return 0;
 }
 
-int __weak klp_apply_relocate_add(Elf64_Shdr *sechdrs,
-			      const char *strtab,
-			      unsigned int symindex,
-			      unsigned int relsec,
-			      struct module *me)
-{
-	return apply_relocate_add(sechdrs, strtab, symindex, relsec, me);
-}
-
-static int klp_write_object_relocations(struct module *pmod,
-					struct klp_object *obj)
+/*
+ * This function is called for both vmlinux-specific and module-specific klp
+ * relocation sections:
+ *
+ * 1) When the klp module itself loads, the module code calls this function
+ *    to write vmlinux-specific klp relocations.  These relocations allow the
+ *    patched code/data to reference unexported vmlinux symbols.  They're
+ *    written as early as possible to ensure that other module init code
+ *    (.e.g., jump_label_apply_nops) can access any non-exported vmlinux
+ *    symbols which might be referenced by the klp module's special sections.
+ *
+ * 2) When a to-be-patched module loads (or is already loaded when the
+ *    klp module loads), klp code calls this function to write klp relocations
+ *    which are specific to the module.  These relocations allow the patched
+ *    code/data to reference module symbols, both unexported and exported.
+ *    They also enable late module patching, which means the to-be-patched
+ *    module may be loaded *after* the klp module.
+ *
+ *    The following restrictions apply to module-specific relocation sections:
+ *
+ *    a) References to vmlinux symbols are not allowed.  Otherwise there might
+ *       be module init ordering issues, and crashes might occur in some of the
+ *       other kernel patching components like paravirt patching or jump
+ *       labels.  All references to vmlinux symbols should use either normal
+ *       relas (for exported symbols) or vmlinux-specific klp relas (for
+ *       unexported symbols).  This restriction is enforced in
+ *       klp_resolve_symbols().
+ *
+ *    b) Relocations to special sections like __jump_table and .altinstructions
+ *       aren't allowed.  In other words, there should never be a
+ *       .klp.rela.{module}.__jump_table section.  This will definitely cause
+ *       initialization ordering issues, as such special sections are processed
+ *       during the loading of the klp module itself, *not* the to-be-patched
+ *       module.  This means that e.g., it's not currently possible to patch a
+ *       module function which uses a static key jump label, if you want to
+ *       have the replacement function also use the same static key.  In this
+ *       case, a non-static interface like static_key_enabled() can be used in
+ *       the new function instead.
+ *
+ *       On the other hand, a .klp.rela.vmlinux.__jump_table section is fine,
+ *       as it can be resolved early enough during the load of the klp module,
+ *       as described above.
+ */
+int klp_write_relocations(struct module *pmod, struct klp_object *obj)
 {
 	int i, cnt, ret = 0;
 	const char *objname, *secname;
 	char sec_objname[MODULE_NAME_LEN];
 	Elf_Shdr *sec;
 
-	if (WARN_ON(!klp_is_object_loaded(obj)))
+	if (WARN_ON(obj && !klp_is_object_loaded(obj)))
 		return -EINVAL;
 
-	objname = klp_is_module(obj) ? obj->name : "vmlinux";
+	objname = obj ? obj->name : "vmlinux";
 
 	/* For each klp relocation section */
 	for (i = 1; i < pmod->klp_info->hdr.e_shnum; i++) {
@@ -305,7 +338,7 @@ static int klp_write_object_relocations(struct module *pmod,
 		if (ret)
 			break;
 
-		ret = klp_apply_relocate_add(pmod->klp_info->sechdrs,
+		ret = apply_relocate_add(pmod->klp_info->sechdrs,
 					 pmod->core_kallsyms.strtab,
 					 pmod->klp_info->symndx, i, pmod);
 		if (ret)
@@ -733,15 +766,24 @@ static int klp_init_object_loaded(struct klp_patch *patch,
 	struct klp_func *func;
 	int ret;
 
-	mutex_lock(&text_mutex);
+	if (klp_is_module(obj)) {
 
-	ret = klp_write_object_relocations(patch->mod, obj);
-	if (ret) {
+		/*
+		 * Only write module-specific relocations here.
+		 * vmlinux-specific relocations were already written during the
+		 * loading of the klp module.
+		 */
+
+		mutex_lock(&text_mutex);
+
+		ret = klp_write_relocations(patch->mod, obj);
+		if (ret) {
+			mutex_unlock(&text_mutex);
+			return ret;
+		}
+
 		mutex_unlock(&text_mutex);
-		return ret;
 	}
-
-	mutex_unlock(&text_mutex);
 
 	klp_for_each_func(obj, func) {
 		ret = klp_find_object_symbol(obj->name, func->old_name,

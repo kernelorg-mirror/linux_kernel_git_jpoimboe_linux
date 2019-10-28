@@ -214,12 +214,7 @@ void *klp_shadow_get_or_alloc(void *obj, unsigned long id,
 void klp_shadow_free(void *obj, unsigned long id, klp_shadow_dtor_t dtor);
 void klp_shadow_free_all(unsigned long id, klp_shadow_dtor_t dtor);
 
-
-extern int klp_apply_relocate_add(Elf64_Shdr *sechdrs,
-			      const char *strtab,
-			      unsigned int symindex,
-			      unsigned int relsec,
-			      struct module *me);
+int klp_write_relocations(struct module *mod, struct klp_object *obj);
 
 #else /* !CONFIG_LIVEPATCH */
 
@@ -228,6 +223,12 @@ static inline void klp_module_going(struct module *mod) {}
 static inline bool klp_patch_pending(struct task_struct *task) { return false; }
 static inline void klp_update_patch_state(struct task_struct *task) {}
 static inline void klp_copy_process(struct task_struct *child) {}
+
+static inline int klp_write_relocations(struct module *mod,
+					struct klp_object *obj)
+{
+	return 0;
+}
 
 #endif /* CONFIG_LIVEPATCH */
 
