@@ -223,19 +223,13 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 		   unsigned int relsec,
 		   struct module *me)
 {
-	return __apply_relocate_add(sechdrs, strtab, symindex, relsec, me, memcpy);
-}
-
-int klp_apply_relocate_add(Elf64_Shdr *sechdrs,
-		   const char *strtab,
-		   unsigned int symindex,
-		   unsigned int relsec,
-		   struct module *me)
-{
 	int ret;
+	bool early = me->state != MODULE_STATE_LIVE;
 
-	ret = __apply_relocate_add(sechdrs, strtab, symindex, relsec, me, text_poke);
-	if (!ret)
+	ret = __apply_relocate_add(sechdrs, strtab, symindex, relsec, me,
+				   early ? memcpy : text_poke);
+
+	if (!ret && !early)
 		text_poke_sync();
 
 	return ret;

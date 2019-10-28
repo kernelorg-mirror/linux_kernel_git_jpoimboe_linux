@@ -191,18 +191,53 @@ static int klp_find_object_symbol(const char *objname, const char *name,
 	return -EINVAL;
 }
 
-static int klp_resolve_symbols(Elf_Shdr *relasec, struct module *pmod)
+static int klp_resolve_symbols(Elf64_Shdr *sechdrs, const char *strtab,
+			       unsigned int symndx, Elf_Shdr *relasec,
+			       const char *sec_objname, const char *sec_name)
 {
-	int i, cnt, vmlinux, ret;
-	char objname[MODULE_NAME_LEN];
-	char symname[KSYM_NAME_LEN];
-	char *strtab = pmod->core_kallsyms.strtab;
+	int i, cnt, ret;
+	bool sym_vmlinux, sec_vmlinux;
+	char sym_objname[MODULE_NAME_LEN];
+	char sym_name[KSYM_NAME_LEN];
 	Elf_Rela *relas;
 	Elf_Sym *sym;
 	unsigned long sympos, addr;
 
+	sec_vmlinux = !strcmp(sec_objname, "vmlinux");
+
+	if (!sec_vmlinux &&
+	    (!strcmp(sec_name, ".altinstructions")  ||
+	     !strcmp(sec_name, ".parainstructions") ||
+	     !strcmp(sec_name, "__jump_table"))) {
+		/*
+		 * Module-specific klp relocation sections aren't allowed to
+		 * target special sections.  In other words, there should never
+		 * be a .klp.rela.{module}.__jump_table section.  This will
+		 * cause initialization ordering issues.  Such special sections
+		 * are processed by the special section init code during the
+		 * loading of the klp module itself, *not* the to-be-patched
+		 * module.  Because of the possibility of late module patching,
+		 * by the time the klp relas are applied, it will be *after*
+		 * the special section init code has run for the klp module.
+		 *
+		 * This means that, for example, if a static key is defined in
+		 * a module, it's not possible for a klp replacement function
+		 * to have a jump label based on it.  Instead, a non-patching
+		 * interface like static_key_enabled() can be used in the new
+		 * function instead.
+		 *
+		 * On the other hand, a .klp.rela.vmlinux.__jump_table section
+		 * is fine, as vmlinux-specific relocations are applied early
+		 * during the loading of the klp module, before the jump label
+		 * module init.
+		 */
+		pr_err("invalid module-specific livepatch relocation section '.klp.rela.%s.%s'\n",
+		       sec_objname, sec_name);
+		return -EINVAL;
+	}
+
 	/*
-	 * Since the field widths for objname and symname in the sscanf()
+	 * Since the field widths for sym_objname and sym_name in the sscanf()
 	 * call are hard-coded and correspond to MODULE_NAME_LEN and
 	 * KSYM_NAME_LEN respectively, we must make sure that MODULE_NAME_LEN
 	 * and KSYM_NAME_LEN have the values we expect them to have.
@@ -216,40 +251,43 @@ static int klp_resolve_symbols(Elf_Shdr *relasec, struct module *pmod)
 	relas = (Elf_Rela *) relasec->sh_addr;
 	/* For each rela in this klp relocation section */
 	for (i = 0; i < relasec->sh_size / sizeof(Elf_Rela); i++) {
-		sym = pmod->core_kallsyms.symtab + ELF_R_SYM(relas[i].r_info);
+		sym = (Elf64_Sym *)sechdrs[symndx].sh_addr + ELF_R_SYM(relas[i].r_info);
 		if (sym->st_shndx != SHN_LIVEPATCH) {
 			pr_err("symbol %s is not marked as a livepatch symbol\n",
 			       strtab + sym->st_name);
 			return -EINVAL;
 		}
 
-		/* Format: .klp.sym.objname.symname,sympos */
+		/* Format: .klp.sym.sym_objname.sym_name,sympos */
 		cnt = sscanf(strtab + sym->st_name,
 			     ".klp.sym.%55[^.].%127[^,],%lu",
-			     objname, symname, &sympos);
+			     sym_objname, sym_name, &sympos);
 		if (cnt != 3) {
 			pr_err("symbol %s has an incorrectly formatted name\n",
 			       strtab + sym->st_name);
 			return -EINVAL;
 		}
 
-		/* klp_find_object_symbol() treats a NULL objname as vmlinux */
-		vmlinux = !strcmp(objname, "vmlinux");
-		ret = klp_find_object_symbol(vmlinux ? NULL : objname,
-					     symname, sympos, &addr);
-		if (ret)
-			return ret;
+		sym_vmlinux = !strcmp(sym_objname, "vmlinux");
 
-		/*
-		 * Prevent module patches from using livepatch relas for
-		 * vmlinux symbols.  Presumably such symbols are exported and
-		 * normal relas can instead be used at patch module loading
-		 * time.
-		 */
-		if (!vmlinux && core_kernel_text(addr)) {
-			pr_err("unsupported livepatch symbol\n");
+		if (!sec_vmlinux && sym_vmlinux) {
+			/*
+			 * Prevent module-specific klp relocation sections from
+			 * referencing vmlinux symbols.  Presumably such
+			 * symbols are exported and normal relocations can be
+			 * used instead.  This prevents module init ordering
+			 * issues caused by late module patching.
+			 */
+			pr_err("invalid access to vmlinux symbol '%s' from module-specific livepatch relocation section '.klp.rela.%s.%s'\n",
+			       sym_name, sec_objname, sec_name);
 			return -EINVAL;
 		}
+
+		/* klp_find_object_symbol() treats a NULL objname as vmlinux */
+		ret = klp_find_object_symbol(sym_vmlinux ? NULL : sym_objname,
+					     sym_name, sympos, &addr);
+		if (ret)
+			return ret;
 
 		sym->st_value = addr;
 	}
@@ -257,58 +295,68 @@ static int klp_resolve_symbols(Elf_Shdr *relasec, struct module *pmod)
 	return 0;
 }
 
-int __weak klp_apply_relocate_add(Elf64_Shdr *sechdrs,
-			      const char *strtab,
-			      unsigned int symindex,
-			      unsigned int relsec,
-			      struct module *me)
-{
-	return apply_relocate_add(sechdrs, strtab, symindex, relsec, me);
-}
-
-static int klp_write_object_relocations(struct module *pmod,
-					struct klp_object *obj)
+/*
+ * At a high-level, there are two types of klp relocation sections: those which
+ * reference symbols which live in vmlinux; and those which reference symbols
+ * which live in other modules.  This function is called for both types:
+ *
+ * 1) When a klp module itself loads, the module code calls this function to
+ *    write vmlinux-specific klp relocations (.klp.rela.vmlinux.* sections).
+ *    These relocations are written to the klp module text to allow the patched
+ *    code/data to reference unexported vmlinux symbols.  They're written as
+ *    early as possible to ensure that other module init code (.e.g.,
+ *    jump_label_apply_nops) can access any unexported vmlinux symbols which
+ *    might be referenced by the klp module's special sections.
+ *
+ * 2) When a to-be-patched module loads -- or is already loaded when a
+ *    corresponding klp module loads -- klp code calls this function to write
+ *    module-specific klp relocations (.klp.rela.{module}.* sections).  These
+ *    are written to the klp module text to allow the patched code/data to
+ *    reference symbols which live in the to-be-patched module or one of its
+ *    module dependencies.  Exported symbols are supported, in addition to
+ *    unexported symbols, in order to enable late module patching, which allows
+ *    the to-be-patched module to be loaded and patched sometime *after* the
+ *    klp module is loaded.
+ */
+int klp_write_relocations(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs,
+			  const char *shstrtab, const char *strtab,
+			  unsigned int symndx, struct module *pmod,
+			  const char *objname)
 {
 	int i, cnt, ret = 0;
-	const char *objname, *secname;
-	char sec_objname[MODULE_NAME_LEN];
 	Elf_Shdr *sec;
-
-	if (WARN_ON(!klp_is_object_loaded(obj)))
-		return -EINVAL;
-
-	objname = klp_is_module(obj) ? obj->name : "vmlinux";
+	char sec_name[KSYM_NAME_LEN];
+	char sec_objname[MODULE_NAME_LEN];
 
 	/* For each klp relocation section */
-	for (i = 1; i < pmod->klp_info->hdr.e_shnum; i++) {
-		sec = pmod->klp_info->sechdrs + i;
-		secname = pmod->klp_info->secstrings + sec->sh_name;
+	for (i = 1; i < ehdr->e_shnum; i++) {
+		sec = sechdrs + i;
 		if (!(sec->sh_flags & SHF_RELA_LIVEPATCH))
 			continue;
 
 		/*
-		 * Format: .klp.rela.sec_objname.section_name
+		 * Format: .klp.rela.sec_objname.sec_name
 		 * See comment in klp_resolve_symbols() for an explanation
 		 * of the selected field width value.
 		 */
-		cnt = sscanf(secname, ".klp.rela.%55[^.]", sec_objname);
-		if (cnt != 1) {
+		cnt = sscanf(shstrtab + sec->sh_name, ".klp.rela.%55[^.].%127s",
+			     sec_objname, sec_name);
+		if (cnt != 2) {
 			pr_err("section %s has an incorrectly formatted name\n",
-			       secname);
+			       shstrtab + sec->sh_name);
 			ret = -EINVAL;
 			break;
 		}
 
-		if (strcmp(objname, sec_objname))
+		if (strcmp(objname ? objname : "vmlinux", sec_objname))
 			continue;
 
-		ret = klp_resolve_symbols(sec, pmod);
+		ret = klp_resolve_symbols(sechdrs, strtab, symndx, sec,
+					  sec_objname, sec_name);
 		if (ret)
 			break;
 
-		ret = klp_apply_relocate_add(pmod->klp_info->sechdrs,
-					 pmod->core_kallsyms.strtab,
-					 pmod->klp_info->symndx, i, pmod);
+		ret = apply_relocate_add(sechdrs, strtab, symndx, i, pmod);
 		if (ret)
 			break;
 	}
@@ -750,16 +798,23 @@ static int klp_init_object_loaded(struct klp_patch *patch,
 {
 	struct klp_func *func;
 	int ret;
+	struct klp_modinfo *info = patch->mod->klp_info;
 
-	mutex_lock(&text_mutex);
-
-	ret = klp_write_object_relocations(patch->mod, obj);
-	if (ret) {
-		mutex_unlock(&text_mutex);
-		return ret;
+	if (klp_is_module(obj)) {
+		/*
+		 * Only write module-specific relocations here
+		 * (.klp.rela.{module}.*).  vmlinux-specific relocations were
+		 * written earlier during the initialization of the klp module
+		 * itself.
+		 */
+		ret = klp_write_relocations(&info->hdr, info->sechdrs,
+					    info->secstrings,
+					    patch->mod->core_kallsyms.strtab,
+					    info->symndx, patch->mod,
+					    obj->name);
+		if (ret)
+			return ret;
 	}
-
-	mutex_unlock(&text_mutex);
 
 	klp_for_each_func(obj, func) {
 		ret = klp_find_object_symbol(obj->name, func->old_name,

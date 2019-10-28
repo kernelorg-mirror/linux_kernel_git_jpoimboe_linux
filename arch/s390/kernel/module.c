@@ -451,14 +451,11 @@ int apply_relocate_add(Elf_Shdr *sechdrs, const char *strtab,
 		       unsigned int symindex, unsigned int relsec,
 		       struct module *me)
 {
-	return __apply_relocate_add(sechdrs, strtab, symindex, relsec, me, memwrite);
-}
+	int ret;
+	bool early = me->state != MODULE_STATE_LIVE;
 
-int klp_apply_relocate_add(Elf_Shdr *sechdrs, const char *strtab,
-		       unsigned int symindex, unsigned int relsec,
-		       struct module *me)
-{
-	return __apply_relocate_add(sechdrs, strtab, symindex, relsec, me, s390_kernel_write);
+	return __apply_relocate_add(sechdrs, strtab, symindex, relsec, me,
+				    early ? memwrite : s390_kernel_write);
 }
 
 int module_finalize(const Elf_Ehdr *hdr,
