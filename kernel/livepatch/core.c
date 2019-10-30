@@ -190,12 +190,13 @@ static int klp_find_object_symbol(const char *objname, const char *name,
 	return -EINVAL;
 }
 
-static int klp_resolve_symbols(Elf_Shdr *relasec, struct module *pmod)
+static int klp_resolve_symbols(Elf64_Shdr *sechdrs, const char *strtab,
+			       unsigned int symindex, Elf_Shdr *relasec,
+			       struct module *me)
 {
 	int i, cnt, vmlinux, ret;
 	char objname[MODULE_NAME_LEN];
 	char symname[KSYM_NAME_LEN];
-	char *strtab = pmod->core_kallsyms.strtab;
 	Elf_Rela *relas;
 	Elf_Sym *sym;
 	unsigned long sympos, addr;
@@ -215,7 +216,7 @@ static int klp_resolve_symbols(Elf_Shdr *relasec, struct module *pmod)
 	relas = (Elf_Rela *) relasec->sh_addr;
 	/* For each rela in this klp relocation section */
 	for (i = 0; i < relasec->sh_size / sizeof(Elf_Rela); i++) {
-		sym = pmod->core_kallsyms.symtab + ELF_R_SYM(relas[i].r_info);
+		sym = (Elf64_Sym *)sechdrs[symindex].sh_addr + ELF_R_SYM(relas[i].r_info);
 		if (sym->st_shndx != SHN_LIVEPATCH) {
 			pr_err("symbol %s is not marked as a livepatch symbol\n",
 			       strtab + sym->st_name);
@@ -299,7 +300,10 @@ static int klp_resolve_symbols(Elf_Shdr *relasec, struct module *pmod)
  *       as it can be resolved early enough during the load of the klp module,
  *       as described above.
  */
-int klp_write_relocations(struct module *pmod, struct klp_object *obj)
+int klp_write_relocations(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs,
+			  const char *shstrtab, const char *strtab,
+			  unsigned int symindex, struct module *me,
+			  struct klp_object *obj)
 {
 	int i, cnt, ret = 0;
 	const char *objname, *secname;
@@ -312,11 +316,12 @@ int klp_write_relocations(struct module *pmod, struct klp_object *obj)
 	objname = obj ? obj->name : "vmlinux";
 
 	/* For each klp relocation section */
-	for (i = 1; i < pmod->klp_info->hdr.e_shnum; i++) {
-		sec = pmod->klp_info->sechdrs + i;
-		secname = pmod->klp_info->secstrings + sec->sh_name;
+	for (i = 1; i < ehdr->e_shnum; i++) {
+		sec = sechdrs + i;
 		if (!(sec->sh_flags & SHF_RELA_LIVEPATCH))
 			continue;
+
+		secname = shstrtab + sec->sh_name;
 
 		/*
 		 * Format: .klp.rela.sec_objname.section_name
@@ -334,13 +339,11 @@ int klp_write_relocations(struct module *pmod, struct klp_object *obj)
 		if (strcmp(objname, sec_objname))
 			continue;
 
-		ret = klp_resolve_symbols(sec, pmod);
+		ret = klp_resolve_symbols(sechdrs, strtab, symindex, sec, me);
 		if (ret)
 			break;
 
-		ret = apply_relocate_add(pmod->klp_info->sechdrs,
-					 pmod->core_kallsyms.strtab,
-					 pmod->klp_info->symndx, i, pmod);
+		ret = apply_relocate_add(sechdrs, strtab, symindex, i, me);
 		if (ret)
 			break;
 	}
@@ -765,6 +768,7 @@ static int klp_init_object_loaded(struct klp_patch *patch,
 {
 	struct klp_func *func;
 	int ret;
+	struct klp_modinfo *info = patch->mod->klp_info;
 
 	if (klp_is_module(obj)) {
 
@@ -776,7 +780,10 @@ static int klp_init_object_loaded(struct klp_patch *patch,
 
 		mutex_lock(&text_mutex);
 
-		ret = klp_write_relocations(patch->mod, obj);
+		ret = klp_write_relocations(&info->hdr, info->sechdrs,
+					    info->secstrings,
+					    patch->mod->core_kallsyms.strtab,
+					    info->symndx, patch->mod, obj);
 		if (ret) {
 			mutex_unlock(&text_mutex);
 			return ret;
