@@ -420,8 +420,8 @@ static void add_ignores(struct objtool_file *file)
 			break;
 
 		case STT_SECTION:
-			func = find_symbol_by_offset(rela->sym->sec, rela->addend);
-			if (!func || func->type != STT_FUNC)
+			func = find_func_by_offset(rela->sym->sec, rela->addend);
+			if (!func)
 				continue;
 			break;
 
@@ -683,10 +683,8 @@ static int add_call_destinations(struct objtool_file *file)
 					       insn->len);
 		if (!rela) {
 			dest_off = insn->offset + insn->len + insn->immediate;
-			insn->call_dest = find_symbol_by_offset(insn->sec,
-								dest_off);
-
-			if (!insn->call_dest && !insn->ignore) {
+			insn->call_dest = find_symbol_by_offset(insn->sec, dest_off);
+			if (!insn->ignore && !insn->call_dest) {
 				WARN_FUNC("unsupported intra-function call",
 					  insn->sec, insn->offset);
 				if (retpoline)
@@ -694,11 +692,19 @@ static int add_call_destinations(struct objtool_file *file)
 				return -1;
 			}
 
+			if (insn->call_dest && insn->call_dest->type != STT_FUNC)
+				insn->call_dest = find_func_by_offset(insn->sec, dest_off);
+
+			if (!insn->ignore && insn->func && !insn->call_dest) {
+				WARN_FUNC("unsupported call to non-function",
+					  insn->sec, insn->offset);
+				return -1;
+			}
+
 		} else if (rela->sym->type == STT_SECTION) {
-			insn->call_dest = find_symbol_by_offset(rela->sym->sec,
-								rela->addend+4);
-			if (!insn->call_dest ||
-			    insn->call_dest->type != STT_FUNC) {
+			insn->call_dest = find_func_by_offset(rela->sym->sec,
+							      rela->addend+4);
+			if (!insn->call_dest) {
 				WARN_FUNC("can't find call dest symbol at %s+0x%x",
 					  insn->sec, insn->offset,
 					  rela->sym->sec->name,
