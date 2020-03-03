@@ -1550,7 +1550,7 @@ static int update_cfi_state_regs(struct instruction *insn,
 {
 	struct cfi_reg *cfa = &cfi->cfa;
 
-	if (cfa->base != CFI_SP)
+	if (cfa->base != CFI_SP && cfa->base != CFI_SP_INDIRECT)
 		return 0;
 
 	/* push */
