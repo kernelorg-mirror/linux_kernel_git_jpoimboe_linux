@@ -23,6 +23,7 @@ enum die_val {
 };
 
 enum show_regs_mode {
+	SHOW_REGS_IRET,
 	SHOW_REGS_SHORT,
 	/*
 	 * For when userspace crashed, but we don't think it's our fault, and

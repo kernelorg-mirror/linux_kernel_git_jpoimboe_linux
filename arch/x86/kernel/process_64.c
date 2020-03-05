@@ -71,7 +71,12 @@ void __show_regs(struct pt_regs *regs, enum show_regs_mode mode)
 	unsigned int fsindex, gsindex;
 	unsigned int ds, es;
 
-	show_iret_regs(regs);
+	show_ip(regs, KERN_DEFAULT);
+	printk(KERN_DEFAULT "RSP: %04x:%016lx EFLAGS: %08lx", (int)regs->ss,
+		regs->sp, regs->flags);
+
+	if (mode == SHOW_REGS_IRET)
+		return;
 
 	if (regs->orig_ax != -1)
 		pr_cont(" ORIG_RAX: %016lx\n", regs->orig_ax);

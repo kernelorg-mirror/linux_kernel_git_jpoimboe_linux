@@ -126,15 +126,8 @@ void show_ip(struct pt_regs *regs, const char *loglvl)
 	show_opcodes(regs, loglvl);
 }
 
-void show_iret_regs(struct pt_regs *regs)
-{
-	show_ip(regs, KERN_DEFAULT);
-	printk(KERN_DEFAULT "RSP: %04x:%016lx EFLAGS: %08lx", (int)regs->ss,
-		regs->sp, regs->flags);
-}
-
 static void show_regs_if_on_stack(struct stack_info *info, struct pt_regs *regs,
-				  bool partial)
+				  bool iret_only)
 {
 	/*
 	 * These on_stack() checks aren't strictly necessary: the unwind code
@@ -145,17 +138,17 @@ static void show_regs_if_on_stack(struct stack_info *info, struct pt_regs *regs,
 	 * next stack, this function will be called again with the same regs so
 	 * they can be printed in the right context.
 	 */
-	if (!partial && on_stack(info, regs, sizeof(*regs))) {
+	if (!iret_only && on_stack(info, regs, sizeof(*regs))) {
 		__show_regs(regs, SHOW_REGS_SHORT);
 
-	} else if (partial && on_stack(info, (void *)regs + IRET_FRAME_OFFSET,
-				       IRET_FRAME_SIZE)) {
+	} else if (iret_only && on_stack(info, (void *)regs + IRET_FRAME_OFFSET,
+					 IRET_FRAME_SIZE)) {
 		/*
 		 * When an interrupt or exception occurs in entry code, the
 		 * full pt_regs might not have been saved yet.  In that case
 		 * just print the iret frame.
 		 */
-		show_iret_regs(regs);
+		__show_regs(regs, SHOW_REGS_IRET);
 	}
 }
 
@@ -166,13 +159,13 @@ void show_trace_log_lvl(struct task_struct *task, struct pt_regs *regs,
 	struct stack_info stack_info = {0};
 	unsigned long visit_mask = 0;
 	int graph_idx = 0;
-	bool partial = false;
+	bool iret_only = false;
 
 	printk("%sCall Trace:\n", log_lvl);
 
 	unwind_start(&state, task, regs, stack);
 	stack = stack ? : get_stack_pointer(task, regs);
-	regs = unwind_get_entry_regs(&state, &partial);
+	regs = unwind_get_entry_regs(&state, &iret_only);
 
 	/*
 	 * Iterate through the stacks, starting with the current stack pointer.
@@ -210,7 +203,7 @@ void show_trace_log_lvl(struct task_struct *task, struct pt_regs *regs,
 			printk("%s <%s>\n", log_lvl, stack_name);
 
 		if (regs)
-			show_regs_if_on_stack(&stack_info, regs, partial);
+			show_regs_if_on_stack(&stack_info, regs, iret_only);
 
 		/*
 		 * Scan the stack, printing any text addresses we find.  At the
@@ -269,9 +262,9 @@ next:
 			unwind_next_frame(&state);
 
 			/* if the frame has entry regs, print them */
-			regs = unwind_get_entry_regs(&state, &partial);
+			regs = unwind_get_entry_regs(&state, &iret_only);
 			if (regs)
-				show_regs_if_on_stack(&stack_info, regs, partial);
+				show_regs_if_on_stack(&stack_info, regs, iret_only);
 		}
 
 		if (stack_name)
