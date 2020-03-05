@@ -442,8 +442,15 @@ bool unwind_next_frame(struct unwind_state *state)
 
 	/* End-of-stack check for kernel threads: */
 	if (orc->sp_reg == ORC_REG_UNDEFINED) {
-		if (!orc->end)
+		if (!orc->end) {
+			/*
+			 * This is reported as an error for the caller, but
+			 * otherwise it isn't worth warning about.  In theory
+			 * it can only happen when hitting UNWIND_HINT_EMPTY in
+			 * entry code, close to a kernel exit point.
+			 */
 			goto err;
+		}
 
 		goto the_end;
 	}
@@ -507,8 +514,11 @@ bool unwind_next_frame(struct unwind_state *state)
 	}
 
 	if (indirect) {
-		if (!deref_stack_reg(state, sp, &sp))
+		if (!deref_stack_reg(state, sp, &sp)) {
+			orc_warn_current("can't access indirect SP at %pB\n",
+					 (void *)state->ip);
 			goto err;
+		}
 	}
 
 	/* Find IP, SP and possibly regs: */
@@ -516,8 +526,11 @@ bool unwind_next_frame(struct unwind_state *state)
 	case ORC_TYPE_CALL:
 		ip_p = sp - sizeof(long);
 
-		if (!deref_stack_reg(state, ip_p, &state->ip))
+		if (!deref_stack_reg(state, ip_p, &state->ip)) {
+			orc_warn_current("can't access call return IP (0x%lx) at %pB\n",
+					 ip_p, (void *)orig_ip);
 			goto err;
+		}
 
 		state->ip = ftrace_graph_ret_addr(state->task, &state->graph_idx,
 						  state->ip, (void *)ip_p);
@@ -569,13 +582,19 @@ bool unwind_next_frame(struct unwind_state *state)
 		break;
 
 	case ORC_REG_PREV_SP:
-		if (!deref_stack_reg(state, sp + orc->bp_offset, &state->bp))
+		if (!deref_stack_reg(state, sp + orc->bp_offset, &state->bp)) {
+			orc_warn_current("can't access BP (from SP) at %pB\n",
+					 (void *)orig_ip);
 			goto err;
+		}
 		break;
 
 	case ORC_REG_BP:
-		if (!deref_stack_reg(state, state->bp + orc->bp_offset, &state->bp))
+		if (!deref_stack_reg(state, state->bp + orc->bp_offset, &state->bp)) {
+			orc_warn_current("can't access BP at %pB\n",
+					 (void *)orig_ip);
 			goto err;
+		}
 		break;
 
 	default:
