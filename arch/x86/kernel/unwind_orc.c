@@ -12,8 +12,13 @@
 
 #define orc_warn_current(args...)					\
 ({									\
-	if (state->task == current)					\
+	static bool dumped_before;					\
+	if (state->task == current) {					\
 		orc_warn(args);						\
+		if (unwind_debug && !dumped_before)			\
+			unwind_dump(state);				\
+		dumped_before = true;					\
+	}								\
 })
 
 extern int __start_orc_unwind_ip[];
@@ -22,11 +27,53 @@ extern struct orc_entry __start_orc_unwind[];
 extern struct orc_entry __stop_orc_unwind[];
 
 static bool orc_init __ro_after_init;
+static bool unwind_debug __ro_after_init;
 static unsigned int lookup_num_blocks __ro_after_init;
 
 static DEFINE_MUTEX(sort_mutex);
 static int *cur_orc_ip_table = __start_orc_unwind_ip;
 static struct orc_entry *cur_orc_table = __start_orc_unwind;
+static unsigned int lookup_num_blocks __ro_after_init;
+
+static int __init unwind_debug_cmdline(char *str)
+{
+	unwind_debug = true;
+
+	return 0;
+}
+early_param("unwind_debug", unwind_debug_cmdline);
+
+static void unwind_dump(struct unwind_state *state)
+{
+	static bool dumped_before;
+	unsigned long word, *sp;
+	struct stack_info stack_info = {0};
+	unsigned long visit_mask = 0;
+
+	if (dumped_before)
+		return;
+
+	dumped_before = true;
+
+	printk_deferred("unwind stack type:%d next_sp:%p mask:0x%lx graph_idx:%d\n",
+			state->stack_info.type, state->stack_info.next_sp,
+			state->stack_mask, state->graph_idx);
+
+	for (sp = __builtin_frame_address(0); sp;
+	     sp = PTR_ALIGN(stack_info.next_sp, sizeof(long))) {
+		if (get_stack_info(sp, state->task, &stack_info, &visit_mask))
+			break;
+
+		for (; sp < stack_info.end; sp++) {
+
+			word = READ_ONCE_NOCHECK(*sp);
+
+			printk_deferred("%0*lx: %0*lx (%pB)\n", BITS_PER_LONG/4,
+					(unsigned long)sp, BITS_PER_LONG/4,
+					word, (void *)word);
+		}
+	}
+}
 
 static inline unsigned long orc_ip(const int *ip)
 {
