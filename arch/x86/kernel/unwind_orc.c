@@ -498,9 +498,8 @@ bool unwind_next_frame(struct unwind_state *state)
 	/* End-of-stack check for kernel threads: */
 	if (orc->sp_reg == ORC_REG_UNDEFINED) {
 		if (!orc->end) {
-			/*
-			 * FIXME - warn or comment
-			 */
+			orc_warn_current("missing ORC data at %pB\n",
+					 (void *)state->ip);
 			goto err;
 		}
 
