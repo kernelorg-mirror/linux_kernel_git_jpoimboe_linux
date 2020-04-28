@@ -23,7 +23,6 @@
 struct alternative {
 	struct list_head list;
 	struct instruction *insn;
-	bool skip_orig;
 };
 
 const char *objname;
@@ -773,11 +772,25 @@ static int handle_group_alt(struct objtool_file *file,
 	struct instruction *last_orig_insn, *last_new_insn, *insn, *fake_jump = NULL;
 	unsigned long dest_off;
 
+	/*
+	 * For uaccess checking, propagate the STAC/CLAC from the alternative
+	 * to the original insn to avoid paths where we see the STAC but then
+	 * take the NOP instead of CLAC (and vice versa).
+	 */
+	if (!orig_insn->ignore_alts && orig_insn->type == INSN_NOP &&
+	    *new_insn &&
+	    ((*new_insn)->type == INSN_STAC ||
+	     (*new_insn)->type == INSN_CLAC))
+		orig_insn->type = (*new_insn)->type;
+
 	last_orig_insn = NULL;
 	insn = orig_insn;
 	sec_for_each_insn_from(file, insn) {
 		if (insn->offset >= special_alt->orig_off + special_alt->orig_len)
 			break;
+
+		if (special_alt->skip_orig)
+			insn->type = INSN_NOP;
 
 		insn->alt_group = true;
 		last_orig_insn = insn;
@@ -970,8 +983,6 @@ static int add_special_section_alts(struct objtool_file *file)
 		}
 
 		alt->insn = new_insn;
-		alt->skip_orig = special_alt->skip_orig;
-		orig_insn->ignore_alts |= special_alt->skip_alt;
 		list_add_tail(&alt->list, &orig_insn->alts);
 
 		list_del(&special_alt->list);
@@ -2221,12 +2232,7 @@ static int validate_branch(struct objtool_file *file, struct symbol *func,
 		insn->visited |= visited;
 
 		if (!insn->ignore_alts) {
-			bool skip_orig = false;
-
 			list_for_each_entry(alt, &insn->alts, list) {
-				if (alt->skip_orig)
-					skip_orig = true;
-
 				ret = validate_branch(file, func, alt->insn, state);
 				if (ret) {
 					if (backtrace)
@@ -2234,9 +2240,6 @@ static int validate_branch(struct objtool_file *file, struct symbol *func,
 					return ret;
 				}
 			}
-
-			if (skip_orig)
-				return 0;
 		}
 
 		switch (insn->type) {
@@ -2325,26 +2328,33 @@ static int validate_branch(struct objtool_file *file, struct symbol *func,
 			break;
 
 		case INSN_STAC:
-			if (state.uaccess) {
-				WARN_FUNC("recursive UACCESS enable", sec, insn->offset);
-				return 1;
-			}
+			if (uaccess) {
+				if (state.uaccess) {
+					WARN_FUNC("recursive UACCESS enable",
+						  sec, insn->offset);
+					return 1;
+				}
 
-			state.uaccess = true;
+				state.uaccess = true;
+			}
 			break;
 
 		case INSN_CLAC:
-			if (!state.uaccess && func) {
-				WARN_FUNC("redundant UACCESS disable", sec, insn->offset);
-				return 1;
-			}
+			if (uaccess) {
+				if (!state.uaccess && func) {
+					WARN_FUNC("redundant UACCESS disable",
+						  sec, insn->offset);
+					return 1;
+				}
 
-			if (func_uaccess_safe(func) && !state.uaccess_stack) {
-				WARN_FUNC("UACCESS-safe disables UACCESS", sec, insn->offset);
-				return 1;
-			}
+				if (func_uaccess_safe(func) && !state.uaccess_stack) {
+					WARN_FUNC("UACCESS-safe disables UACCESS",
+						  sec, insn->offset);
+					return 1;
+				}
 
-			state.uaccess = false;
+				state.uaccess = false;
+			}
 			break;
 
 		case INSN_STD:

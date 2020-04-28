@@ -100,22 +100,6 @@ static int get_alt_entry(struct elf *elf, struct special_entry *entry,
 		 */
 		if (feature == X86_FEATURE_POPCNT)
 			alt->skip_orig = true;
-
-		/*
-		 * If UACCESS validation is enabled; force that alternative;
-		 * otherwise force it the other way.
-		 *
-		 * What we want to avoid is having both the original and the
-		 * alternative code flow at the same time, in that case we can
-		 * find paths that see the STAC but take the NOP instead of
-		 * CLAC and the other way around.
-		 */
-		if (feature == X86_FEATURE_SMAP) {
-			if (uaccess)
-				alt->skip_orig = true;
-			else
-				alt->skip_alt = true;
-		}
 	}
 
 	orig_rela = find_rela_by_dest(elf, sec, offset + entry->orig);

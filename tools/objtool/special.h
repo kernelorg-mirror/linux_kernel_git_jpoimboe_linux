@@ -14,7 +14,6 @@ struct special_alt {
 
 	bool group;
 	bool skip_orig;
-	bool skip_alt;
 	bool jump_or_nop;
 
 	struct section *orig_sec;
