@@ -597,8 +597,8 @@ SYM_CODE_START_LOCAL(common_spurious)
 SYM_CODE_END(common_spurious)
 _ASM_NOKPROBE(common_spurious)
 
-/* common_interrupt is a hotpath. Align it */
-	.p2align CONFIG_X86_L1_CACHE_SHIFT
+/* common_interrupt is a hotpath. Align it at a cache line. */
+P2ALIGN_NOPS shift=CONFIG_X86_L1_CACHE_SHIFT
 SYM_CODE_START_LOCAL(common_interrupt)
 	addq	$-0x80, (%rsp)			/* Adjust vector to [-256, -1] range */
 	call	interrupt_entry

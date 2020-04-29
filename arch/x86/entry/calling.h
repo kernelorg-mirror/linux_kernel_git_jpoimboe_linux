@@ -368,3 +368,17 @@ For 32-bit we have the following conventions - kernel is built with
 #else
 #define GET_CR2_INTO(reg) _ASM_MOV %cr2, reg
 #endif
+
+/*
+ * This is a version of .p2align which only writes NOPs.  If the alignment
+ * padding is long enough, gas decides to insert a JMP across the padding.
+ * Force to NOPs only, by splitting it into smaller alignments if necessary.
+ */
+.macro P2ALIGN_NOPS shift
+	tmp=6
+	.rept \shift-6
+		.p2align tmp
+		tmp=tmp+1
+	.endr
+	.p2align \shift
+.endm
