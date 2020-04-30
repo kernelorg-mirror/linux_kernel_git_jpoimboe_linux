@@ -151,6 +151,10 @@ COND_SYSCALL_COMPAT(get_robust_list);
 /* kernel/hrtimer.c */
 
 /* kernel/itimer.c */
+COND_SYSCALL(getitimer);
+COND_SYSCALL_COMPAT(getitimer);
+COND_SYSCALL(setitimer);
+COND_SYSCALL_COMPAT(setitimer);
 
 /* kernel/kexec.c */
 COND_SYSCALL(kexec_load);
@@ -161,6 +165,12 @@ COND_SYSCALL(init_module);
 COND_SYSCALL(delete_module);
 
 /* kernel/posix-timers.c */
+COND_SYSCALL(timer_create);
+COND_SYSCALL_COMPAT(timer_create);
+COND_SYSCALL(timer_gettime);
+COND_SYSCALL(timer_getoverrun);
+COND_SYSCALL(timer_settime);
+COND_SYSCALL(timer_delete);
 
 /* kernel/printk.c */
 COND_SYSCALL(syslog);
@@ -312,6 +322,8 @@ COND_SYSCALL(name_to_handle_at);
 COND_SYSCALL(open_by_handle_at);
 COND_SYSCALL_COMPAT(open_by_handle_at);
 
+COND_SYSCALL(clock_adjtime);
+
 COND_SYSCALL(sendmmsg);
 COND_SYSCALL_COMPAT(sendmmsg);
 COND_SYSCALL(process_vm_readv);
@@ -348,7 +360,6 @@ COND_SYSCALL(copy_file_range);
 COND_SYSCALL(pkey_mprotect);
 COND_SYSCALL(pkey_alloc);
 COND_SYSCALL(pkey_free);
-
 
 /*
  * Architecture specific weak syscall entries.
@@ -448,6 +459,9 @@ COND_SYSCALL(sysfs);
 /* obsolete: __ARCH_WANT_SYS_IPC */
 COND_SYSCALL(ipc);
 COND_SYSCALL_COMPAT(ipc);
+
+/* obsolete: __ARCH_WANT_SYS_ALARM */
+COND_SYSCALL(alarm);
 
 /* obsolete: UID16 */
 COND_SYSCALL(chown16);

@@ -2286,8 +2286,7 @@ config ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
 # SYSCALL_DEFINE() and __SYSCALL_DEFINEx() macros in <linux/syscalls.h>
 # and the COMPAT_ variants in <linux/compat.h>, in particular to use a
 # different calling convention for syscalls. They can also override the
-# macros for not-implemented syscalls in kernel/sys_ni.c and
-# kernel/time/posix-stubs.c. All these overrides need to be available in
-# <asm/syscall_wrapper.h>.
+# macros for not-implemented syscalls in kernel/sys_ni.c.  All these
+# overrides need to be available in <asm/syscall_wrapper.h>.
 config ARCH_HAS_SYSCALL_WRAPPER
 	def_bool n

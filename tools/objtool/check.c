@@ -655,38 +655,12 @@ static int add_jump_destinations(struct objtool_file *file)
 			return -1;
 		}
 
-		/*
-		 * Cross-function jump.
-		 */
 		if (insn->func && insn->jump_dest->func &&
-		    insn->func != insn->jump_dest->func) {
+		    insn->func->pfunc != insn->jump_dest->func->pfunc &&
+		    insn->jump_dest->offset == insn->jump_dest->func->offset) {
 
-			/*
-			 * For GCC 8+, create parent/child links for any cold
-			 * subfunctions.  This is _mostly_ redundant with a
-			 * similar initialization in read_symbols().
-			 *
-			 * If a function has aliases, we want the *first* such
-			 * function in the symbol table to be the subfunction's
-			 * parent.  In that case we overwrite the
-			 * initialization done in read_symbols().
-			 *
-			 * However this code can't completely replace the
-			 * read_symbols() code because this doesn't detect the
-			 * case where the parent function's only reference to a
-			 * subfunction is through a jump table.
-			 */
-			if (!strstr(insn->func->name, ".cold.") &&
-			    strstr(insn->jump_dest->func->name, ".cold.")) {
-				insn->func->cfunc = insn->jump_dest->func;
-				insn->jump_dest->func->pfunc = insn->func;
-
-			} else if (insn->jump_dest->func->pfunc != insn->func->pfunc &&
-				   insn->jump_dest->offset == insn->jump_dest->func->offset) {
-
-				/* internal sibling call */
-				insn->call_dest = insn->jump_dest->func;
-			}
+			/* internal sibling call */
+			insn->call_dest = insn->jump_dest->func;
 		}
 	}
 

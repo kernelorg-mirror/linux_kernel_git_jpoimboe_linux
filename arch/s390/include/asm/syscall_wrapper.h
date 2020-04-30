@@ -61,10 +61,6 @@
 	cond_syscall(__s390x_sys_##name);				\
 	cond_syscall(__s390_sys_##name)
 
-#define SYS_NI(name)							\
-	SYSCALL_ALIAS(__s390x_sys_##name, sys_ni_posix_timers);		\
-	SYSCALL_ALIAS(__s390_sys_##name, sys_ni_posix_timers)
-
 #define COMPAT_SYSCALL_DEFINEx(x, name, ...)					\
 	__diag_push();								\
 	__diag_ignore(GCC, 8, "-Wattribute-alias",				\
@@ -86,14 +82,10 @@
 
 /*
  * As some compat syscalls may not be implemented, we need to expand
- * COND_SYSCALL_COMPAT in kernel/sys_ni.c and COMPAT_SYS_NI in
- * kernel/time/posix-stubs.c to cover this case as well.
+ * COND_SYSCALL_COMPAT in kernel/sys_ni.c to cover this case as well.
  */
 #define COND_SYSCALL_COMPAT(name)					\
 	cond_syscall(__s390_compat_sys_##name)
-
-#define COMPAT_SYS_NI(name)						\
-	SYSCALL_ALIAS(__s390_compat_sys_##name, sys_ni_posix_timers)
 
 #else /* CONFIG_COMPAT */
 
@@ -107,9 +99,6 @@
 
 #define COND_SYSCALL(name)						\
 	cond_syscall(__s390x_sys_##name)
-
-#define SYS_NI(name)							\
-	SYSCALL_ALIAS(__s390x_sys_##name, sys_ni_posix_timers);
 
 #endif /* CONFIG_COMPAT */
 
