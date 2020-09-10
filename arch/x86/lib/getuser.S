@@ -35,8 +35,6 @@
 #include <asm/smap.h>
 #include <asm/export.h>
 
-#define ASM_BARRIER_NOSPEC ALTERNATIVE "", "lfence", X86_FEATURE_LFENCE_RDTSC
-
 #ifdef CONFIG_X86_5LEVEL
 #define LOAD_TASK_SIZE_MINUS_N(n) \
 	ALTERNATIVE __stringify(mov $((1 << 47) - 4096 - (n)),%rdx), \
@@ -51,7 +49,7 @@ SYM_FUNC_START(__get_user_1)
 	LOAD_TASK_SIZE_MINUS_N(0)
 	cmp %_ASM_DX,%_ASM_AX
 	jae bad_get_user
-	sbb %_ASM_DX, %_ASM_DX		/* array_index_mask_nospec() */
+	sbb %_ASM_DX, %_ASM_DX		/* mask_user_ptr() */
 	and %_ASM_DX, %_ASM_AX
 	ASM_STAC
 1:	movzbl (%_ASM_AX),%edx
@@ -65,7 +63,7 @@ SYM_FUNC_START(__get_user_2)
 	LOAD_TASK_SIZE_MINUS_N(1)
 	cmp %_ASM_DX,%_ASM_AX
 	jae bad_get_user
-	sbb %_ASM_DX, %_ASM_DX		/* array_index_mask_nospec() */
+	sbb %_ASM_DX, %_ASM_DX		/* mask_user_ptr() */
 	and %_ASM_DX, %_ASM_AX
 	ASM_STAC
 2:	movzwl (%_ASM_AX),%edx
@@ -79,7 +77,7 @@ SYM_FUNC_START(__get_user_4)
 	LOAD_TASK_SIZE_MINUS_N(3)
 	cmp %_ASM_DX,%_ASM_AX
 	jae bad_get_user
-	sbb %_ASM_DX, %_ASM_DX		/* array_index_mask_nospec() */
+	sbb %_ASM_DX, %_ASM_DX		/* mask_user_ptr() */
 	and %_ASM_DX, %_ASM_AX
 	ASM_STAC
 3:	movl (%_ASM_AX),%edx
@@ -94,7 +92,7 @@ SYM_FUNC_START(__get_user_8)
 	LOAD_TASK_SIZE_MINUS_N(7)
 	cmp %_ASM_DX,%_ASM_AX
 	jae bad_get_user
-	sbb %_ASM_DX, %_ASM_DX		/* array_index_mask_nospec() */
+	sbb %_ASM_DX, %_ASM_DX		/* mask_user_ptr() */
 	and %_ASM_DX, %_ASM_AX
 	ASM_STAC
 4:	movq (%_ASM_AX),%rdx
@@ -105,7 +103,7 @@ SYM_FUNC_START(__get_user_8)
 	LOAD_TASK_SIZE_MINUS_N(7)
 	cmp %_ASM_DX,%_ASM_AX
 	jae bad_get_user_8
-	sbb %_ASM_DX, %_ASM_DX		/* array_index_mask_nospec() */
+	sbb %_ASM_DX, %_ASM_DX		/* mask_user_ptr() */
 	and %_ASM_DX, %_ASM_AX
 	ASM_STAC
 4:	movl (%_ASM_AX),%edx
@@ -120,7 +118,6 @@ EXPORT_SYMBOL(__get_user_8)
 /* .. and the same for __get_user, just without the range checks */
 SYM_FUNC_START(__get_user_nocheck_1)
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 6:	movzbl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -130,7 +127,6 @@ EXPORT_SYMBOL(__get_user_nocheck_1)
 
 SYM_FUNC_START(__get_user_nocheck_2)
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 7:	movzwl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -140,7 +136,6 @@ EXPORT_SYMBOL(__get_user_nocheck_2)
 
 SYM_FUNC_START(__get_user_nocheck_4)
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 8:	movl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -150,7 +145,6 @@ EXPORT_SYMBOL(__get_user_nocheck_4)
 
 SYM_FUNC_START(__get_user_nocheck_8)
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 #ifdef CONFIG_X86_64
 9:	movq (%_ASM_AX),%rdx
 #else

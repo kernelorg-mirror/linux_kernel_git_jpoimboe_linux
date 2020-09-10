@@ -292,7 +292,7 @@ int sgx_virt_ecreate(struct sgx_pageinfo *pageinfo, void __user *secs,
 		return -EINVAL;
 
 	__uaccess_begin();
-	ret = __ecreate(pageinfo, (void *)secs);
+	ret = __ecreate(pageinfo, (void *)mask_user_ptr(secs));
 	__uaccess_end();
 
 	if (encls_faulted(ret)) {
@@ -323,7 +323,9 @@ static int __sgx_virt_einit(void __user *sigstruct, void __user *token,
 		return -EINVAL;
 
 	__uaccess_begin();
-	ret = __einit((void *)sigstruct, (void *)token, (void *)secs);
+	ret = __einit((void *)mask_user_ptr(sigstruct),
+		      (void *)mask_user_ptr(token),
+		      (void *)mask_user_ptr(secs));
 	__uaccess_end();
 
 	return ret;

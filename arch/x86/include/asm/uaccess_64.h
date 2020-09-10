@@ -49,20 +49,20 @@ copy_user_generic(void *to, const void *from, unsigned len)
 static __always_inline __must_check unsigned long
 raw_copy_from_user(void *dst, const void __user *src, unsigned long size)
 {
-	return copy_user_generic(dst, (__force void *)src, size);
+	return copy_user_generic(dst, (__force void *)mask_user_ptr(src), size);
 }
 
 static __always_inline __must_check unsigned long
 raw_copy_to_user(void __user *dst, const void *src, unsigned long size)
 {
-	return copy_user_generic((__force void *)dst, src, size);
+	return copy_user_generic((__force void *)mask_user_ptr(dst), src, size);
 }
 
 static __always_inline __must_check
 unsigned long raw_copy_in_user(void __user *dst, const void __user *src, unsigned long size)
 {
-	return copy_user_generic((__force void *)dst,
-				 (__force void *)src, size);
+	return copy_user_generic((__force void *)mask_user_ptr(dst),
+				 (__force void *)mask_user_ptr(src), size);
 }
 
 extern long __copy_user_nocache(void *dst, const void __user *src,
@@ -77,13 +77,13 @@ __copy_from_user_inatomic_nocache(void *dst, const void __user *src,
 				  unsigned size)
 {
 	kasan_check_write(dst, size);
-	return __copy_user_nocache(dst, src, size, 0);
+	return __copy_user_nocache(dst, mask_user_ptr(src), size, 0);
 }
 
 static inline int
 __copy_from_user_flushcache(void *dst, const void __user *src, unsigned size)
 {
 	kasan_check_write(dst, size);
-	return __copy_user_flushcache(dst, src, size);
+	return __copy_user_flushcache(dst, mask_user_ptr(src), size);
 }
 #endif /* _ASM_X86_UACCESS_64_H */

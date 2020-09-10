@@ -74,6 +74,8 @@ unsigned long __must_check copy_mc_to_user(void __user *dst, const void *src, un
 {
 	unsigned long ret;
 
+	dst = mask_user_ptr(dst);
+
 	if (copy_mc_fragile_enabled) {
 		__uaccess_begin();
 		ret = copy_mc_fragile((__force void *)dst, src, len);

@@ -66,10 +66,33 @@ static inline bool pagefault_disabled(void);
  * Return: true (nonzero) if the memory block may be valid, false (zero)
  * if it is definitely invalid.
  */
-#define access_ok(addr, size)					\
+#define access_ok(addr, size)						\
 ({									\
 	WARN_ON_IN_IRQ();						\
 	likely(!__range_not_ok(addr, size, TASK_SIZE_MAX));		\
+})
+
+/*
+ * Sanitize a user pointer such that it becomes NULL if it's not a valid user
+ * pointer.  This prevents speculatively dereferencing a user-controlled
+ * pointer to kernel space if access_ok() speculatively returns true.  This
+ * should be done *after* access_ok(), to avoid affecting error handling
+ * behavior.
+ */
+#define mask_user_ptr(ptr)						\
+({									\
+	unsigned long _ptr = (__force unsigned long)ptr;		\
+	unsigned long mask;						\
+									\
+	asm volatile("cmp %[max], %[_ptr]\n\t"				\
+		     "sbb %[mask], %[mask]\n\t"				\
+		     : [mask] "=r" (mask)				\
+		     : [_ptr] "r" (_ptr),				\
+		       [max] "r" (TASK_SIZE_MAX)			\
+		     : "cc");						\
+									\
+	mask &= _ptr;							\
+	((typeof(ptr)) mask);						\
 })
 
 extern int __get_user_1(void);
@@ -84,11 +107,6 @@ extern int __get_user_bad(void);
 
 #define __uaccess_begin() stac()
 #define __uaccess_end()   clac()
-#define __uaccess_begin_nospec()	\
-({					\
-	stac();				\
-	barrier_nospec();		\
-})
 
 /*
  * This is the smallest unsigned integer type that can fit a value
@@ -175,7 +193,7 @@ extern int __get_user_bad(void);
  * Return: zero on success, or -EFAULT on error.
  * On error, the variable @x is set to zero.
  */
-#define __get_user(x,ptr) do_get_user_call(get_user_nocheck,x,ptr)
+#define __get_user(x,ptr) do_get_user_call(get_user_nocheck, x, mask_user_ptr(ptr))
 
 
 #ifdef CONFIG_X86_32
@@ -271,7 +289,7 @@ extern void __put_user_nocheck_8(void);
  *
  * Return: zero on success, or -EFAULT on error.
  */
-#define __put_user(x, ptr) do_put_user_call(put_user_nocheck,x,ptr)
+#define __put_user(x, ptr) do_put_user_call(put_user_nocheck, x, mask_user_ptr(ptr))
 
 #define __put_user_size(x, ptr, size, label)				\
 do {									\
@@ -475,7 +493,7 @@ static __must_check __always_inline bool user_access_begin(const void __user *pt
 {
 	if (unlikely(!access_ok(ptr,len)))
 		return 0;
-	__uaccess_begin_nospec();
+	__uaccess_begin();
 	return 1;
 }
 #define user_access_begin(a,b)	user_access_begin(a,b)
@@ -484,14 +502,15 @@ static __must_check __always_inline bool user_access_begin(const void __user *pt
 #define user_access_save()	smap_save()
 #define user_access_restore(x)	smap_restore(x)
 
-#define unsafe_put_user(x, ptr, label)	\
-	__put_user_size((__typeof__(*(ptr)))(x), (ptr), sizeof(*(ptr)), label)
+#define unsafe_put_user(x, ptr, label)						\
+	__put_user_size((__typeof__(*(ptr)))(x), mask_user_ptr(ptr),		\
+			sizeof(*(ptr)), label)
 
 #ifdef CONFIG_CC_HAS_ASM_GOTO_OUTPUT
 #define unsafe_get_user(x, ptr, err_label)					\
 do {										\
 	__inttype(*(ptr)) __gu_val;						\
-	__get_user_size(__gu_val, (ptr), sizeof(*(ptr)), err_label);		\
+	__get_user_size(__gu_val, mask_user_ptr(ptr), sizeof(*(ptr)), err_label);\
 	(x) = (__force __typeof__(*(ptr)))__gu_val;				\
 } while (0)
 #else // !CONFIG_CC_HAS_ASM_GOTO_OUTPUT
@@ -499,7 +518,8 @@ do {										\
 do {										\
 	int __gu_err;								\
 	__inttype(*(ptr)) __gu_val;						\
-	__get_user_size(__gu_val, (ptr), sizeof(*(ptr)), __gu_err);		\
+	__get_user_size(__gu_val, mask_user_ptr(ptr), sizeof(*(ptr)),		\
+			__gu_err);						\
 	(x) = (__force __typeof__(*(ptr)))__gu_val;				\
 	if (unlikely(__gu_err)) goto err_label;					\
 } while (0)

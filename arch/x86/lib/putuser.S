@@ -47,6 +47,8 @@ SYM_FUNC_START(__put_user_1)
 	LOAD_TASK_SIZE_MINUS_N(0)
 	cmp %_ASM_BX,%_ASM_CX
 	jae .Lbad_put_user
+	sbb %_ASM_BX, %_ASM_BX		/* mask_user_ptr() */
+	and %_ASM_BX, %_ASM_CX
 SYM_INNER_LABEL(__put_user_nocheck_1, SYM_L_GLOBAL)
 	ASM_STAC
 1:	movb %al,(%_ASM_CX)
@@ -61,6 +63,8 @@ SYM_FUNC_START(__put_user_2)
 	LOAD_TASK_SIZE_MINUS_N(1)
 	cmp %_ASM_BX,%_ASM_CX
 	jae .Lbad_put_user
+	sbb %_ASM_BX, %_ASM_BX		/* mask_user_ptr() */
+	and %_ASM_BX, %_ASM_CX
 SYM_INNER_LABEL(__put_user_nocheck_2, SYM_L_GLOBAL)
 	ASM_STAC
 2:	movw %ax,(%_ASM_CX)
@@ -75,6 +79,8 @@ SYM_FUNC_START(__put_user_4)
 	LOAD_TASK_SIZE_MINUS_N(3)
 	cmp %_ASM_BX,%_ASM_CX
 	jae .Lbad_put_user
+	sbb %_ASM_BX, %_ASM_BX		/* mask_user_ptr() */
+	and %_ASM_BX, %_ASM_CX
 SYM_INNER_LABEL(__put_user_nocheck_4, SYM_L_GLOBAL)
 	ASM_STAC
 3:	movl %eax,(%_ASM_CX)
@@ -89,6 +95,8 @@ SYM_FUNC_START(__put_user_8)
 	LOAD_TASK_SIZE_MINUS_N(7)
 	cmp %_ASM_BX,%_ASM_CX
 	jae .Lbad_put_user
+	sbb %_ASM_BX, %_ASM_BX		/* mask_user_ptr() */
+	and %_ASM_BX, %_ASM_CX
 SYM_INNER_LABEL(__put_user_nocheck_8, SYM_L_GLOBAL)
 	ASM_STAC
 4:	mov %_ASM_AX,(%_ASM_CX)
