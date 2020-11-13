@@ -1017,7 +1017,7 @@ static int handle_group_alt(struct objtool_file *file,
 		INIT_LIST_HEAD(&fake_jump->stack_ops);
 		init_cfi_state(&fake_jump->cfi);
 
-		fake_jump->sec = special_alt->new_sec;
+		fake_jump->sec = special_alt->new_sec ? : orig_insn->sec;
 		fake_jump->offset = FAKE_JUMP_OFFSET;
 		fake_jump->type = INSN_JUMP_UNCONDITIONAL;
 		fake_jump->jump_dest = list_next_entry(last_orig_insn, list);
