@@ -21,6 +21,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/processor-flags.h>
 #include <asm/frame.h>
+#include <asm/nospec-branch.h>
 
 SYM_FUNC_START(swsusp_arch_suspend)
 	movq	$saved_context, %rax
@@ -66,7 +67,7 @@ SYM_CODE_START(restore_image)
 
 	/* jump to relocated restore code */
 	movq	relocated_restore_code(%rip), %rcx
-	jmpq	*%rcx
+	JMP_NOSPEC rcx
 SYM_CODE_END(restore_image)
 
 	/* code below has been relocated to a safe page */
@@ -97,7 +98,7 @@ SYM_CODE_START(core_restore_code)
 
 .Ldone:
 	/* jump to the restore_registers address from the image header */
-	jmpq	*%r8
+	JMP_NOSPEC r8
 SYM_CODE_END(core_restore_code)
 
 	 /* code below belongs to the image kernel */
