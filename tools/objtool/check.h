@@ -33,7 +33,6 @@ struct instruction {
 	bool retpoline_safe;
 	s8 instr;
 	u8 visited;
-	u8 ret_offset;
 	int alt_group;
 	struct symbol *call_dest;
 	struct instruction *jump_dest;
