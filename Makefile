@@ -1744,6 +1744,14 @@ help:
 # no-op for external module builds
 PHONY += prepare modules_prepare
 
+# External module must be built with the same compiler major version
+ifneq ($(shell echo $(CONFIG_GCC_VERSION) | cut -c-2), $(shell $(srctree)/scripts/gcc-version.sh $(CC) | cut -c-2))
+  $(error ERROR: Compiler version mismatch in external module build)
+endif
+ifneq ($(shell echo $(CONFIG_CLANG_VERSION) | cut -c-2), $(shell $(srctree)/scripts/clang-version.sh $(CC) | cut -c-2))
+  $(error ERROR: Compiler version mismatch in external module build)
+endif
+
 endif # KBUILD_EXTMOD
 
 # Single targets
