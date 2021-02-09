@@ -1471,15 +1471,14 @@ SYM_CODE_END(ignore_sysret)
 #endif
 
 .pushsection .text, "ax"
-SYM_CODE_START(rewind_stack_do_exit)
-	UNWIND_HINT_FUNC
+SYM_FUNC_START(rewind_stack_do_exit)
 	/* Prevent any naive code from trying to unwind to our caller. */
 	xorl	%ebp, %ebp
 
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rax
 	leaq	-PTREGS_SIZE(%rax), %rsp
-	UNWIND_HINT_REGS
 
 	call	do_exit
-SYM_CODE_END(rewind_stack_do_exit)
+SYM_FUNC_END(rewind_stack_do_exit)
 .popsection
+STACK_FRAME_NON_STANDARD rewind_stack_do_exit
