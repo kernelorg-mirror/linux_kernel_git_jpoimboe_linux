@@ -1730,11 +1730,24 @@ KBUILD_MODULES := 1
 
 build-dirs := $(KBUILD_EXTMOD)
 PHONY += modules
-modules: $(MODORDER)
+modules: ext_compiler_check $(MODORDER)
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
 
 $(MODORDER): descend
 	@:
+
+orig_name   := $(if $(CONFIG_CC_IS_GCC),GCC,CLANG)
+orig_minor  := $(shell expr $(if $(CONFIG_CC_IS_GCC),$(CONFIG_GCC_VERSION),$(CONFIG_CLANG_VERSION)) / 100)
+cur_namever := $(shell $(srctree)/scripts/cc-version.sh $(CC))
+cur_name    := $(word 1,$(cur_namever))
+cur_minor   := $(shell expr $(word 2,$(cur_namever)) / 100)
+PHONY += ext_compiler_check
+ext_compiler_check:
+	@if [ $(orig_name) != $(cur_name) ] || [ $(orig_minor) != $(cur_minor) ]; then \
+		echo >&2 "warning: The compiler differs from the version which was used to build the kernel."; \
+		echo >&2 "warning: Some kernel features are compiler-dependent."; \
+		echo >&2 "warning: It's recommended that you change your compiler to match the version in the .config file."; \
+	fi
 
 PHONY += modules_install
 modules_install: _emodinst_ _emodinst_post
