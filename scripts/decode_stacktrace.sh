@@ -2,6 +2,14 @@
 # SPDX-License-Identifier: GPL-2.0
 # (c) 2014, Sasha Levin <sasha.levin@oracle.com>
 #set -x
+#
+# Example usage:
+#
+# scripts/decode_stacktrace.sh vmlinux < /your/oops.txt
+#
+# Or if you just want to paste it:
+#
+# scripts/decode_stacktrace.sh vmlinux <<< '[paste oops]'
 
 if [[ $# < 1 ]]; then
 	echo "Usage:"
