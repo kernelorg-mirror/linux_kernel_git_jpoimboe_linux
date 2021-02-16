@@ -146,8 +146,8 @@ parse_symbol() {
 	# In the case of inlines, move everything to same line
 	code=${code//$'\n'/' '}
 
-	# Replace old address with pretty line numbers
-	symbol="$segment$name ($code)"
+	# Append pretty line numbers
+	symbol="$symbol ($code)"
 }
 
 decode_code() {
@@ -205,7 +205,7 @@ if [[ $basepath == "auto" ]] ; then
 	module=""
 	symbol="kernel_init+0x0/0x0"
 	parse_symbol
-	basepath=${symbol#kernel_init (}
+	basepath=${symbol#kernel_init+0x0*(}
 	basepath=${basepath%/init/main.c:*)}
 fi
 
