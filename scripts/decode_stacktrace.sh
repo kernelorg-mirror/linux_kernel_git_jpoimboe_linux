@@ -184,6 +184,7 @@ handle_line() {
 
 	if [[ ${words[$last]} =~ \[([^]]+)\] ]]; then
 		module=${words[$last]}
+		module_str=$module
 		module=${module#\[}
 		module=${module%\]}
 		symbol=${words[$last-1]}
@@ -192,13 +193,14 @@ handle_line() {
 		# The symbol is the last element, process it
 		symbol=${words[$last]}
 		module=
+		module_str=
 	fi
 
 	unset words[$last]
 	parse_symbol # modifies $symbol
 
 	# Add up the line number to the symbol
-	echo "${words[@]}" "$symbol $module"
+	echo "${words[@]}" "$symbol $module_str"
 }
 
 if [[ $basepath == "auto" ]] ; then
