@@ -55,6 +55,15 @@ struct ve_info {
 	u32 instr_info;
 };
 
+/*
+ * Page mapping types. This is software construct not part of any hardware
+ * or VMM ABI.
+ */
+enum tdx_map_type {
+	TDX_MAP_PRIVATE,
+	TDX_MAP_SHARED,
+};
+
 #ifdef CONFIG_INTEL_TDX_GUEST
 
 void __init tdx_early_init(void);
@@ -78,6 +87,9 @@ bool tdx_early_handle_ve(struct pt_regs *regs);
 
 phys_addr_t tdx_shared_mask(void);
 
+int tdx_hcall_request_gpa_type(phys_addr_t start, phys_addr_t end,
+			       enum tdx_map_type map_type);
+
 #else
 
 static inline void tdx_early_init(void) { };
@@ -86,6 +98,12 @@ static inline void tdx_guest_idle(void) { };
 
 static inline bool tdx_early_handle_ve(struct pt_regs *regs) { return false; }
 static inline phys_addr_t tdx_shared_mask(void) { return 0; }
+
+static inline int tdx_hcall_request_gpa_type(phys_addr_t start, phys_addr_t end,
+					     enum tdx_map_type map_type)
+{
+	return -ENODEV;
+}
 
 #endif /* CONFIG_INTEL_TDX_GUEST */
 
