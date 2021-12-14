@@ -46,6 +46,7 @@
 #include <asm/proto.h>
 #include <asm/frame.h>
 #include <asm/unwind.h>
+#include <asm/tdx.h>
 
 #include "process.h"
 
@@ -863,6 +864,12 @@ void select_idle_routine(const struct cpuinfo_x86 *c)
 #endif
 	if (x86_idle || boot_option_idle_override == IDLE_POLL)
 		return;
+
+	if (cpu_feature_enabled(X86_FEATURE_TDX_GUEST)) {
+		x86_idle = tdx_guest_idle;
+		pr_info("using TDX aware idle routine\n");
+		return;
+	}
 
 	if (boot_cpu_has_bug(X86_BUG_AMD_E400)) {
 		pr_info("using AMD E400 aware idle routine\n");
