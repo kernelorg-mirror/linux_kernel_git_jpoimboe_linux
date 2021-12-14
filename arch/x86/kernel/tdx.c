@@ -52,6 +52,15 @@ static inline u64 _tdx_hypercall(u64 fn, u64 r12, u64 r13, u64 r14,
 	return out->r10;
 }
 
+/*
+ * The highest bit of a guest physical address is the "sharing" bit.
+ * Set it for shared pages and clear it for private pages.
+ */
+phys_addr_t tdx_shared_mask(void)
+{
+	return BIT_ULL(td_info.gpa_width - 1);
+}
+
 static void tdx_get_info(void)
 {
 	struct tdx_module_output out;
