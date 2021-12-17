@@ -256,37 +256,6 @@ static unsigned long pg_level_to_pfn(int level, pte_t *kpte, pgprot_t *ret_prot)
 	return pfn;
 }
 
-void notify_range_enc_status_changed(unsigned long vaddr, int npages, bool enc)
-{
-#ifdef CONFIG_PARAVIRT
-	unsigned long sz = npages << PAGE_SHIFT;
-	unsigned long vaddr_end = vaddr + sz;
-
-	while (vaddr < vaddr_end) {
-		int psize, pmask, level;
-		unsigned long pfn;
-		pte_t *kpte;
-
-		kpte = lookup_address(vaddr, &level);
-		if (!kpte || pte_none(*kpte)) {
-			WARN_ONCE(1, "kpte lookup for vaddr\n");
-			return;
-		}
-
-		pfn = pg_level_to_pfn(level, kpte, NULL);
-		if (!pfn)
-			continue;
-
-		psize = page_level_size(level);
-		pmask = page_level_mask(level);
-
-		notify_page_enc_status_changed(pfn, psize >> PAGE_SHIFT, enc);
-
-		vaddr = (vaddr & pmask) + psize;
-	}
-#endif
-}
-
 static void __init __set_clr_pte_enc(pte_t *kpte, int level, bool enc)
 {
 	pgprot_t old_prot, new_prot;
