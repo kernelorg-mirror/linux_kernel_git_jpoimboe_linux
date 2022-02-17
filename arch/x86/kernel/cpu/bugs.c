@@ -891,6 +891,7 @@ static void __init spectre_v2_select_mitigation(void)
 {
 	enum spectre_v2_mitigation_cmd cmd = spectre_v2_parse_cmdline();
 	enum spectre_v2_mitigation mode = SPECTRE_V2_NONE;
+	bool silent_demote = false;
 
 	/*
 	 * If the CPU is not affected and the command line mode is NONE or AUTO
@@ -906,6 +907,7 @@ static void __init spectre_v2_select_mitigation(void)
 
 	case SPECTRE_V2_CMD_FORCE:
 	case SPECTRE_V2_CMD_AUTO:
+		silent_demote = true;
 		if (boot_cpu_has(X86_FEATURE_IBRS_ENHANCED)) {
 			mode = SPECTRE_V2_IBRS_ENHANCED;
 			/* Force it so VMEXIT will restore correctly */
@@ -938,6 +940,7 @@ retpoline_auto:
 	retpoline_amd:
 		if (!boot_cpu_has(X86_FEATURE_LFENCE_RDTSC)) {
 			pr_err("Spectre mitigation: LFENCE not serializing, switching to generic retpoline\n");
+			silent_demote = false;
 			goto retpoline_generic;
 		}
 		mode = SPECTRE_V2_RETPOLINE_AMD;
@@ -947,6 +950,16 @@ retpoline_auto:
 	retpoline_generic:
 		mode = SPECTRE_V2_RETPOLINE_GENERIC;
 		setup_force_cpu_cap(X86_FEATURE_RETPOLINE);
+
+		/*
+		 * ROP defeats IBT, make sure not to use Retpolines and IBT together.
+		 */
+		if (HAS_KERNEL_IBT && cpu_feature_enabled(X86_FEATURE_IBT)) {
+			if (!silent_demote)
+				pr_warn("Spectre mitigation: Switching to LFENCE due to IBT\n");
+			mode = SPECTRE_V2_RETPOLINE_AMD;
+			setup_force_cpu_cap(X86_FEATURE_RETPOLINE_AMD);
+		}
 	}
 
 specv2_set_mode:
