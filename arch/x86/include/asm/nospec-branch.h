@@ -75,6 +75,13 @@
 	.popsection
 .endm
 
+.macro INDIRECT_JMP reg
+	jmp *%\reg
+#ifdef CONFIG_SLS
+	int3
+#endif
+.endm
+
 /*
  * JMP_NOSPEC and CALL_NOSPEC macros can be used instead of a simple
  * indirect jmp/call which may be susceptible to the Spectre variant 2
@@ -82,11 +89,11 @@
  */
 .macro JMP_NOSPEC reg:req
 #ifdef CONFIG_RETPOLINE
-	ALTERNATIVE_2 __stringify(ANNOTATE_RETPOLINE_SAFE; jmp *%\reg), \
+	ALTERNATIVE_2 __stringify(ANNOTATE_RETPOLINE_SAFE; INDIRECT_JMP \reg), \
 		      __stringify(jmp __x86_indirect_thunk_\reg), X86_FEATURE_RETPOLINE, \
-		      __stringify(lfence; ANNOTATE_RETPOLINE_SAFE; jmp *%\reg), X86_FEATURE_RETPOLINE_LFENCE
+		      __stringify(lfence; ANNOTATE_RETPOLINE_SAFE; INDIRECT_JMP \reg), X86_FEATURE_RETPOLINE_LFENCE
 #else
-	jmp	*%\reg
+	INDIRECT_JMP \reg
 #endif
 .endm
 

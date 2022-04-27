@@ -3842,9 +3842,6 @@ static int validate_sls(struct objtool_file *file)
 	for_each_insn(file, insn) {
 		next_insn = next_insn_same_sec(file, insn);
 
-		if (insn->retpoline_safe)
-			continue;
-
 		switch (insn->type) {
 		case INSN_RETURN:
 			if (!next_insn || next_insn->type != INSN_TRAP) {
