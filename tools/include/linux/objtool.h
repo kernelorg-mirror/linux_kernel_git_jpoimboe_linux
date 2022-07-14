@@ -43,6 +43,12 @@ struct unwind_hint {
 #define UNWIND_HINT_TYPE_SAVE		5
 #define UNWIND_HINT_TYPE_RESTORE	6
 
+/*
+ * (ab)use RETPOLINE_SAFE on RET to annotate away 'bare' RET instructions
+ * vs RETBleed validation.
+ */
+#define ANNOTATE_UNRET_SAFE ANNOTATE_RETPOLINE_SAFE
+
 #ifdef CONFIG_OBJTOOL
 
 #include <asm/asm.h>
@@ -84,6 +90,12 @@ struct unwind_hint {
 #define STACK_FRAME_NON_STANDARD_FP(func)
 #endif
 
+#define ANNOTATE_RETPOLINE_SAFE					\
+	"999:\n\t"						\
+	".pushsection .discard.retpoline_safe\n\t"		\
+	_ASM_PTR " 999b\n\t"					\
+	".popsection\n\t"
+
 #define ANNOTATE_NOENDBR					\
 	"986: \n\t"						\
 	".pushsection .discard.noendbr\n\t"			\
@@ -97,6 +109,29 @@ struct unwind_hint {
 	".popsection\n\t"
 
 #else /* __ASSEMBLY__ */
+
+/*
+ * This should be used immediately before an indirect jump/call. It tells
+ * objtool the subsequent indirect jump/call is vouched safe for retpoline
+ * builds.
+ */
+.macro ANNOTATE_RETPOLINE_SAFE
+	.Lannotate_\@:
+	.pushsection .discard.retpoline_safe
+	_ASM_PTR .Lannotate_\@
+	.popsection
+.endm
+
+/*
+ * Abuse ANNOTATE_RETPOLINE_SAFE on a NOP to indicate UNRET_END, should
+ * eventually turn into it's own annotation.
+ */
+.macro ANNOTATE_UNRET_END
+#ifdef CONFIG_DEBUG_ENTRY
+	ANNOTATE_RETPOLINE_SAFE
+	nop
+#endif
+.endm
 
 /*
  * This macro indicates that the following intra-function call is valid.
@@ -171,6 +206,8 @@ struct unwind_hint {
 #endif /* __ASSEMBLY__ */
 
 #else /* !CONFIG_OBJTOOL */
+
+#define ANNOTATE_RETPOLINE_SAFE
 
 #ifndef __ASSEMBLY__
 

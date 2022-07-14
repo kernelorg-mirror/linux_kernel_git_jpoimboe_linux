@@ -64,35 +64,6 @@
 #ifdef __ASSEMBLY__
 
 /*
- * This should be used immediately before an indirect jump/call. It tells
- * objtool the subsequent indirect jump/call is vouched safe for retpoline
- * builds.
- */
-.macro ANNOTATE_RETPOLINE_SAFE
-	.Lannotate_\@:
-	.pushsection .discard.retpoline_safe
-	_ASM_PTR .Lannotate_\@
-	.popsection
-.endm
-
-/*
- * (ab)use RETPOLINE_SAFE on RET to annotate away 'bare' RET instructions
- * vs RETBleed validation.
- */
-#define ANNOTATE_UNRET_SAFE ANNOTATE_RETPOLINE_SAFE
-
-/*
- * Abuse ANNOTATE_RETPOLINE_SAFE on a NOP to indicate UNRET_END, should
- * eventually turn into it's own annotation.
- */
-.macro ANNOTATE_UNRET_END
-#ifdef CONFIG_DEBUG_ENTRY
-	ANNOTATE_RETPOLINE_SAFE
-	nop
-#endif
-.endm
-
-/*
  * JMP_NOSPEC and CALL_NOSPEC macros can be used instead of a simple
  * indirect jmp/call which may be susceptible to the Spectre variant 2
  * attack.
@@ -154,12 +125,6 @@
 .endm
 
 #else /* __ASSEMBLY__ */
-
-#define ANNOTATE_RETPOLINE_SAFE					\
-	"999:\n\t"						\
-	".pushsection .discard.retpoline_safe\n\t"		\
-	_ASM_PTR " 999b\n\t"					\
-	".popsection\n\t"
 
 typedef u8 retpoline_thunk_t[RETPOLINE_THUNK_SIZE];
 extern retpoline_thunk_t __x86_indirect_thunk_array[];
