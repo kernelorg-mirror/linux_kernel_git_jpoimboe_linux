@@ -39,7 +39,7 @@ obj-y	:= head.o als.o startup.o mem_detect.o ipl_parm.o ipl_report.o
 obj-y	+= string.o ebcdic.o sclp_early_core.o mem.o ipl_vmparm.o cmdline.o
 obj-y	+= version.o pgm_check_info.o ctype.o ipl_data.o
 obj-$(findstring y, $(CONFIG_PROTECTED_VIRTUALIZATION_GUEST) $(CONFIG_PGSTE))	+= uv.o
-obj-$(CONFIG_RELOCATABLE)	+= machine_kexec_reloc.o
+obj-$(CONFIG_RELOCATABLE)	+= relocs.o
 obj-$(CONFIG_RANDOMIZE_BASE)	+= kaslr.o
 obj-y	+= $(if $(CONFIG_KERNEL_UNCOMPRESSED),,decompressor.o) info.o
 obj-$(CONFIG_KERNEL_ZSTD) += clz_ctz.o
@@ -48,7 +48,7 @@ obj-all := $(obj-y) piggy.o syms.o
 targets	:= bzImage section_cmp.boot.data section_cmp.boot.preserved.data $(obj-y)
 targets	+= vmlinux.lds vmlinux vmlinux.bin vmlinux.bin.gz vmlinux.bin.bz2
 targets += vmlinux.bin.xz vmlinux.bin.lzma vmlinux.bin.lzo vmlinux.bin.lz4
-targets += vmlinux.bin.zst info.bin syms.bin vmlinux.syms $(obj-all)
+targets += vmlinux.bin.zst info.bin syms.bin vmlinux.syms relocs.S $(obj-all)
 
 OBJECTS := $(addprefix $(obj)/,$(obj-y))
 OBJECTS_ALL := $(addprefix $(obj)/,$(obj-all))
@@ -103,6 +103,12 @@ $(obj)/info.o: $(obj)/info.bin FORCE
 OBJCOPYFLAGS_vmlinux.bin := -O binary --remove-section=.comment --remove-section=.vmlinux.info -S
 $(obj)/vmlinux.bin: vmlinux FORCE
 	$(call if_changed,objcopy)
+
+CMD_RELOCS=arch/s390/tools/relocs
+quiet_cmd_relocs = RELOCS  $@
+      cmd_relocs = $(CMD_RELOCS) $< > $@
+$(obj)/relocs.S: vmlinux FORCE
+	$(call if_changed,relocs)
 
 suffix-$(CONFIG_KERNEL_GZIP)  := .gz
 suffix-$(CONFIG_KERNEL_BZIP2) := .bz2

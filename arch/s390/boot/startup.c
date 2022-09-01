@@ -6,7 +6,6 @@
 #include <asm/cpu_mf.h>
 #include <asm/setup.h>
 #include <asm/kasan.h>
-#include <asm/kexec.h>
 #include <asm/sclp.h>
 #include <asm/diag.h>
 #include <asm/uv.h>
@@ -76,34 +75,38 @@ static void copy_bootdata(void)
 	memcpy((void *)vmlinux.bootdata_preserved_off, __boot_data_preserved_start, vmlinux.bootdata_preserved_size);
 }
 
-static void handle_relocs(unsigned long offset)
+static void kaslr_adjust_relocs(unsigned long offset)
 {
-	Elf64_Rela *rela_start, *rela_end, *rela;
-	int r_type, r_sym, rc;
-	Elf64_Addr loc, val;
-	Elf64_Sym *dynsym;
+	int *reloc;
+	unsigned long min_addr = vmlinux.default_lma;
+	unsigned long max_addr = min_addr + vmlinux.image_size;
+	long loc;
 
-	rela_start = (Elf64_Rela *) vmlinux.rela_dyn_start;
-	rela_end = (Elf64_Rela *) vmlinux.rela_dyn_end;
-	dynsym = (Elf64_Sym *) vmlinux.dynsym_start;
-	for (rela = rela_start; rela < rela_end; rela++) {
-		loc = rela->r_offset + offset;
-		val = rela->r_addend;
-		r_sym = ELF64_R_SYM(rela->r_info);
-		if (r_sym) {
-			if (dynsym[r_sym].st_shndx != SHN_UNDEF)
-				val += dynsym[r_sym].st_value + offset;
-		} else {
-			/*
-			 * 0 == undefined symbol table index (STN_UNDEF),
-			 * used for R_390_RELATIVE, only add KASLR offset
-			 */
-			val += offset;
-		}
-		r_type = ELF64_R_TYPE(rela->r_info);
-		rc = arch_kexec_do_relocs(r_type, (void *) loc, val, 0);
-		if (rc)
-			error("Unknown relocation type");
+	/* Adjust R_390_64 relocations */
+	for (reloc = __vmlinux_relocs_64_start;
+	     reloc < __vmlinux_relocs_64_end && *reloc;
+	     reloc++) {
+		loc = (long)*reloc + offset;
+
+		if (loc < min_addr || loc > max_addr)
+			error("64-bit relocation outside of kernel!\n");
+
+		*(u64 *)loc += offset;
+	}
+}
+
+static void kaslr_adjust_got(unsigned long offset)
+{
+	u64 *entry;
+
+	/*
+	 * Even without -fPIE, Clang still uses a global offset table for some
+	 * reason.  Adjust the GOT entries.
+	 */
+	for (entry = (u64 *)vmlinux.got_off;
+	     entry < (u64 *)(vmlinux.got_off + vmlinux.got_size);
+	     entry++) {
+		*entry += offset;
 	}
 }
 
@@ -225,15 +228,13 @@ static void setup_vmalloc_size(void)
 	vmalloc_size = max(size, vmalloc_size);
 }
 
-static void offset_vmlinux_info(unsigned long offset)
+static void kaslr_adjust_vmlinux_info(unsigned long offset)
 {
 	vmlinux.default_lma += offset;
 	*(unsigned long *)(&vmlinux.entry) += offset;
 	vmlinux.bootdata_off += offset;
 	vmlinux.bootdata_preserved_off += offset;
-	vmlinux.rela_dyn_start += offset;
-	vmlinux.rela_dyn_end += offset;
-	vmlinux.dynsym_start += offset;
+	vmlinux.got_off += offset;
 }
 
 static unsigned long reserve_amode31(unsigned long safe_addr)
@@ -273,7 +274,7 @@ void startup_kernel(void)
 		if (random_lma) {
 			__kaslr_offset = random_lma - vmlinux.default_lma;
 			img = (void *)vmlinux.default_lma;
-			offset_vmlinux_info(__kaslr_offset);
+			kaslr_adjust_vmlinux_info(__kaslr_offset);
 		}
 	}
 
@@ -285,15 +286,18 @@ void startup_kernel(void)
 
 	clear_bss_section();
 	copy_bootdata();
-	if (IS_ENABLED(CONFIG_RELOCATABLE))
-		handle_relocs(__kaslr_offset);
 
 	if (__kaslr_offset) {
+
+		kaslr_adjust_relocs(__kaslr_offset);
+		kaslr_adjust_got(__kaslr_offset);
+
 		/*
 		 * Save KASLR offset for early dumps, before vmcore_info is set.
 		 * Mark as uneven to distinguish from real vmcore_info pointer.
 		 */
 		S390_lowcore.vmcore_info = __kaslr_offset | 0x1UL;
+
 		/* Clear non-relocated kernel */
 		if (IS_ENABLED(CONFIG_KERNEL_UNCOMPRESSED))
 			memset(img, 0, vmlinux.image_size);

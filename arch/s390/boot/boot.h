@@ -29,6 +29,7 @@ extern int vmalloc_size_set;
 extern int kaslr_enabled;
 extern char __boot_data_start[], __boot_data_end[];
 extern char __boot_data_preserved_start[], __boot_data_preserved_end[];
+extern int __vmlinux_relocs_64_start[], __vmlinux_relocs_64_end[];
 extern char _decompressor_syms_start[], _decompressor_syms_end[];
 extern char _stack_start[], _stack_end[];
 

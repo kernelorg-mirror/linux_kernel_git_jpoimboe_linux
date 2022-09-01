@@ -421,6 +421,10 @@
 	__end_ro_after_init = .;
 #endif
 
+#ifndef GLOBAL_OFFSET_TABLE
+#define GLOBAL_OFFSET_TABLE
+#endif
+
 /*
  * Read only Data
  */
@@ -532,6 +536,7 @@
 	RO_EXCEPTION_TABLE						\
 	NOTES								\
 	BTF								\
+	GLOBAL_OFFSET_TABLE						\
 									\
 	. = ALIGN((align));						\
 	__end_rodata = .;

@@ -19,6 +19,14 @@
 
 #define EMITS_PT_NOTE
 
+#define GLOBAL_OFFSET_TABLE		\
+	. = ALIGN(8);			\
+	.got : {			\
+		__got_start = .;	\
+		*(.got)			\
+		__got_end = .;		\
+	}
+
 #include <asm-generic/vmlinux.lds.h>
 #include <asm/vmlinux.lds.h>
 
@@ -177,17 +185,6 @@ SECTIONS
 
 	PERCPU_SECTION(0x100)
 
-	.dynsym ALIGN(8) : {
-		__dynsym_start = .;
-		*(.dynsym)
-		__dynsym_end = .;
-	}
-	.rela.dyn ALIGN(8) : {
-		__rela_dyn_start = .;
-		*(.rela*)
-		__rela_dyn_end = .;
-	}
-
 	. = ALIGN(PAGE_SIZE);
 	__init_end = .;		/* freed after init ends here */
 
@@ -209,9 +206,8 @@ SECTIONS
 		QUAD(__boot_data_preserved_start)		/* bootdata_preserved_off */
 		QUAD(__boot_data_preserved_end -
 		     __boot_data_preserved_start)		/* bootdata_preserved_size */
-		QUAD(__dynsym_start)				/* dynsym_start */
-		QUAD(__rela_dyn_start)				/* rela_dyn_start */
-		QUAD(__rela_dyn_end)				/* rela_dyn_end */
+		QUAD(__got_start)				/* got_off */
+		QUAD(__got_end - __got_start)			/* got_size */
 		QUAD(_eamode31 - _samode31)			/* amode31_size */
 	} :NONE
 

@@ -14,10 +14,11 @@ KBUILD_AFLAGS_MODULE += -fPIC
 KBUILD_CFLAGS_MODULE += -fPIC
 KBUILD_AFLAGS	+= -m64
 KBUILD_CFLAGS	+= -m64
+
 ifeq ($(CONFIG_RELOCATABLE),y)
-KBUILD_CFLAGS	+= -fPIE
-LDFLAGS_vmlinux	:= -pie
+LDFLAGS_vmlinux	:= --emit-relocs --discard-none
 endif
+
 aflags_dwarf	:= -Wa,-gdwarf-2
 KBUILD_AFLAGS_DECOMPRESSOR := $(CLANG_FLAGS) -m64 -D__ASSEMBLY__
 ifndef CONFIG_AS_IS_LLVM
@@ -150,7 +151,7 @@ archheaders:
 
 archprepare:
 	$(Q)$(MAKE) $(build)=$(syscalls) kapi
-	$(Q)$(MAKE) $(build)=$(tools) kapi
+	$(Q)$(MAKE) $(build)=$(tools) kapi relocs
 ifeq ($(KBUILD_EXTMOD),)
 # We need to generate vdso-offsets.h before compiling certain files in kernel/.
 # In order to do that, we should use the archprepare target, but we can't since
