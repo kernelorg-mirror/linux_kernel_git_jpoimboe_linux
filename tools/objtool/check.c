@@ -4532,6 +4532,7 @@ static int validate_sls(struct objtool_file *file)
 static int validate_reachable_instructions(struct objtool_file *file)
 {
 	struct instruction *insn;
+	struct symbol *last_sym = (void *)-1;
 
 	if (file->ignore_unreachables)
 		return 0;
@@ -4540,8 +4541,10 @@ static int validate_reachable_instructions(struct objtool_file *file)
 		if (insn->visited || ignore_unreachable_insn(file, insn))
 			continue;
 
-		WARN_FUNC("unreachable instruction", insn->sec, insn->offset);
-		return 1;
+		if (insn->sym != last_sym)
+			WARN_FUNC("unreachable instruction", insn->sec, insn->offset);
+
+		last_sym = insn->sym;
 	}
 
 	return 0;
