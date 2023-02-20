@@ -378,6 +378,13 @@ static __always_inline void __##func(struct pt_regs *regs)
 
 #else	/* CONFIG_X86_64 */
 
+
+#ifdef CONFIG_X86_ESPFIX64
+#define DF_NORETURN
+#else
+#define DF_NORETURN __noreturn
+#endif
+
 /**
  * DECLARE_IDTENTRY_DF - Declare functions for double fault 32bit variant
  * @vector:	Vector number (ignored for C)
@@ -389,9 +396,9 @@ static __always_inline void __##func(struct pt_regs *regs)
  */
 #define DECLARE_IDTENTRY_DF(vector, func)				\
 	asmlinkage void asm_##func(void);				\
-	__visible void func(struct pt_regs *regs,			\
-			    unsigned long error_code,			\
-			    unsigned long address)
+	__visible DF_NORETURN void func(struct pt_regs *regs,		\
+					unsigned long error_code,	\
+					unsigned long address)
 
 /**
  * DEFINE_IDTENTRY_DF - Emit code for double fault on 32bit
