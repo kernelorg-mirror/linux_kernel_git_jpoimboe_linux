@@ -8492,12 +8492,12 @@ EXPORT_SYMBOL(__cond_resched);
 #if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
 #define cond_resched_dynamic_enabled	__cond_resched
 #define cond_resched_dynamic_disabled	((void *)&__static_call_return0)
-DEFINE_STATIC_CALL_RET0(cond_resched, __cond_resched);
+DEFINE_STATIC_CALL_NULL(cond_resched, __cond_resched);
 EXPORT_STATIC_CALL_TRAMP(cond_resched);
 
 #define might_resched_dynamic_enabled	__cond_resched
 #define might_resched_dynamic_disabled	((void *)&__static_call_return0)
-DEFINE_STATIC_CALL_RET0(might_resched, __cond_resched);
+DEFINE_STATIC_CALL_NULL(might_resched, __cond_resched);
 EXPORT_STATIC_CALL_TRAMP(might_resched);
 #elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
 static DEFINE_STATIC_KEY_FALSE(sk_dynamic_cond_resched);
@@ -8598,7 +8598,7 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
  *
  * NONE:
  *   cond_resched               <- __cond_resched
- *   might_resched              <- RET0
+ *   might_resched              <- NULL
  *   preempt_schedule           <- NOP
  *   preempt_schedule_notrace   <- NOP
  *   irqentry_exit_cond_resched <- NOP
@@ -8611,8 +8611,8 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
  *   irqentry_exit_cond_resched <- NOP
  *
  * FULL:
- *   cond_resched               <- RET0
- *   might_resched              <- RET0
+ *   cond_resched               <- NULL
+ *   might_resched              <- NULL
  *   preempt_schedule           <- preempt_schedule
  *   preempt_schedule_notrace   <- preempt_schedule_notrace
  *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched

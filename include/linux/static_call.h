@@ -17,7 +17,6 @@
  *   DECLARE_STATIC_CALL(name, func);
  *   DEFINE_STATIC_CALL(name, func);
  *   DEFINE_STATIC_CALL_NULL(name, typename);
- *   DEFINE_STATIC_CALL_RET0(name, typename);
  *
  *   __static_call_return0;
  *
@@ -171,8 +170,6 @@ extern int static_call_text_reserved(void *start, void *end);
 	};								\
 	ARCH_DEFINE_STATIC_CALL_RET0_TRAMP(name)
 
-#define DEFINE_STATIC_CALL_RET0 DEFINE_STATIC_CALL_NULL
-
 #define EXPORT_STATIC_CALL(name)					\
 	EXPORT_SYMBOL(STATIC_CALL_KEY(name));				\
 	EXPORT_SYMBOL(STATIC_CALL_TRAMP(name))
@@ -205,8 +202,6 @@ static inline int static_call_init(void) { return 0; }
 		.func = __static_call_return0,				\
 	};								\
 	ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)
-
-#define DEFINE_STATIC_CALL_RET0 DEFINE_STATIC_CALL_NULL
 
 static inline
 void __static_call_update(struct static_call_key *key, void *tramp, void *func)
@@ -250,8 +245,6 @@ static inline int static_call_init(void) { return 0; }
 
 #define DEFINE_STATIC_CALL_NULL(name, _func)				\
 	__DEFINE_STATIC_CALL(name, _func, __static_call_return0)
-
-#define DEFINE_STATIC_CALL_RET0 DEFINE_STATIC_CALL_NULL
 
 static inline
 void __static_call_update(struct static_call_key *key, void *tramp, void *func)
