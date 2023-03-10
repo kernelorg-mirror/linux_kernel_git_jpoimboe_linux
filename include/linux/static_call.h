@@ -65,47 +65,31 @@
  *
  * Notes on NULL function pointers:
  *
- *   A static_call() to a NULL function pointer is a NOP.
+ *   A static_call() to a NULL function pointer is equivalent to a call to a
+ *   "do nothing return 0" function.
  *
  *   A NULL static call can be the result of:
  *
  *     DECLARE_STATIC_CALL_NULL(my_static_call, void (*)(int));
  *
- *   or using static_call_update() with a NULL function. In both cases the
- *   HAVE_STATIC_CALL implementation will patch the trampoline with a RET
- *   instruction, instead of an immediate tail-call JMP. HAVE_STATIC_CALL_INLINE
- *   architectures can patch the trampoline call to a NOP.
+ *   or using static_call_update() with a NULL function.
  *
- *   In all cases, any argument evaluation is unconditional. Unlike a regular
- *   conditional function pointer call:
+ *   The "return 0" feature is strictly UB per the C standard (since it casts a
+ *   function pointer to a different signature) and relies on the architecture
+ *   ABI to make things work. In particular it relies on the return value
+ *   register being callee-clobbered for all function calls.
+ *
+ *   In particular The x86_64 implementation of HAVE_STATIC_CALL_INLINE
+ *   replaces the 5 byte CALL instruction at the callsite with a 5 byte clear
+ *   of the RAX register, completely eliding any function call overhead.
+ *
+ *   Any argument evaluation is unconditional. Unlike a regular conditional
+ *   function pointer call:
  *
  *     if (my_func_ptr)
  *         my_func_ptr(arg1)
  *
- *   where the argument evaludation also depends on the pointer value.
- *
- *   To query which function is currently set to be called, use:
- *
- *   func = static_call_query(name);
- *
- *
- * DEFINE_STATIC_CALL_RET0 / __static_call_return0:
- *
- *   Just like how DEFINE_STATIC_CALL_NULL() optimizes the
- *   conditional void function call, DEFINE_STATIC_CALL_RET0 /
- *   __static_call_return0 optimize the do nothing return 0 function.
- *
- *   This feature is strictly UB per the C standard (since it casts a function
- *   pointer to a different signature) and relies on the architecture ABI to
- *   make things work. In particular it relies on Caller Stack-cleanup and the
- *   whole return register being clobbered for short return values. All normal
- *   CDECL style ABIs conform.
- *
- *   In particular the x86_64 implementation replaces the 5 byte CALL
- *   instruction at the callsite with a 5 byte clear of the RAX register,
- *   completely eliding any function call overhead.
- *
- *   Notably argument setup is unconditional.
+ *   where the argument evaluation also depends on the pointer value.
  *
  *
  * EXPORT_STATIC_CALL() vs EXPORT_STATIC_CALL_TRAMP():
@@ -134,14 +118,21 @@ extern void arch_static_call_transform(void *site, void *tramp, void *func, bool
 #define STATIC_CALL_TRAMP_ADDR(name) NULL
 #endif
 
+extern long __static_call_return0(void);
+
 #define static_call_update(name, func)					\
 ({									\
 	typeof(&STATIC_CALL_TRAMP(name)) __F = (func);			\
+	void *__f = (void *)__F ? : (void *)__static_call_return0;	\
 	__static_call_update(&STATIC_CALL_KEY(name),			\
-			     STATIC_CALL_TRAMP_ADDR(name), __F);	\
+			     STATIC_CALL_TRAMP_ADDR(name), __f);	\
 })
 
-#define static_call_query(name) (READ_ONCE(STATIC_CALL_KEY(name).func))
+#define static_call_query(name)						\
+({									\
+	void *__func = (READ_ONCE(STATIC_CALL_KEY(name).func));		\
+	__func == __static_call_return0 ? NULL : __func;		\
+})
 
 #ifdef CONFIG_HAVE_STATIC_CALL_INLINE
 
@@ -165,8 +156,6 @@ extern void __static_call_update(struct static_call_key *key, void *tramp, void 
 extern int static_call_mod_init(struct module *mod);
 extern int static_call_text_reserved(void *start, void *end);
 
-extern long __static_call_return0(void);
-
 #define DEFINE_STATIC_CALL(name, _func)					\
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
@@ -178,20 +167,14 @@ extern long __static_call_return0(void);
 #define DEFINE_STATIC_CALL_NULL(name, _func)				\
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = NULL,						\
-		.type = 1,						\
-	};								\
-	ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)
-
-#define DEFINE_STATIC_CALL_RET0(name, _func)				\
-	DECLARE_STATIC_CALL(name, _func);				\
-	struct static_call_key STATIC_CALL_KEY(name) = {		\
 		.func = __static_call_return0,				\
 		.type = 1,						\
 	};								\
 	ARCH_DEFINE_STATIC_CALL_RET0_TRAMP(name)
 
-#define static_call_cond(name)	(void)__static_call(name)
+#define DEFINE_STATIC_CALL_RET0 DEFINE_STATIC_CALL_NULL
+
+#define static_call_cond(name)	__static_call(name)
 
 #define EXPORT_STATIC_CALL(name)					\
 	EXPORT_SYMBOL(STATIC_CALL_KEY(name));				\
@@ -222,18 +205,13 @@ static inline int static_call_init(void) { return 0; }
 #define DEFINE_STATIC_CALL_NULL(name, _func)				\
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = NULL,						\
+		.func = __static_call_return0,				\
 	};								\
 	ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)
 
-#define DEFINE_STATIC_CALL_RET0(name, _func)				\
-	DECLARE_STATIC_CALL(name, _func);				\
-	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = __static_call_return0,				\
-	};								\
-	ARCH_DEFINE_STATIC_CALL_RET0_TRAMP(name)
+#define DEFINE_STATIC_CALL_RET0 DEFINE_STATIC_CALL_NULL
 
-#define static_call_cond(name)	(void)__static_call(name)
+#define static_call_cond(name)	__static_call(name)
 
 static inline
 void __static_call_update(struct static_call_key *key, void *tramp, void *func)
@@ -248,8 +226,6 @@ static inline int static_call_text_reserved(void *start, void *end)
 {
 	return 0;
 }
-
-extern long __static_call_return0(void);
 
 #define EXPORT_STATIC_CALL(name)					\
 	EXPORT_SYMBOL(STATIC_CALL_KEY(name));				\
@@ -268,13 +244,6 @@ extern long __static_call_return0(void);
 
 static inline int static_call_init(void) { return 0; }
 
-static inline void __static_call_nop(void) { }
-
-static inline long __static_call_return0(void)
-{
-	return 0;
-}
-
 #define __DEFINE_STATIC_CALL(name, _func, _func_init)			\
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
@@ -285,17 +254,16 @@ static inline long __static_call_return0(void)
 	__DEFINE_STATIC_CALL(name, _func, _func)
 
 #define DEFINE_STATIC_CALL_NULL(name, _func)				\
-	__DEFINE_STATIC_CALL(name, _func, __static_call_nop)
-
-#define DEFINE_STATIC_CALL_RET0(name, _func)				\
 	__DEFINE_STATIC_CALL(name, _func, __static_call_return0)
 
-#define static_call_cond(name) (void)static_call(name)
+#define DEFINE_STATIC_CALL_RET0 DEFINE_STATIC_CALL_NULL
+
+#define static_call_cond(name) static_call(name)
 
 static inline
 void __static_call_update(struct static_call_key *key, void *tramp, void *func)
 {
-	WRITE_ONCE(key->func, func ? : (void *)__static_call_nop);
+	WRITE_ONCE(key->func, func);
 }
 
 static inline int static_call_text_reserved(void *start, void *end)
