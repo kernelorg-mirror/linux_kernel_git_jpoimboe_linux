@@ -132,7 +132,6 @@
  */
 
 #include <linux/types.h>
-#include <linux/cpu.h>
 #include <linux/static_call_types.h>
 
 #ifdef CONFIG_HAVE_STATIC_CALL
@@ -246,14 +245,7 @@ static inline int static_call_init(void) { return 0; }
 
 #define static_call_cond(name)	(void)__static_call(name)
 
-static inline
-void __static_call_update(struct static_call_key *key, void *tramp, void *func)
-{
-	cpus_read_lock();
-	WRITE_ONCE(key->func, func);
-	arch_static_call_transform(NULL, tramp, func, false);
-	cpus_read_unlock();
-}
+extern void __static_call_update(struct static_call_key *key, void *tramp, void *func);
 
 static inline int static_call_text_reserved(void *start, void *end)
 {

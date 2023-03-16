@@ -19,6 +19,7 @@
 #include <linux/sched/sysctl.h>
 #include <linux/blk-crypto.h>
 #include <linux/xarray.h>
+#include <linux/cpu.h>
 
 #include <trace/events/block.h>
 #include "blk.h"

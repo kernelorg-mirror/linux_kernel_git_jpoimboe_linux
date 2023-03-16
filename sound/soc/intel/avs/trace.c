@@ -7,6 +7,7 @@
 //
 
 #include <linux/types.h>
+#include <asm/page.h>
 
 #define CREATE_TRACE_POINTS
 #include "trace.h"
