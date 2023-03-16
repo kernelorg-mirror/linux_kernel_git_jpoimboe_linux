@@ -177,7 +177,6 @@ struct static_call_tramp_key {
 };
 
 extern void __static_call_update(struct static_call_key *key, void *tramp, void *func);
-extern int static_call_mod_init(struct module *mod);
 extern int static_call_text_reserved(void *start, void *end);
 
 extern long __static_call_return0(void);
