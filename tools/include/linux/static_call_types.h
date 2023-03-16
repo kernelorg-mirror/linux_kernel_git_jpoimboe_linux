@@ -63,8 +63,8 @@ struct static_call_key {
 	union {
 		/* bit 0: 0 = mods, 1 = sites */
 		unsigned long type;
-		struct static_call_mod *mods;
-		struct static_call_site *sites;
+		struct static_call_mod *_mods;
+		struct static_call_site *_sites;
 	};
 };
 

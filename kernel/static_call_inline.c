@@ -115,12 +115,17 @@ static inline bool static_call_key_has_mods(struct static_call_key *key)
 	return !(key->type & 1);
 }
 
-static inline struct static_call_mod *static_call_key_next(struct static_call_key *key)
+static inline struct static_call_mod *static_call_key_mods(struct static_call_key *key)
 {
 	if (!static_call_key_has_mods(key))
 		return NULL;
 
-	return key->mods;
+	return key->_mods;
+}
+
+static inline void static_call_key_set_mods(struct static_call_key *key, struct static_call_mod *mods)
+{
+	key->_mods = mods;
 }
 
 static inline struct static_call_site *static_call_key_sites(struct static_call_key *key)
@@ -129,6 +134,12 @@ static inline struct static_call_site *static_call_key_sites(struct static_call_
 		return NULL;
 
 	return (struct static_call_site *)(key->type & ~1);
+}
+
+static inline void static_call_key_set_sites(struct static_call_key *key, struct static_call_site *sites)
+{
+	key->_sites = sites;
+	key->type |= 1;
 }
 
 void __static_call_update(struct static_call_key *key, void *tramp, void *func)
@@ -154,7 +165,7 @@ void __static_call_update(struct static_call_key *key, void *tramp, void *func)
 		goto done;
 
 	first = (struct static_call_mod){
-		.next = static_call_key_next(key),
+		.next = static_call_key_mods(key),
 		.mod = NULL,
 		.sites = static_call_key_sites(key),
 	};
@@ -250,8 +261,7 @@ static int __static_call_init(struct module *mod,
 			 * static_call_init() before memory allocation works.
 			 */
 			if (!mod) {
-				key->sites = site;
-				key->type |= 1;
+				static_call_key_set_sites(key, site);
 				goto do_transform;
 			}
 
@@ -266,10 +276,10 @@ static int __static_call_init(struct module *mod,
 			 */
 			if (static_call_key_sites(key)) {
 				site_mod->mod = NULL;
-				site_mod->next = NULL;
 				site_mod->sites = static_call_key_sites(key);
+				site_mod->next = NULL;
 
-				key->mods = site_mod;
+				static_call_key_set_mods(key, site_mod);
 
 				site_mod = kzalloc(sizeof(*site_mod), GFP_KERNEL);
 				if (!site_mod)
@@ -278,8 +288,9 @@ static int __static_call_init(struct module *mod,
 
 			site_mod->mod = mod;
 			site_mod->sites = site;
-			site_mod->next = static_call_key_next(key);
-			key->mods = site_mod;
+			site_mod->next = static_call_key_mods(key);
+
+			static_call_key_set_mods(key, site_mod);
 		}
 
 do_transform:
@@ -406,7 +417,7 @@ static void static_call_del_module(struct module *mod)
 	struct static_call_site *stop = mod->static_call_sites +
 					mod->num_static_call_sites;
 	struct static_call_key *key, *prev_key = NULL;
-	struct static_call_mod *site_mod, **prev;
+	struct static_call_mod *site_mod, *prev;
 	struct static_call_site *site;
 
 	for (site = start; site < stop; site++) {
@@ -416,15 +427,25 @@ static void static_call_del_module(struct module *mod)
 
 		prev_key = key;
 
-		for (prev = &key->mods, site_mod = key->mods;
+		site_mod = static_call_key_mods(key);
+		if (!site_mod)
+			continue;
+
+		if (site_mod->mod == mod) {
+			static_call_key_set_mods(key, site_mod->next);
+			kfree(site_mod);
+			continue;
+		}
+
+		for (prev = site_mod, site_mod = site_mod->next;
 		     site_mod && site_mod->mod != mod;
-		     prev = &site_mod->next, site_mod = site_mod->next)
+		     prev = site_mod, site_mod = site_mod->next)
 			;
 
 		if (!site_mod)
 			continue;
 
-		*prev = site_mod->next;
+		prev->next = site_mod->next;
 		kfree(site_mod);
 	}
 }
