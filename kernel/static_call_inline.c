@@ -112,7 +112,7 @@ static inline void static_call_sort_entries(struct static_call_site *start,
 
 static inline bool static_call_key_has_mods(struct static_call_key *key)
 {
-	return !(key->type & 1);
+	return !!(key->type & 1);
 }
 
 static inline struct static_call_mod *static_call_key_mods(struct static_call_key *key)
@@ -120,12 +120,13 @@ static inline struct static_call_mod *static_call_key_mods(struct static_call_ke
 	if (!static_call_key_has_mods(key))
 		return NULL;
 
-	return key->_mods;
+	return (struct static_call_mod *)(key->type & ~1);
 }
 
 static inline void static_call_key_set_mods(struct static_call_key *key, struct static_call_mod *mods)
 {
 	key->_mods = mods;
+	key->type |= 1;
 }
 
 static inline struct static_call_site *static_call_key_sites(struct static_call_key *key)
@@ -133,13 +134,12 @@ static inline struct static_call_site *static_call_key_sites(struct static_call_
 	if (static_call_key_has_mods(key))
 		return NULL;
 
-	return (struct static_call_site *)(key->type & ~1);
+	return key->_sites;
 }
 
 static inline void static_call_key_set_sites(struct static_call_key *key, struct static_call_site *sites)
 {
 	key->_sites = sites;
-	key->type |= 1;
 }
 
 void __static_call_update(struct static_call_key *key, void *tramp, void *func)

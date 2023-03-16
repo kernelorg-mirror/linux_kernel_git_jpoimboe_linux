@@ -61,10 +61,10 @@ struct static_call_site {
 struct static_call_key {
 	void *func;
 	union {
-		/* bit 0: 0 = mods, 1 = sites */
+		/* bit 0: 0 = sites, 1 = mods */
 		unsigned long type;
-		struct static_call_mod *_mods;
 		struct static_call_site *_sites;
+		struct static_call_mod *_mods;
 	};
 };
 

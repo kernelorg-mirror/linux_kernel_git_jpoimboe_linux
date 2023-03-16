@@ -186,7 +186,6 @@ extern long __static_call_return0(void);
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
 		.func = _func,						\
-		.type = 1,						\
 	};								\
 	ARCH_DEFINE_STATIC_CALL_TRAMP(name, _func)
 
@@ -194,7 +193,6 @@ extern long __static_call_return0(void);
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
 		.func = NULL,						\
-		.type = 1,						\
 	};								\
 	ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)
 
@@ -202,7 +200,6 @@ extern long __static_call_return0(void);
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
 		.func = __static_call_return0,				\
-		.type = 1,						\
 	};								\
 	ARCH_DEFINE_STATIC_CALL_RET0_TRAMP(name)
 
