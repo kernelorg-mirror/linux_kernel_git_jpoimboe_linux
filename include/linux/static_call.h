@@ -213,10 +213,17 @@ extern long __static_call_return0(void);
 /* Leave the key unexported, so modules can't change static call targets: */
 #define EXPORT_STATIC_CALL_TRAMP(name)					\
 	EXPORT_SYMBOL(STATIC_CALL_TRAMP(name));				\
-	ARCH_ADD_TRAMP_KEY(name)
+	__STATIC_CALL_ADD_TRAMP_KEY(name)
 #define EXPORT_STATIC_CALL_TRAMP_GPL(name)				\
 	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name));			\
-	ARCH_ADD_TRAMP_KEY(name)
+	__STATIC_CALL_ADD_TRAMP_KEY(name)
+
+/* Unexported key lookup table */
+#define __STATIC_CALL_ADD_TRAMP_KEY(name)				\
+	asm(".pushsection .static_call_tramp_key, \"a\"		\n"	\
+	    ".long " STATIC_CALL_TRAMP_STR(name) " - .		\n"	\
+	    ".long " STATIC_CALL_KEY_STR(name) " - .		\n"	\
+	    ".popsection					\n")
 
 #elif defined(CONFIG_HAVE_STATIC_CALL)
 
