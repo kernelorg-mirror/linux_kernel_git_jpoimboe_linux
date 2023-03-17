@@ -9,6 +9,19 @@
 #include <linux/cpu.h>
 #include <linux/processor.h>
 #include <asm/sections.h>
+#include <asm/text-patching.h>
+
+/* For finding the key associated with a trampoline */
+struct static_call_tramp_key {
+	s32 tramp;
+	s32 key;
+};
+
+struct static_call_mod {
+	struct static_call_mod *next;
+	struct module *mod; /* for vmlinux, mod == NULL */
+	struct static_call_site *sites;
+};
 
 extern struct static_call_site __start_static_call_sites[],
 			       __stop_static_call_sites[];

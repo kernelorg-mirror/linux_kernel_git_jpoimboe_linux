@@ -134,18 +134,85 @@
 #include <linux/types.h>
 #include <linux/static_call_types.h>
 
-#ifdef CONFIG_HAVE_STATIC_CALL
-#include <asm/static_call.h>
+struct static_call_mods;
+struct static_call_key {
+	void *func;
+#ifdef CONFIG_HAVE_STATIC_CALL_INLINE
+	union {
+		/* bit 0: 0 = sites, 1 = mods */
+		unsigned long type;
+		struct static_call_site *_sites;
+		struct static_call_mod *_mods;
+	};
+#endif
+};
+
+#define DECLARE_STATIC_CALL(name, func)					\
+	extern struct static_call_key STATIC_CALL_KEY(name);		\
+	extern typeof(func) STATIC_CALL_TRAMP(name);
+
+#define __DEFINE_STATIC_CALL(name, type, _func)				\
+	DECLARE_STATIC_CALL(name, type);				\
+	struct static_call_key STATIC_CALL_KEY(name) = {		\
+		.func = _func,						\
+	}
+
+#define DEFINE_STATIC_CALL(name, func)					\
+	__DEFINE_STATIC_CALL(name, func, func);				\
+	__DEFINE_STATIC_CALL_TRAMP(name, func)
+
+#define DEFINE_STATIC_CALL_NULL(name, type)				\
+	__DEFINE_STATIC_CALL(name, type, NULL);				\
+	__DEFINE_STATIC_CALL_NULL_TRAMP(name)
+
+#define DEFINE_STATIC_CALL_RET0(name, type)				\
+	__DEFINE_STATIC_CALL(name, type, __static_call_return0);	\
+	__DEFINE_STATIC_CALL_RET0_TRAMP(name)
+
+#define EXPORT_STATIC_CALL(name)					\
+	EXPORT_SYMBOL(STATIC_CALL_KEY(name));				\
+	__EXPORT_STATIC_CALL_TRAMP(name)
+#define EXPORT_STATIC_CALL_GPL(name)					\
+	EXPORT_SYMBOL_GPL(STATIC_CALL_KEY(name));			\
+	__EXPORT_STATIC_CALL_TRAMP_GPL(name)
 
 /*
- * Either @site or @tramp can be NULL.
+ * Read-only exports: export the trampoline but not the key, so modules can't
+ * change call targets.
+ *
+ * These are called via static_call_ro().
  */
-extern void arch_static_call_transform(void *site, void *tramp, void *func, bool tail);
+#define EXPORT_STATIC_CALL_RO(name)					\
+	__EXPORT_STATIC_CALL_TRAMP(name);				\
+	__STATIC_CALL_ADD_TRAMP_KEY(name)
+#define EXPORT_STATIC_CALL_RO_GPL(name)					\
+	__EXPORT_STATIC_CALL_TRAMP_GPL(name);				\
+	__STATIC_CALL_ADD_TRAMP_KEY(name)
 
-#define STATIC_CALL_TRAMP_ADDR(name) &STATIC_CALL_TRAMP(name)
+/*
+ * __ADDRESSABLE() is used to ensure the key symbol doesn't get stripped from
+ * the symbol table so that objtool can reference it when it generates the
+ * .static_call_sites section.
+ */
+#define __STATIC_CALL_ADDRESSABLE(name) __ADDRESSABLE(STATIC_CALL_KEY(name))
 
+#define static_call(name)						\
+({									\
+	__STATIC_CALL_ADDRESSABLE(name);				\
+	__static_call(name);						\
+})
+
+#define static_call_cond(name)		(void)__static_call_cond(name)
+
+/* Use static_call_ro() to call a read-only-exported static call. */
+#define static_call_ro(name)		__static_call_ro(name)
+
+#if defined(MODULE) || !defined(CONFIG_HAVE_STATIC_CALL_INLINE)
+#define __STATIC_CALL_RO_ADDRESSABLE(name)
+#define __static_call_ro(name)		__static_call(name)
 #else
-#define STATIC_CALL_TRAMP_ADDR(name) NULL
+#define __STATIC_CALL_RO_ADDRESSABLE(name) __STATIC_CALL_ADDRESSABLE(name)
+#define __static_call_ro(name)		static_call(name)
 #endif
 
 #define static_call_update(name, func)					\
@@ -157,155 +224,51 @@ extern void arch_static_call_transform(void *site, void *tramp, void *func, bool
 
 #define static_call_query(name) (READ_ONCE(STATIC_CALL_KEY(name).func))
 
-#ifdef CONFIG_HAVE_STATIC_CALL_INLINE
 
-extern int __init static_call_init(void);
+#ifdef CONFIG_HAVE_STATIC_CALL
 
-extern void static_call_force_reinit(void);
+#include <asm/static_call.h>
 
-struct static_call_mod {
-	struct static_call_mod *next;
-	struct module *mod; /* for vmlinux, mod == NULL */
-	struct static_call_site *sites;
-};
+#define __DEFINE_STATIC_CALL_TRAMP(name, func)				\
+	ARCH_DEFINE_STATIC_CALL_TRAMP(name, func)
 
-/* For finding the key associated with a trampoline */
-struct static_call_tramp_key {
-	s32 tramp;
-	s32 key;
-};
-
-extern void __static_call_update(struct static_call_key *key, void *tramp, void *func);
-extern int static_call_text_reserved(void *start, void *end);
-
-extern long __static_call_return0(void);
-
-#define DEFINE_STATIC_CALL(name, _func)					\
-	DECLARE_STATIC_CALL(name, _func);				\
-	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = _func,						\
-	};								\
-	ARCH_DEFINE_STATIC_CALL_TRAMP(name, _func)
-
-#define DEFINE_STATIC_CALL_NULL(name, _func)				\
-	DECLARE_STATIC_CALL(name, _func);				\
-	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = NULL,						\
-	};								\
+#define __DEFINE_STATIC_CALL_NULL_TRAMP(name)				\
 	ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)
 
-#define DEFINE_STATIC_CALL_RET0(name, _func)				\
-	DECLARE_STATIC_CALL(name, _func);				\
-	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = __static_call_return0,				\
-	};								\
+#define __DEFINE_STATIC_CALL_RET0_TRAMP(name)				\
 	ARCH_DEFINE_STATIC_CALL_RET0_TRAMP(name)
 
-#define static_call_cond(name)	(void)__static_call(name)
-
-#define EXPORT_STATIC_CALL(name)					\
-	EXPORT_SYMBOL(STATIC_CALL_KEY(name));				\
+#define __EXPORT_STATIC_CALL_TRAMP(name)				\
 	EXPORT_SYMBOL(STATIC_CALL_TRAMP(name))
-#define EXPORT_STATIC_CALL_GPL(name)					\
-	EXPORT_SYMBOL_GPL(STATIC_CALL_KEY(name));			\
+
+#define __EXPORT_STATIC_CALL_TRAMP_GPL(name)				\
 	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name))
 
-/*
- * Read-only exports: export the trampoline but not the key, so modules can't
- * change call targets.
- */
-#define EXPORT_STATIC_CALL_RO(name)					\
-	EXPORT_SYMBOL(STATIC_CALL_TRAMP(name));				\
-	__STATIC_CALL_ADD_TRAMP_KEY(name)
-#define EXPORT_STATIC_CALL_RO_GPL(name)				\
-	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name));			\
-	__STATIC_CALL_ADD_TRAMP_KEY(name)
+#define __static_call(name)		(&STATIC_CALL_TRAMP(name))
+#define __static_call_cond		__static_call
 
-/* Unexported key lookup table */
-#define __STATIC_CALL_ADD_TRAMP_KEY(name)				\
-	asm(".pushsection .static_call_tramp_key, \"a\"		\n"	\
-	    ".long " STATIC_CALL_TRAMP_STR(name) " - .		\n"	\
-	    ".long " STATIC_CALL_KEY_STR(name) " - .		\n"	\
-	    ".popsection					\n")
-
-#elif defined(CONFIG_HAVE_STATIC_CALL)
-
-static inline int static_call_init(void) { return 0; }
-
-#define DEFINE_STATIC_CALL(name, _func)					\
-	DECLARE_STATIC_CALL(name, _func);				\
-	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = _func,						\
-	};								\
-	ARCH_DEFINE_STATIC_CALL_TRAMP(name, _func)
-
-#define DEFINE_STATIC_CALL_NULL(name, _func)				\
-	DECLARE_STATIC_CALL(name, _func);				\
-	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = NULL,						\
-	};								\
-	ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)
-
-#define DEFINE_STATIC_CALL_RET0(name, _func)				\
-	DECLARE_STATIC_CALL(name, _func);				\
-	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = __static_call_return0,				\
-	};								\
-	ARCH_DEFINE_STATIC_CALL_RET0_TRAMP(name)
-
-#define static_call_cond(name)	(void)__static_call(name)
-
-extern void __static_call_update(struct static_call_key *key, void *tramp, void *func);
-
-static inline int static_call_text_reserved(void *start, void *end)
-{
-	return 0;
-}
+#define STATIC_CALL_TRAMP_ADDR(name)	&STATIC_CALL_TRAMP(name)
 
 extern long __static_call_return0(void);
-
-#define EXPORT_STATIC_CALL(name)					\
-	EXPORT_SYMBOL(STATIC_CALL_KEY(name));				\
-	EXPORT_SYMBOL(STATIC_CALL_TRAMP(name))
-#define EXPORT_STATIC_CALL_GPL(name)					\
-	EXPORT_SYMBOL_GPL(STATIC_CALL_KEY(name));			\
-	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name))
+extern void __static_call_update(struct static_call_key *key, void *tramp, void *func);
 
 /*
- * Read-only exports: export the trampoline but not the key, so modules can't
- * change call targets.
+ * Either @site or @tramp can be NULL.
  */
-#define EXPORT_STATIC_CALL_RO(name)					\
-	EXPORT_SYMBOL(STATIC_CALL_TRAMP(name))
-#define EXPORT_STATIC_CALL_RO_GPL(name)					\
-	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name))
+extern void arch_static_call_transform(void *site, void *tramp, void *func, bool tail);
 
-#else /* Generic implementation */
+#else /* !CONFIG_HAVE_STATIC_CALL */
 
-static inline int static_call_init(void) { return 0; }
+#define __DEFINE_STATIC_CALL_TRAMP(name, func)
+#define __DEFINE_STATIC_CALL_NULL_TRAMP(name)
+#define __DEFINE_STATIC_CALL_RET0_TRAMP(name)
+#define __EXPORT_STATIC_CALL_TRAMP(name)
+#define __EXPORT_STATIC_CALL_TRAMP_GPL(name)
 
-static inline long __static_call_return0(void)
-{
-	return 0;
-}
-
-#define __DEFINE_STATIC_CALL(name, _func, _func_init)			\
-	DECLARE_STATIC_CALL(name, _func);				\
-	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = _func_init,					\
-	}
-
-#define DEFINE_STATIC_CALL(name, _func)					\
-	__DEFINE_STATIC_CALL(name, _func, _func)
-
-#define DEFINE_STATIC_CALL_NULL(name, _func)				\
-	__DEFINE_STATIC_CALL(name, _func, NULL)
-
-#define DEFINE_STATIC_CALL_RET0(name, _func)				\
-	__DEFINE_STATIC_CALL(name, _func, __static_call_return0)
+#define __static_call(name)						\
+	((typeof(STATIC_CALL_TRAMP(name))*)(STATIC_CALL_KEY(name).func))
 
 static inline void __static_call_nop(void) { }
-
 /*
  * This horrific hack takes care of two things:
  *
@@ -326,7 +289,9 @@ static inline void __static_call_nop(void) { }
 	(typeof(STATIC_CALL_TRAMP(name))*)func;				\
 })
 
-#define static_call_cond(name)	(void)__static_call_cond(name)
+#define STATIC_CALL_TRAMP_ADDR(name)	NULL
+
+static inline long __static_call_return0(void) { return 0; }
 
 static inline
 void __static_call_update(struct static_call_key *key, void *tramp, void *func)
@@ -334,14 +299,29 @@ void __static_call_update(struct static_call_key *key, void *tramp, void *func)
 	WRITE_ONCE(key->func, func);
 }
 
-static inline int static_call_text_reserved(void *start, void *end)
-{
-	return 0;
-}
-
-#define EXPORT_STATIC_CALL(name)	EXPORT_SYMBOL(STATIC_CALL_KEY(name))
-#define EXPORT_STATIC_CALL_GPL(name)	EXPORT_SYMBOL_GPL(STATIC_CALL_KEY(name))
-
 #endif /* CONFIG_HAVE_STATIC_CALL */
+
+
+#ifdef CONFIG_HAVE_STATIC_CALL_INLINE
+
+/* Unexported key lookup table */
+#define __STATIC_CALL_ADD_TRAMP_KEY(name)				\
+	asm(".pushsection .static_call_tramp_key, \"a\"		\n"	\
+	    ".long " STATIC_CALL_TRAMP_STR(name) " - .		\n"	\
+	    ".long " STATIC_CALL_KEY_STR(name) " - .		\n"	\
+	    ".popsection					\n")
+
+extern int static_call_init(void);
+extern int static_call_text_reserved(void *start, void *end);
+extern void static_call_force_reinit(void);
+
+#else /* !CONFIG_HAVE_STATIC_CALL_INLINE*/
+
+#define __STATIC_CALL_ADD_TRAMP_KEY(name)
+static inline int static_call_init(void) { return 0; }
+static inline int static_call_text_reserved(void *start, void *end) { return 0; }
+static inline void static_call_force_reinit(void) {}
+
+#endif /* CONFIG_HAVE_STATIC_CALL_INLINE */
 
 #endif /* _LINUX_STATIC_CALL_H */

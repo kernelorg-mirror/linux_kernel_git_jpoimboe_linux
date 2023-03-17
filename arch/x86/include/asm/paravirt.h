@@ -15,7 +15,7 @@
 #include <linux/bug.h>
 #include <linux/types.h>
 #include <linux/cpumask.h>
-#include <linux/static_call_types.h>
+#include <linux/static_call.h>
 #include <asm/frame.h>
 
 u64 dummy_steal_clock(int cpu);

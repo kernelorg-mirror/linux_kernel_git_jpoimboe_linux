@@ -2,6 +2,10 @@
 #ifndef _STATIC_CALL_TYPES_H
 #define _STATIC_CALL_TYPES_H
 
+/*
+ * Static call types for sharing with objtool
+ */
+
 #include <linux/types.h>
 #include <linux/stringify.h>
 #include <linux/compiler.h>
@@ -33,71 +37,5 @@ struct static_call_site {
 	s32 addr;
 	s32 key;
 };
-
-#define DECLARE_STATIC_CALL(name, func)					\
-	extern struct static_call_key STATIC_CALL_KEY(name);		\
-	extern typeof(func) STATIC_CALL_TRAMP(name);
-
-#ifdef CONFIG_HAVE_STATIC_CALL
-
-#define __raw_static_call(name)	(&STATIC_CALL_TRAMP(name))
-
-#ifdef CONFIG_HAVE_STATIC_CALL_INLINE
-
-/*
- * __ADDRESSABLE() is used to ensure the key symbol doesn't get stripped from
- * the symbol table so that objtool can reference it when it generates the
- * .static_call_sites section.
- */
-#define __STATIC_CALL_ADDRESSABLE(name) \
-	__ADDRESSABLE(STATIC_CALL_KEY(name))
-
-#define __static_call(name)						\
-({									\
-	__STATIC_CALL_ADDRESSABLE(name);				\
-	__raw_static_call(name);					\
-})
-
-struct static_call_key {
-	void *func;
-	union {
-		/* bit 0: 0 = sites, 1 = mods */
-		unsigned long type;
-		struct static_call_site *_sites;
-		struct static_call_mod *_mods;
-	};
-};
-
-#else /* !CONFIG_HAVE_STATIC_CALL_INLINE */
-
-#define __STATIC_CALL_ADDRESSABLE(name)
-#define __static_call(name)	__raw_static_call(name)
-
-struct static_call_key {
-	void *func;
-};
-
-#endif /* CONFIG_HAVE_STATIC_CALL_INLINE */
-
-#ifdef MODULE
-#define __STATIC_CALL_RO_ADDRESSABLE(name)
-#define static_call_ro(name)	__raw_static_call(name)
-#else
-#define __STATIC_CALL_RO_ADDRESSABLE(name) __STATIC_CALL_ADDRESSABLE(name)
-#define static_call_ro(name)	__static_call(name)
-#endif
-
-#define static_call(name)	__static_call(name)
-
-#else
-
-struct static_call_key {
-	void *func;
-};
-
-#define static_call(name)						\
-	((typeof(STATIC_CALL_TRAMP(name))*)(STATIC_CALL_KEY(name).func))
-
-#endif /* CONFIG_HAVE_STATIC_CALL */
 
 #endif /* _STATIC_CALL_TYPES_H */

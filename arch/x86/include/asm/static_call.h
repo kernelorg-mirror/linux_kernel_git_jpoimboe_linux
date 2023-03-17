@@ -2,7 +2,8 @@
 #ifndef _ASM_STATIC_CALL_H
 #define _ASM_STATIC_CALL_H
 
-#include <asm/text-patching.h>
+#include <linux/objtool.h>
+#include <linux/static_call_types.h>
 
 /*
  * For CONFIG_HAVE_STATIC_CALL_INLINE, this is a temporary trampoline which

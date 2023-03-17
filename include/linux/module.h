@@ -26,7 +26,7 @@
 #include <linux/error-injection.h>
 #include <linux/tracepoint-defs.h>
 #include <linux/srcu.h>
-#include <linux/static_call_types.h>
+#include <linux/static_call.h>
 
 #include <linux/percpu.h>
 #include <asm/module.h>
