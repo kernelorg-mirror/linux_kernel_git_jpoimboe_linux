@@ -80,11 +80,11 @@ struct static_call_key {
 #endif /* CONFIG_HAVE_STATIC_CALL_INLINE */
 
 #ifdef MODULE
-#define __STATIC_CALL_MOD_ADDRESSABLE(name)
-#define static_call_mod(name)	__raw_static_call(name)
+#define __STATIC_CALL_RO_ADDRESSABLE(name)
+#define static_call_ro(name)	__raw_static_call(name)
 #else
-#define __STATIC_CALL_MOD_ADDRESSABLE(name) __STATIC_CALL_ADDRESSABLE(name)
-#define static_call_mod(name)	__static_call(name)
+#define __STATIC_CALL_RO_ADDRESSABLE(name) __STATIC_CALL_ADDRESSABLE(name)
+#define static_call_ro(name)	__static_call(name)
 #endif
 
 #define static_call(name)	__static_call(name)

@@ -588,7 +588,7 @@ DECLARE_STATIC_CALL(perf_lopwr_cb, perf_amd_brs_lopwr_cb);
 
 static __always_inline void perf_lopwr_cb(bool lopwr_in)
 {
-	static_call_mod(perf_lopwr_cb)(lopwr_in);
+	static_call_ro(perf_lopwr_cb)(lopwr_in);
 }
 
 #endif /* PERF_NEEDS_LOPWR_CB */

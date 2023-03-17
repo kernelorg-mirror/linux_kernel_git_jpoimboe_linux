@@ -23,6 +23,7 @@
  *
  *   static_call(name)(args...);
  *   static_call_cond(name)(args...);
+ *   static_call_ro(name)(args...);
  *   static_call_update(name, func);
  *   static_call_query(name);
  *
@@ -123,12 +124,11 @@
  *   Notably argument setup is unconditional.
  *
  *
- * EXPORT_STATIC_CALL() vs EXPORT_STATIC_CALL_TRAMP():
+ * EXPORT_STATIC_CALL() vs EXPORT_STATIC_CALL_RO():
  *
- *   The difference is that the _TRAMP variant tries to only export the
- *   trampoline with the result that a module can use static_call{,_cond}() but
- *   not static_call_update().
- *
+ *   The difference is the read-only variant exports the trampoline but not the
+ *   key, so a module can call it via static_call_ro() but can't update the
+ *   target via static_call_update().
  */
 
 #include <linux/types.h>
@@ -210,11 +210,14 @@ extern long __static_call_return0(void);
 	EXPORT_SYMBOL_GPL(STATIC_CALL_KEY(name));			\
 	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name))
 
-/* Leave the key unexported, so modules can't change static call targets: */
-#define EXPORT_STATIC_CALL_TRAMP(name)					\
+/*
+ * Read-only exports: export the trampoline but not the key, so modules can't
+ * change call targets.
+ */
+#define EXPORT_STATIC_CALL_RO(name)					\
 	EXPORT_SYMBOL(STATIC_CALL_TRAMP(name));				\
 	__STATIC_CALL_ADD_TRAMP_KEY(name)
-#define EXPORT_STATIC_CALL_TRAMP_GPL(name)				\
+#define EXPORT_STATIC_CALL_RO_GPL(name)				\
 	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name));			\
 	__STATIC_CALL_ADD_TRAMP_KEY(name)
 
@@ -268,10 +271,13 @@ extern long __static_call_return0(void);
 	EXPORT_SYMBOL_GPL(STATIC_CALL_KEY(name));			\
 	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name))
 
-/* Leave the key unexported, so modules can't change static call targets: */
-#define EXPORT_STATIC_CALL_TRAMP(name)					\
+/*
+ * Read-only exports: export the trampoline but not the key, so modules can't
+ * change call targets.
+ */
+#define EXPORT_STATIC_CALL_RO(name)					\
 	EXPORT_SYMBOL(STATIC_CALL_TRAMP(name))
-#define EXPORT_STATIC_CALL_TRAMP_GPL(name)				\
+#define EXPORT_STATIC_CALL_RO_GPL(name)					\
 	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name))
 
 #else /* Generic implementation */
