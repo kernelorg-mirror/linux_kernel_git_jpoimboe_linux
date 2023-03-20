@@ -48,10 +48,10 @@
 	__ARCH_DEFINE_STATIC_CALL_TRAMP(name, ".byte 0xe9; .long " #func " - (. + 4)")
 
 #ifdef CONFIG_RETHUNK
-#define ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)			\
+#define ARCH_DEFINE_STATIC_CALL_NOP_TRAMP(name)				\
 	__ARCH_DEFINE_STATIC_CALL_TRAMP(name, "jmp __x86_return_thunk")
 #else
-#define ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)			\
+#define ARCH_DEFINE_STATIC_CALL_NOP_TRAMP(name)				\
 	__ARCH_DEFINE_STATIC_CALL_TRAMP(name, "ret; int3; nop; nop; nop")
 #endif
 

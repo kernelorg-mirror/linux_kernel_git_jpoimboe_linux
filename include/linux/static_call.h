@@ -66,24 +66,16 @@
  *
  * Notes on NULL function pointers:
  *
- *   Static_call()s support NULL functions, with many of the caveats that
- *   regular function pointers have.
+ *   A static_call() to a NULL function pointer is a NOP.
  *
- *   Clearly calling a NULL function pointer is 'BAD', so too for
- *   static_call()s (although when HAVE_STATIC_CALL it might not be immediately
- *   fatal). A NULL static_call can be the result of:
+ *   A NULL static call can be the result of:
  *
  *     DECLARE_STATIC_CALL_NULL(my_static_call, void (*)(int));
  *
- *   which is equivalent to declaring a NULL function pointer with just a
- *   typename:
- *
- *     void (*my_func_ptr)(int arg1) = NULL;
- *
- *   or using static_call_update() with a NULL function. In both cases the
- *   HAVE_STATIC_CALL implementation will patch the trampoline with a RET
- *   instruction, instead of an immediate tail-call JMP. HAVE_STATIC_CALL_INLINE
- *   architectures can patch the trampoline call to a NOP.
+ *   or using static_call_update() with a NULL function pointer. In both cases
+ *   the HAVE_STATIC_CALL implementation will patch the trampoline with a RET
+*    instruction, instead of an immediate tail-call JMP. HAVE_STATIC_CALL_INLINE
+*    architectures can patch the trampoline call to a NOP.
  *
  *   In all cases, any argument evaluation is unconditional. Unlike a regular
  *   conditional function pointer call:
@@ -91,14 +83,7 @@
  *     if (my_func_ptr)
  *         my_func_ptr(arg1)
  *
- *   where the argument evaludation also depends on the pointer value.
- *
- *   When calling a static_call that can be NULL, use:
- *
- *     static_call_cond(name)(arg1);
- *
- *   which will include the required value tests to avoid NULL-pointer
- *   dereferences.
+ *   where the argument evaluation also depends on the pointer value.
  *
  *   To query which function is currently set to be called, use:
  *
@@ -147,6 +132,7 @@ struct static_call_key {
 #endif
 };
 
+extern void __static_call_nop(void);
 extern long __static_call_return0(void);
 
 #define DECLARE_STATIC_CALL(name, func)					\
@@ -166,8 +152,8 @@ extern long __static_call_return0(void);
 	__DEFINE_STATIC_CALL_TRAMP(name, func)
 
 #define DEFINE_STATIC_CALL_NULL(name, type)				\
-	__DEFINE_STATIC_CALL(name, type, NULL);				\
-	__DEFINE_STATIC_CALL_NULL_TRAMP(name)
+	__DEFINE_STATIC_CALL(name, type, __STATIC_CALL_NOP(name));	\
+	__DEFINE_STATIC_CALL_NOP_TRAMP(name)
 
 #define DEFINE_STATIC_CALL_RET0(name, type)				\
 	__DEFINE_STATIC_CALL(name, type, __STATIC_CALL_RET0(name));	\
@@ -212,7 +198,7 @@ extern long __static_call_return0(void);
 	__static_call(name);						\
 })
 
-#define static_call_cond(name)		(void)__static_call_cond(name)
+#define static_call_cond(name)		(void)static_call(name)
 
 /* Use static_call_ro() to call a read-only-exported static call. */
 #define static_call_ro(name)		__static_call_ro(name)
@@ -228,7 +214,9 @@ extern long __static_call_return0(void);
 #define static_call_update(name, func)					\
 ({									\
 	typeof(&STATIC_CALL_TRAMP(name)) __F = (func);			\
-	if (__F == (void *)__static_call_return0)			\
+	if (!__F)							\
+		__F = __STATIC_CALL_NOP(name);				\
+	else if (__F == (void *)__static_call_return0)			\
 		__F = __STATIC_CALL_RET0(name);				\
 	__static_call_update(&STATIC_CALL_KEY(name),			\
 			     STATIC_CALL_TRAMP_ADDR(name), __F);	\
@@ -237,7 +225,9 @@ extern long __static_call_return0(void);
 #define static_call_query(name)						\
 ({									\
 	void *__F = (READ_ONCE(STATIC_CALL_KEY(name).func));		\
-	if (__F == __STATIC_CALL_RET0(name))			\
+	if (__F == __STATIC_CALL_NOP(name))				\
+		__F = NULL;						\
+	else if (__F == __STATIC_CALL_RET0(name))			\
 		__F = __static_call_return0;				\
 	__F;								\
 })
@@ -249,8 +239,8 @@ extern long __static_call_return0(void);
 #define __DEFINE_STATIC_CALL_TRAMP(name, func)				\
 	ARCH_DEFINE_STATIC_CALL_TRAMP(name, func)
 
-#define __DEFINE_STATIC_CALL_NULL_TRAMP(name)				\
-	ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)
+#define __DEFINE_STATIC_CALL_NOP_TRAMP(name)				\
+	ARCH_DEFINE_STATIC_CALL_NOP_TRAMP(name)
 
 #define __DEFINE_STATIC_CALL_RET0_TRAMP(name)				\
 	ARCH_DEFINE_STATIC_CALL_RET0_TRAMP(name)
@@ -262,7 +252,6 @@ extern long __static_call_return0(void);
 	EXPORT_SYMBOL_GPL(STATIC_CALL_TRAMP(name))
 
 #define __static_call(name)		(&STATIC_CALL_TRAMP(name))
-#define __static_call_cond		__static_call
 
 #define STATIC_CALL_TRAMP_ADDR(name)	&STATIC_CALL_TRAMP(name)
 
@@ -276,34 +265,13 @@ extern void arch_static_call_transform(void *site, void *tramp, void *func, bool
 #else /* !CONFIG_HAVE_STATIC_CALL */
 
 #define __DEFINE_STATIC_CALL_TRAMP(name, func)
-#define __DEFINE_STATIC_CALL_NULL_TRAMP(name)
+#define __DEFINE_STATIC_CALL_NOP_TRAMP(name)
 #define __DEFINE_STATIC_CALL_RET0_TRAMP(name)
 #define __EXPORT_STATIC_CALL_TRAMP(name)
 #define __EXPORT_STATIC_CALL_TRAMP_GPL(name)
 
 #define __static_call(name)						\
 	((typeof(STATIC_CALL_TRAMP(name))*)(STATIC_CALL_KEY(name).func))
-
-static inline void __static_call_nop(void) { }
-/*
- * This horrific hack takes care of two things:
- *
- *  - it ensures the compiler will only load the function pointer ONCE,
- *    which avoids a reload race.
- *
- *  - it ensures the argument evaluation is unconditional, similar
- *    to the HAVE_STATIC_CALL variant.
- *
- * Sadly current GCC/Clang (10 for both) do not optimize this properly
- * and will emit an indirect call for the NULL case :-(
- */
-#define __static_call_cond(name)					\
-({									\
-	void *func = READ_ONCE(STATIC_CALL_KEY(name).func);		\
-	if (!func)							\
-		func = &__static_call_nop;				\
-	(typeof(STATIC_CALL_TRAMP(name))*)func;				\
-})
 
 #define STATIC_CALL_TRAMP_ADDR(name)	NULL
 
@@ -343,22 +311,28 @@ static inline void static_call_force_reinit(void) {}
 
 #include <asm/static_call.h>
 
+#define __STATIC_CALL_NOP(name)		STATIC_CALL_NOP_CFI(name)
 #define __STATIC_CALL_RET0(name)	STATIC_CALL_RET0_CFI(name)
 
 #define __DECLARE_STATIC_CALL_CFI(name, func)				\
+	extern typeof(func) STATIC_CALL_NOP_CFI(name);		\
 	extern typeof(func) STATIC_CALL_RET0_CFI(name)
 
 #define __DEFINE_STATIC_CALL_CFI(name)					\
+	__ARCH_DEFINE_STATIC_CALL_NOP_CFI(name);			\
 	__ARCH_DEFINE_STATIC_CALL_RET0_CFI(name)
 
 #define __EXPORT_STATIC_CALL_CFI(name)					\
+	EXPORT_SYMBOL(STATIC_CALL_NOP_CFI(name));			\
 	EXPORT_SYMBOL(STATIC_CALL_RET0_CFI(name))
 
 #define __EXPORT_STATIC_CALL_CFI_GPL(name)				\
+	EXPORT_SYMBOL_GPL(STATIC_CALL_NOP_CFI(name));		\
 	EXPORT_SYMBOL_GPL(STATIC_CALL_RET0_CFI(name))
 
 #else /* ! CONFIG_CFI_WITHOUT_STATIC_CALL */
 
+#define __STATIC_CALL_NOP(name)		(void *)__static_call_nop
 #define __STATIC_CALL_RET0(name)	(void *)__static_call_return0
 
 #define __DECLARE_STATIC_CALL_CFI(name, func)

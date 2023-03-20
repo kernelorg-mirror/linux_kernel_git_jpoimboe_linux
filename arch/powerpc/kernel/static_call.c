@@ -8,6 +8,7 @@ void arch_static_call_transform(void *site, void *tramp, void *func, bool tail)
 {
 	int err;
 	bool is_ret0 = (func == __static_call_return0);
+	bool is_nop = (func == __static_call_nop);
 	unsigned long target = (unsigned long)(is_ret0 ? tramp + PPC_SCT_RET0 : func);
 	bool is_short = is_offset_in_branch_range((long)target - (long)tramp);
 
@@ -16,13 +17,13 @@ void arch_static_call_transform(void *site, void *tramp, void *func, bool tail)
 
 	mutex_lock(&text_mutex);
 
-	if (func && !is_short) {
+	if (!is_nop && !is_short) {
 		err = patch_instruction(tramp + PPC_SCT_DATA, ppc_inst(target));
 		if (err)
 			goto out;
 	}
 
-	if (!func)
+	if (is_nop)
 		err = patch_instruction(tramp, ppc_inst(PPC_RAW_BLR()));
 	else if (is_short)
 		err = patch_branch(tramp, target, 0);

@@ -89,7 +89,7 @@ static void __ref __static_call_transform(void *insn, enum insn_type type,
 
 	case JCC:
 		if (!func) {
-			func = __static_call_return;
+			func = __static_call_return; //FIXME use __static_call_nop()?
 			if (cpu_feature_enabled(X86_FEATURE_RETHUNK))
 				func = x86_return_thunk;
 		}
@@ -139,33 +139,35 @@ static void __static_call_validate(u8 *insn, bool tail, bool tramp)
 	BUG();
 }
 
-static inline enum insn_type __sc_insn(bool null, bool tail)
+static inline enum insn_type __sc_insn(bool nop, bool tail)
 {
 	/*
 	 * Encode the following table without branches:
 	 *
-	 *	tail	null	insn
+	 *	tail	nop	insn
 	 *	-----+-------+------
 	 *	  0  |   0   |  CALL
 	 *	  0  |   1   |  NOP
 	 *	  1  |   0   |  JMP
 	 *	  1  |   1   |  RET
 	 */
-	return 2*tail + null;
+	return 2*tail + nop;
 }
 
 void arch_static_call_transform(void *site, void *tramp, void *func, bool tail)
 {
+	bool nop = (func == __static_call_nop);
+
 	mutex_lock(&text_mutex);
 
 	if (tramp) {
 		__static_call_validate(tramp, true, true);
-		__static_call_transform(tramp, __sc_insn(!func, true), func, false);
+		__static_call_transform(tramp, __sc_insn(nop, true), func, false);
 	}
 
 	if (IS_ENABLED(CONFIG_HAVE_STATIC_CALL_INLINE) && site) {
 		__static_call_validate(site, tail, false);
-		__static_call_transform(site, __sc_insn(!func, tail), func, false);
+		__static_call_transform(site, __sc_insn(nop, tail), func, false);
 	}
 
 	mutex_unlock(&text_mutex);
