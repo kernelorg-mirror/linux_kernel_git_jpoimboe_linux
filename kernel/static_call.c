@@ -9,7 +9,7 @@ long __static_call_return0(void)
 }
 EXPORT_SYMBOL_GPL(__static_call_return0);
 
-#ifndef CONFIG_HAVE_STATIC_CALL_INLINE
+#if defined(CONFIG_HAVE_STATIC_CALL) && !defined(CONFIG_HAVE_STATIC_CALL_INLINE)
 void __static_call_update(struct static_call_key *key, void *tramp, void *func)
 {
 	cpus_read_lock();

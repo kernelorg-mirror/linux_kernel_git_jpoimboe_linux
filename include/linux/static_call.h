@@ -147,15 +147,19 @@ struct static_call_key {
 #endif
 };
 
+extern long __static_call_return0(void);
+
 #define DECLARE_STATIC_CALL(name, func)					\
 	extern struct static_call_key STATIC_CALL_KEY(name);		\
-	extern typeof(func) STATIC_CALL_TRAMP(name);
+	extern typeof(func) STATIC_CALL_TRAMP(name);			\
+	__DECLARE_STATIC_CALL_CFI(name, func)
 
 #define __DEFINE_STATIC_CALL(name, type, _func)				\
 	DECLARE_STATIC_CALL(name, type);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
 		.func = _func,						\
-	}
+	};								\
+	__DEFINE_STATIC_CALL_CFI(name)
 
 #define DEFINE_STATIC_CALL(name, func)					\
 	__DEFINE_STATIC_CALL(name, func, func);				\
@@ -166,15 +170,18 @@ struct static_call_key {
 	__DEFINE_STATIC_CALL_NULL_TRAMP(name)
 
 #define DEFINE_STATIC_CALL_RET0(name, type)				\
-	__DEFINE_STATIC_CALL(name, type, __static_call_return0);	\
+	__DEFINE_STATIC_CALL(name, type, __STATIC_CALL_RET0(name));	\
 	__DEFINE_STATIC_CALL_RET0_TRAMP(name)
 
 #define EXPORT_STATIC_CALL(name)					\
 	EXPORT_SYMBOL(STATIC_CALL_KEY(name));				\
-	__EXPORT_STATIC_CALL_TRAMP(name)
+	__EXPORT_STATIC_CALL_TRAMP(name);				\
+	__EXPORT_STATIC_CALL_CFI(name)
+
 #define EXPORT_STATIC_CALL_GPL(name)					\
 	EXPORT_SYMBOL_GPL(STATIC_CALL_KEY(name));			\
-	__EXPORT_STATIC_CALL_TRAMP_GPL(name)
+	__EXPORT_STATIC_CALL_TRAMP_GPL(name);				\
+	__EXPORT_STATIC_CALL_CFI_GPL(name)
 
 /*
  * Read-only exports: export the trampoline but not the key, so modules can't
@@ -184,9 +191,12 @@ struct static_call_key {
  */
 #define EXPORT_STATIC_CALL_RO(name)					\
 	__EXPORT_STATIC_CALL_TRAMP(name);				\
+	__EXPORT_STATIC_CALL_CFI(name)					\
 	__STATIC_CALL_ADD_TRAMP_KEY(name)
+
 #define EXPORT_STATIC_CALL_RO_GPL(name)					\
 	__EXPORT_STATIC_CALL_TRAMP_GPL(name);				\
+	__EXPORT_STATIC_CALL_CFI_GPL(name)				\
 	__STATIC_CALL_ADD_TRAMP_KEY(name)
 
 /*
@@ -218,12 +228,19 @@ struct static_call_key {
 #define static_call_update(name, func)					\
 ({									\
 	typeof(&STATIC_CALL_TRAMP(name)) __F = (func);			\
+	if (__F == (void *)__static_call_return0)			\
+		__F = __STATIC_CALL_RET0(name);				\
 	__static_call_update(&STATIC_CALL_KEY(name),			\
 			     STATIC_CALL_TRAMP_ADDR(name), __F);	\
 })
 
-#define static_call_query(name) (READ_ONCE(STATIC_CALL_KEY(name).func))
-
+#define static_call_query(name)						\
+({									\
+	void *__F = (READ_ONCE(STATIC_CALL_KEY(name).func));		\
+	if (__F == __STATIC_CALL_RET0(name))			\
+		__F = __static_call_return0;				\
+	__F;								\
+})
 
 #ifdef CONFIG_HAVE_STATIC_CALL
 
@@ -249,7 +266,6 @@ struct static_call_key {
 
 #define STATIC_CALL_TRAMP_ADDR(name)	&STATIC_CALL_TRAMP(name)
 
-extern long __static_call_return0(void);
 extern void __static_call_update(struct static_call_key *key, void *tramp, void *func);
 
 /*
@@ -291,8 +307,6 @@ static inline void __static_call_nop(void) { }
 
 #define STATIC_CALL_TRAMP_ADDR(name)	NULL
 
-static inline long __static_call_return0(void) { return 0; }
-
 static inline
 void __static_call_update(struct static_call_key *key, void *tramp, void *func)
 {
@@ -323,5 +337,35 @@ static inline int static_call_text_reserved(void *start, void *end) { return 0; 
 static inline void static_call_force_reinit(void) {}
 
 #endif /* CONFIG_HAVE_STATIC_CALL_INLINE */
+
+
+#ifdef CONFIG_CFI_WITHOUT_STATIC_CALL
+
+#include <asm/static_call.h>
+
+#define __STATIC_CALL_RET0(name)	STATIC_CALL_RET0_CFI(name)
+
+#define __DECLARE_STATIC_CALL_CFI(name, func)				\
+	extern typeof(func) STATIC_CALL_RET0_CFI(name)
+
+#define __DEFINE_STATIC_CALL_CFI(name)					\
+	__ARCH_DEFINE_STATIC_CALL_RET0_CFI(name)
+
+#define __EXPORT_STATIC_CALL_CFI(name)					\
+	EXPORT_SYMBOL(STATIC_CALL_RET0_CFI(name))
+
+#define __EXPORT_STATIC_CALL_CFI_GPL(name)				\
+	EXPORT_SYMBOL_GPL(STATIC_CALL_RET0_CFI(name))
+
+#else /* ! CONFIG_CFI_WITHOUT_STATIC_CALL */
+
+#define __STATIC_CALL_RET0(name)	(void *)__static_call_return0
+
+#define __DECLARE_STATIC_CALL_CFI(name, func)
+#define __DEFINE_STATIC_CALL_CFI(name)
+#define __EXPORT_STATIC_CALL_CFI(name)
+#define __EXPORT_STATIC_CALL_CFI_GPL(name)
+
+#endif /* CONFIG_CFI_WITHOUT_STATIC_CALL */
 
 #endif /* _LINUX_STATIC_CALL_H */

@@ -22,6 +22,10 @@
 #define STATIC_CALL_TRAMP(name)		__PASTE(STATIC_CALL_TRAMP_PREFIX, name)
 #define STATIC_CALL_TRAMP_STR(name)	__stringify(STATIC_CALL_TRAMP(name))
 
+#define STATIC_CALL_RET0_CFI_PREFIX	__SCR__
+#define STATIC_CALL_RET0_CFI(name)	__PASTE(STATIC_CALL_RET0_CFI_PREFIX, name)
+#define STATIC_CALL_RET0_CFI_STR(name)	__stringify(STATIC_CALL_RET0_CFI(name))
+
 /*
  * Flags in the low bits of static_call_site::key.
  */
