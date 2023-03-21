@@ -22,7 +22,6 @@
  *   __static_call_return0;
  *
  *   static_call(name)(args...);
- *   static_call_cond(name)(args...);
  *   static_call_ro(name)(args...);
  *   static_call_update(name, func);
  *   static_call_query(name);
@@ -92,7 +91,7 @@
  *
  * DEFINE_STATIC_CALL_RET0 / __static_call_return0:
  *
- *   Just like how DEFINE_STATIC_CALL_NULL() / static_call_cond() optimize the
+ *   Just like how DEFINE_STATIC_CALL_NULL() optimizes the
  *   conditional void function call, DEFINE_STATIC_CALL_RET0 /
  *   __static_call_return0 optimize the do nothing return 0 function.
  *
@@ -197,8 +196,6 @@ extern long __static_call_return0(void);
 	__STATIC_CALL_ADDRESSABLE(name);				\
 	__static_call(name);						\
 })
-
-#define static_call_cond(name)		(void)static_call(name)
 
 /* Use static_call_ro() to call a read-only-exported static call. */
 #define static_call_ro(name)		__static_call_ro(name)
