@@ -6821,7 +6821,6 @@ EXPORT_SYMBOL(preempt_schedule);
 #if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
 #ifndef preempt_schedule_dynamic_enabled
 #define preempt_schedule_dynamic_enabled	preempt_schedule
-#define preempt_schedule_dynamic_disabled	NULL
 #endif
 DEFINE_STATIC_CALL(preempt_schedule, preempt_schedule_dynamic_enabled);
 EXPORT_STATIC_CALL_RO(preempt_schedule);
@@ -6894,7 +6893,6 @@ EXPORT_SYMBOL_GPL(preempt_schedule_notrace);
 #if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
 #ifndef preempt_schedule_notrace_dynamic_enabled
 #define preempt_schedule_notrace_dynamic_enabled	preempt_schedule_notrace
-#define preempt_schedule_notrace_dynamic_disabled	NULL
 #endif
 DEFINE_STATIC_CALL(preempt_schedule_notrace, preempt_schedule_notrace_dynamic_enabled);
 EXPORT_STATIC_CALL_RO(preempt_schedule_notrace);
@@ -8491,13 +8489,11 @@ EXPORT_SYMBOL(__cond_resched);
 #ifdef CONFIG_PREEMPT_DYNAMIC
 #if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
 #define cond_resched_dynamic_enabled	__cond_resched
-#define cond_resched_dynamic_disabled	((void *)&__static_call_return0)
-DEFINE_STATIC_CALL_RET0(cond_resched, __cond_resched);
+DEFINE_STATIC_CALL_NULL(cond_resched, __cond_resched);
 EXPORT_STATIC_CALL_RO(cond_resched);
 
 #define might_resched_dynamic_enabled	__cond_resched
-#define might_resched_dynamic_disabled	((void *)&__static_call_return0)
-DEFINE_STATIC_CALL_RET0(might_resched, __cond_resched);
+DEFINE_STATIC_CALL_NULL(might_resched, __cond_resched);
 EXPORT_STATIC_CALL_RO(might_resched);
 #elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
 static DEFINE_STATIC_KEY_FALSE(sk_dynamic_cond_resched);
@@ -8643,7 +8639,7 @@ int sched_dynamic_mode(const char *str)
 
 #if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
 #define preempt_dynamic_enable(f)	static_call_update(f, f##_dynamic_enabled)
-#define preempt_dynamic_disable(f)	static_call_update(f, f##_dynamic_disabled)
+#define preempt_dynamic_disable(f)	static_call_update(f, NULL)
 #elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
 #define preempt_dynamic_enable(f)	static_key_enable(&sk_dynamic_##f.key)
 #define preempt_dynamic_disable(f)	static_key_disable(&sk_dynamic_##f.key)

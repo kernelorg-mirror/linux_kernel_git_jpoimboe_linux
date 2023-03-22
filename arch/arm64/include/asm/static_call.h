@@ -22,10 +22,6 @@
 	    ".type " name ", @function				\n"	\
 	    ".size " name ", . - " name "			\n")
 
-#define __ARCH_DEFINE_STATIC_CALL_NOP_CFI(name)			\
-	GEN_CFI_SYM(STATIC_CALL_NOP_CFI(name));			\
-	__ARCH_DEFINE_STATIC_CALL_CFI(STATIC_CALL_NOP_CFI_STR(name), "")
-
 #define __ARCH_DEFINE_STATIC_CALL_RET0_CFI(name)			\
 	GEN_CFI_SYM(STATIC_CALL_RET0_CFI(name));			\
 	__ARCH_DEFINE_STATIC_CALL_CFI(STATIC_CALL_RET0_CFI_STR(name), "mov x0, xzr")

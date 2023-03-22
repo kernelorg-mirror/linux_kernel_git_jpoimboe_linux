@@ -96,7 +96,7 @@ DEFINE_STATIC_CALL_NULL(x86_pmu_filter, *x86_pmu.filter);
  * This one is magic, it will get called even when PMU init fails (because
  * there is no PMU), in which case it should simply return NULL.
  */
-DEFINE_STATIC_CALL_RET0(x86_pmu_guest_get_msrs, *x86_pmu.guest_get_msrs);
+DEFINE_STATIC_CALL_NULL(x86_pmu_guest_get_msrs, *x86_pmu.guest_get_msrs);
 
 u64 __read_mostly hw_cache_event_ids
 				[PERF_COUNT_HW_CACHE_MAX]
@@ -2124,9 +2124,6 @@ static int __init init_hw_perf_events(void)
 
 	if (!x86_pmu.read)
 		x86_pmu.read = _x86_pmu_read;
-
-	if (!x86_pmu.guest_get_msrs)
-		x86_pmu.guest_get_msrs = (void *)&__static_call_return0;
 
 	if (!x86_pmu.set_period)
 		x86_pmu.set_period = x86_perf_event_set_period;

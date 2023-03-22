@@ -10,8 +10,7 @@ BUILD_BUG_ON(1)
  *
  * KVM_X86_OP_OPTIONAL() can be used for those functions that can have
  * a NULL definition.  KVM_X86_OP_OPTIONAL_RET0() can be used likewise
- * to make a definition optional, but in this case the default will
- * be __static_call_return0.
+ * to make a definition optional.
  */
 KVM_X86_OP(check_processor_compatibility)
 KVM_X86_OP(hardware_enable)

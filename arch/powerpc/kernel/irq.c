@@ -220,7 +220,7 @@ static __always_inline void call_do_softirq(const void *sp)
 }
 #endif
 
-DEFINE_STATIC_CALL_RET0(ppc_get_irq, *ppc_md.get_irq);
+DEFINE_STATIC_CALL_NULL(ppc_get_irq, *ppc_md.get_irq);
 
 static void __do_irq(struct pt_regs *regs, unsigned long oldsp)
 {

@@ -6757,9 +6757,9 @@ static void perf_pending_task(struct callback_head *head)
 #ifdef CONFIG_GUEST_PERF_EVENTS
 struct perf_guest_info_callbacks __rcu *perf_guest_cbs;
 
-DEFINE_STATIC_CALL_RET0(__perf_guest_state, *perf_guest_cbs->state);
-DEFINE_STATIC_CALL_RET0(__perf_guest_get_ip, *perf_guest_cbs->get_ip);
-DEFINE_STATIC_CALL_RET0(__perf_guest_handle_intel_pt_intr, *perf_guest_cbs->handle_intel_pt_intr);
+DEFINE_STATIC_CALL_NULL(__perf_guest_state, *perf_guest_cbs->state);
+DEFINE_STATIC_CALL_NULL(__perf_guest_get_ip, *perf_guest_cbs->get_ip);
+DEFINE_STATIC_CALL_NULL(__perf_guest_handle_intel_pt_intr, *perf_guest_cbs->handle_intel_pt_intr);
 
 void perf_register_guest_info_callbacks(struct perf_guest_info_callbacks *cbs)
 {
@@ -6783,10 +6783,9 @@ void perf_unregister_guest_info_callbacks(struct perf_guest_info_callbacks *cbs)
 		return;
 
 	rcu_assign_pointer(perf_guest_cbs, NULL);
-	static_call_update(__perf_guest_state, (void *)&__static_call_return0);
-	static_call_update(__perf_guest_get_ip, (void *)&__static_call_return0);
-	static_call_update(__perf_guest_handle_intel_pt_intr,
-			   (void *)&__static_call_return0);
+	static_call_update(__perf_guest_state, NULL);
+	static_call_update(__perf_guest_get_ip, NULL);
+	static_call_update(__perf_guest_handle_intel_pt_intr, NULL);
 	synchronize_rcu();
 }
 EXPORT_SYMBOL_GPL(perf_unregister_guest_info_callbacks);
@@ -13766,4 +13765,4 @@ struct cgroup_subsys perf_event_cgrp_subsys = {
 };
 #endif /* CONFIG_CGROUP_PERF */
 
-DEFINE_STATIC_CALL_RET0(perf_snapshot_branch_stack, perf_snapshot_branch_stack_t);
+DEFINE_STATIC_CALL_NULL(perf_snapshot_branch_stack, perf_snapshot_branch_stack_t);
