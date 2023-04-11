@@ -894,7 +894,7 @@
  */
 #define NOTES								\
 	/DISCARD/ : { *(.note.GNU-stack) }				\
-	.notes : AT(ADDR(.notes) - LOAD_OFFSET) {			\
+	.notes ALIGN(4) : AT(ADDR(.notes) - LOAD_OFFSET) SUBALIGN(4) {	\
 		BOUNDED_SECTION_BY(.note.*, _notes)			\
 	} NOTES_HEADERS							\
 	NOTES_HEADERS_RESTORE
