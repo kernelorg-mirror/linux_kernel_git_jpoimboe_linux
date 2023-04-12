@@ -4488,7 +4488,8 @@ static int validate_sls(struct objtool_file *file)
 
 static int validate_reachable_instructions(struct objtool_file *file)
 {
-	struct instruction *insn;
+	struct instruction *insn, *prev_insn;
+	struct symbol *call_dest;
 	int warnings = 0;
 
 	if (file->ignore_unreachables)
@@ -4497,6 +4498,17 @@ static int validate_reachable_instructions(struct objtool_file *file)
 	for_each_insn(file, insn) {
 		if (insn->visited || ignore_unreachable_insn(file, insn))
 			continue;
+
+		prev_insn = prev_insn_same_sec(file, insn);
+		if (prev_insn && prev_insn->dead_end) {
+			call_dest = insn_call_dest(prev_insn);
+			if (call_dest) {
+				WARN_INSN(insn, "%s() is missing a __noreturn annotation",
+					  call_dest->name);
+				warnings++;
+				continue;
+			}
+		}
 
 		WARN_INSN(insn, "unreachable instruction");
 		warnings++;
