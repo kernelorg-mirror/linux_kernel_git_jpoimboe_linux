@@ -4512,6 +4512,7 @@ static int validate_sls(struct objtool_file *file)
 static int validate_reachable_instructions(struct objtool_file *file)
 {
 	struct instruction *insn;
+	int warnings = 0;
 
 	if (file->ignore_unreachables)
 		return 0;
@@ -4521,10 +4522,10 @@ static int validate_reachable_instructions(struct objtool_file *file)
 			continue;
 
 		WARN_INSN(insn, "unreachable instruction");
-		return 1;
+		warnings++;
 	}
 
-	return 0;
+	return warnings;
 }
 
 int check(struct objtool_file *file)
