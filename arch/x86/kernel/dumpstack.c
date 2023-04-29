@@ -195,7 +195,6 @@ static void show_trace_log_lvl(struct task_struct *task, struct pt_regs *regs,
 	printk("%sCall Trace:\n", log_lvl);
 
 	unwind_start(&state, task, regs, stack);
-	stack = stack ? : get_stack_pointer(task, regs);
 	regs = unwind_get_entry_regs(&state, &partial);
 
 	/*
@@ -214,7 +213,10 @@ static void show_trace_log_lvl(struct task_struct *task, struct pt_regs *regs,
 	 * - hardirq stack
 	 * - entry stack
 	 */
-	for ( ; stack; stack = PTR_ALIGN(stack_info.next_sp, sizeof(long))) {
+	for (stack = PTR_ALIGN(stack ?: get_stack_pointer(task, regs), sizeof(long));
+	     stack;
+	     stack = PTR_ALIGN(stack_info.next_sp, sizeof(long)))
+	{
 		const char *stack_name;
 
 		if (get_stack_info(stack, task, &stack_info, &visit_mask)) {
