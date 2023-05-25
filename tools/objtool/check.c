@@ -508,7 +508,8 @@ static int add_pv_ops(struct objtool_file *file, const char *symname)
 
 		func = reloc->sym;
 		if (func->type == STT_SECTION)
-			func = find_symbol_by_offset(reloc->sym->sec, reloc->addend);
+			func = find_symbol_by_offset(reloc->sym->sec,
+						     reloc_addend(reloc));
 
 		idx = (reloc_offset(reloc) - sym->offset) / sizeof(unsigned long);
 
@@ -582,6 +583,7 @@ static int add_dead_ends(struct objtool_file *file)
 	struct section *rsec;
 	struct reloc *reloc;
 	struct instruction *insn;
+	s64 addend;
 
 	/*
 	 * Check for manually annotated dead ends.
@@ -591,23 +593,27 @@ static int add_dead_ends(struct objtool_file *file)
 		goto reachable;
 
 	for_each_reloc(rsec, reloc) {
+
 		if (reloc->sym->type != STT_SECTION) {
 			WARN("unexpected relocation symbol type in %s", rsec->name);
 			return -1;
 		}
-		insn = find_insn(file, reloc->sym->sec, reloc->addend);
+
+		addend = reloc_addend(reloc);
+
+		insn = find_insn(file, reloc->sym->sec, addend);
 		if (insn)
 			insn = prev_insn_same_sec(file, insn);
-		else if (reloc->addend == reloc->sym->sec->sh.sh_size) {
+		else if (addend == reloc->sym->sec->sh.sh_size) {
 			insn = find_last_insn(file, reloc->sym->sec);
 			if (!insn) {
 				WARN("can't find unreachable insn at %s+0x%" PRIx64,
-				     reloc->sym->sec->name, reloc->addend);
+				     reloc->sym->sec->name, addend);
 				return -1;
 			}
 		} else {
 			WARN("can't find unreachable insn at %s+0x%" PRIx64,
-			     reloc->sym->sec->name, reloc->addend);
+			     reloc->sym->sec->name, addend);
 			return -1;
 		}
 
@@ -626,23 +632,27 @@ reachable:
 		return 0;
 
 	for_each_reloc(rsec, reloc) {
+
 		if (reloc->sym->type != STT_SECTION) {
 			WARN("unexpected relocation symbol type in %s", rsec->name);
 			return -1;
 		}
-		insn = find_insn(file, reloc->sym->sec, reloc->addend);
+
+		addend = reloc_addend(reloc);
+
+		insn = find_insn(file, reloc->sym->sec, addend);
 		if (insn)
 			insn = prev_insn_same_sec(file, insn);
-		else if (reloc->addend == reloc->sym->sec->sh.sh_size) {
+		else if (addend == reloc->sym->sec->sh.sh_size) {
 			insn = find_last_insn(file, reloc->sym->sec);
 			if (!insn) {
 				WARN("can't find reachable insn at %s+0x%" PRIx64,
-				     reloc->sym->sec->name, reloc->addend);
+				     reloc->sym->sec->name, addend);
 				return -1;
 			}
 		} else {
 			WARN("can't find reachable insn at %s+0x%" PRIx64,
-			     reloc->sym->sec->name, reloc->addend);
+			     reloc->sym->sec->name, addend);
 			return -1;
 		}
 
@@ -1025,7 +1035,7 @@ static void add_ignores(struct objtool_file *file)
 			break;
 
 		case STT_SECTION:
-			func = find_func_by_offset(reloc->sym->sec, reloc->addend);
+			func = find_func_by_offset(reloc->sym->sec, reloc_addend(reloc));
 			if (!func)
 				continue;
 			break;
@@ -1265,7 +1275,7 @@ static int add_ignore_alternatives(struct objtool_file *file)
 			return -1;
 		}
 
-		insn = find_insn(file, reloc->sym->sec, reloc->addend);
+		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
 		if (!insn) {
 			WARN("bad .discard.ignore_alts entry");
 			return -1;
@@ -1541,7 +1551,7 @@ static int add_jump_destinations(struct objtool_file *file)
 			dest_off = arch_jump_destination(insn);
 		} else if (reloc->sym->type == STT_SECTION) {
 			dest_sec = reloc->sym->sec;
-			dest_off = arch_dest_reloc_offset(reloc->addend);
+			dest_off = arch_dest_reloc_offset(reloc_addend(reloc));
 		} else if (reloc->sym->retpoline_thunk) {
 			add_retpoline_call(file, insn);
 			continue;
@@ -1558,7 +1568,7 @@ static int add_jump_destinations(struct objtool_file *file)
 		} else if (reloc->sym->sec->idx) {
 			dest_sec = reloc->sym->sec;
 			dest_off = reloc->sym->sym.st_value +
-				   arch_dest_reloc_offset(reloc->addend);
+				   arch_dest_reloc_offset(reloc_addend(reloc));
 		} else {
 			/* non-func asm code jumping to another file */
 			continue;
@@ -1675,7 +1685,7 @@ static int add_call_destinations(struct objtool_file *file)
 			}
 
 		} else if (reloc->sym->type == STT_SECTION) {
-			dest_off = arch_dest_reloc_offset(reloc->addend);
+			dest_off = arch_dest_reloc_offset(reloc_addend(reloc));
 			dest = find_call_destination(reloc->sym->sec, dest_off);
 			if (!dest) {
 				WARN_INSN(insn, "can't find call dest symbol at %s+0x%lx",
@@ -2002,10 +2012,10 @@ static int add_jump_table(struct objtool_file *file, struct instruction *insn,
 
 		/* Detect function pointers from contiguous objects: */
 		if (reloc->sym->sec == pfunc->sec &&
-		    reloc->addend == pfunc->offset)
+		    reloc_addend(reloc) == pfunc->offset)
 			break;
 
-		dest_insn = find_insn(file, reloc->sym->sec, reloc->addend);
+		dest_insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
 		if (!dest_insn)
 			break;
 
@@ -2066,7 +2076,7 @@ static struct reloc *find_jump_table(struct objtool_file *file,
 		table_reloc = arch_find_switch_table(file, insn);
 		if (!table_reloc)
 			continue;
-		dest_insn = find_insn(file, table_reloc->sym->sec, table_reloc->addend);
+		dest_insn = find_insn(file, table_reloc->sym->sec, reloc_addend(table_reloc));
 		if (!dest_insn || !insn_func(dest_insn) || insn_func(dest_insn)->pfunc != func)
 			continue;
 
@@ -2202,7 +2212,7 @@ static int read_unwind_hints(struct objtool_file *file)
 			return -1;
 		}
 
-		insn = find_insn(file, reloc->sym->sec, reloc->addend);
+		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
 		if (!insn) {
 			WARN("can't find insn for unwind_hints[%d]", i);
 			return -1;
@@ -2265,7 +2275,8 @@ static int read_noendbr_hints(struct objtool_file *file)
 		return 0;
 
 	for_each_reloc(rsec, reloc) {
-		insn = find_insn(file, reloc->sym->sec, reloc->sym->offset + reloc->addend);
+		insn = find_insn(file, reloc->sym->sec,
+				 reloc->sym->offset + reloc_addend(reloc));
 		if (!insn) {
 			WARN("bad .discard.noendbr entry");
 			return -1;
@@ -2293,7 +2304,7 @@ static int read_retpoline_hints(struct objtool_file *file)
 			return -1;
 		}
 
-		insn = find_insn(file, reloc->sym->sec, reloc->addend);
+		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
 		if (!insn) {
 			WARN("bad .discard.retpoline_safe entry");
 			return -1;
@@ -2329,7 +2340,7 @@ static int read_instr_hints(struct objtool_file *file)
 			return -1;
 		}
 
-		insn = find_insn(file, reloc->sym->sec, reloc->addend);
+		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
 		if (!insn) {
 			WARN("bad .discard.instr_end entry");
 			return -1;
@@ -2348,7 +2359,7 @@ static int read_instr_hints(struct objtool_file *file)
 			return -1;
 		}
 
-		insn = find_insn(file, reloc->sym->sec, reloc->addend);
+		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
 		if (!insn) {
 			WARN("bad .discard.instr_begin entry");
 			return -1;
@@ -2376,7 +2387,7 @@ static int read_validate_unret_hints(struct objtool_file *file)
 			return -1;
 		}
 
-		insn = find_insn(file, reloc->sym->sec, reloc->addend);
+		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
 		if (!insn) {
 			WARN("bad .discard.instr_end entry");
 			return -1;
@@ -2407,7 +2418,7 @@ static int read_intra_function_calls(struct objtool_file *file)
 			return -1;
 		}
 
-		insn = find_insn(file, reloc->sym->sec, reloc->addend);
+		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
 		if (!insn) {
 			WARN("bad .discard.intra_function_call entry");
 			return -1;
@@ -3307,7 +3318,7 @@ static inline const char *call_dest_name(struct instruction *insn)
 
 	reloc = insn_reloc(NULL, insn);
 	if (reloc && !strcmp(reloc->sym->name, "pv_ops")) {
-		idx = (reloc->addend / sizeof(void *));
+		idx = (reloc_addend(reloc) / sizeof(void *));
 		snprintf(pvname, sizeof(pvname), "pv_ops[%d]", idx);
 		return pvname;
 	}
@@ -3325,7 +3336,7 @@ static bool pv_call_dest(struct objtool_file *file, struct instruction *insn)
 	if (!reloc || strcmp(reloc->sym->name, "pv_ops"))
 		return false;
 
-	idx = (arch_dest_reloc_offset(reloc->addend) / sizeof(void *));
+	idx = (arch_dest_reloc_offset(reloc_addend(reloc)) / sizeof(void *));
 
 	if (file->pv_ops[idx].clean)
 		return true;
@@ -4270,9 +4281,9 @@ static int validate_ibt_insn(struct objtool_file *file, struct instruction *insn
 		off = reloc->sym->offset;
 		if (reloc_type(reloc) == R_X86_64_PC32 ||
 		    reloc_type(reloc) == R_X86_64_PLT32)
-			off += arch_dest_reloc_offset(reloc->addend);
+			off += arch_dest_reloc_offset(reloc_addend(reloc));
 		else
-			off += reloc->addend;
+			off += reloc_addend(reloc);
 
 		dest = find_insn(file, reloc->sym->sec, off);
 		if (!dest)
@@ -4329,7 +4340,7 @@ static int validate_ibt_data_reloc(struct objtool_file *file,
 	struct instruction *dest;
 
 	dest = find_insn(file, reloc->sym->sec,
-			 reloc->sym->offset + reloc->addend);
+			 reloc->sym->offset + reloc_addend(reloc));
 	if (!dest)
 		return 0;
 
