@@ -491,15 +491,6 @@ config DEBUG_SECTION_MISMATCH
 	    This option tells gcc to inline less (but it does result in
 	    a larger kernel).
 
-config SECTION_MISMATCH_WARN_ONLY
-	bool "Make section mismatch errors non-fatal"
-	default y
-	help
-	  If you say N here, the build process will fail if there are any
-	  section mismatch, instead of just throwing warnings.
-
-	  If unsure, say Y.
-
 config DEBUG_FORCE_FUNCTION_ALIGN_64B
 	bool "Force all function address 64B aligned"
 	depends on EXPERT && (X86_64 || ARM64 || PPC32 || PPC64 || ARC || S390)

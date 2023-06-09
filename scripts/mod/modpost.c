@@ -34,7 +34,6 @@ static bool external_module;
 static bool warn_unresolved;
 
 static int sec_mismatch_count;
-static bool sec_mismatch_warn_only = true;
 /* ignore missing files */
 static bool ignore_missing_files;
 /* If set to 1, only warn (instead of error) about missing ns imports */
@@ -2356,9 +2355,6 @@ int main(int argc, char **argv)
 		case 'w':
 			warn_unresolved = true;
 			break;
-		case 'E':
-			sec_mismatch_warn_only = false;
-			break;
 		case 'N':
 			allow_missing_ns_imports = true;
 			break;
@@ -2397,9 +2393,8 @@ int main(int argc, char **argv)
 
 	if (dump_write)
 		write_dump(dump_write);
-	if (sec_mismatch_count && !sec_mismatch_warn_only)
-		error("Section mismatches detected.\n"
-		      "Set CONFIG_SECTION_MISMATCH_WARN_ONLY=y to allow them.\n");
+	if (sec_mismatch_count)
+		error("Section mismatches detected.\n");
 
 	if (nr_unresolved > MAX_UNRESOLVED_REPORTS)
 		warn("suppressed %u unresolved symbol warnings because there were too many)\n",
