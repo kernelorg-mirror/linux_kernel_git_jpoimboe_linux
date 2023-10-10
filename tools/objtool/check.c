@@ -1611,6 +1611,15 @@ static int add_jump_destinations(struct objtool_file *file)
 		}
 
 		/*
+		 * Since retpolines are in the same section as the return
+		 * thunk, they might not use a relocation when branching to it.
+		 */
+		if (jump_dest->sym && jump_dest->sym->return_thunk) {
+			add_return_call(file, insn, true);
+			continue;
+		}
+
+		/*
 		 * Cross-function jump.
 		 */
 		if (insn_func(insn) && insn_func(jump_dest) &&
