@@ -55,6 +55,7 @@
 #include <linux/pgtable.h>
 #include <linux/buildid.h>
 #include <linux/task_work.h>
+#include <linux/unwind_deferred.h>
 
 #include "internal.h"
 
@@ -5312,11 +5313,37 @@ static void perf_pending_task_sync(struct perf_event *event)
 	rcuwait_wait_event(&event->pending_work_wait, !event->pending_work, TASK_UNINTERRUPTIBLE);
 }
 
+static void perf_pending_unwind_sync(struct perf_event *event)
+{
+	might_sleep();
+
+	if (!event->pending_unwind_callback)
+		return;
+
+	/*
+	 * If the task is queued to the current task's queue, we
+	 * obviously can't wait for it to complete. Simply cancel it.
+	 */
+	if (unwind_deferred_cancel(current, &event->pending_unwind_work)) {
+		event->pending_unwind_callback = 0;
+		local_dec(&event->ctx->nr_no_switch_fast);
+		return;
+	}
+
+	/*
+	 * All accesses related to the event are within the same RCU section in
+	 * perf_event_callchain_deferred(). The RCU grace period before the
+	 * event is freed will make sure all those accesses are complete by then.
+	 */
+	rcuwait_wait_event(&event->pending_unwind_wait, !event->pending_unwind_callback, TASK_UNINTERRUPTIBLE);
+}
+
 static void _free_event(struct perf_event *event)
 {
 	irq_work_sync(&event->pending_irq);
 	irq_work_sync(&event->pending_disable_irq);
 	perf_pending_task_sync(event);
+	perf_pending_unwind_sync(event);
 
 	unaccount_event(event);
 
@@ -6933,6 +6960,61 @@ static void perf_pending_irq(struct irq_work *entry)
 		perf_swevent_put_recursion_context(rctx);
 }
 
+
+struct perf_callchain_deferred_event {
+	struct perf_event_header	header;
+	u64				nr;
+	u64				ips[];
+};
+
+static void perf_event_callchain_deferred(struct unwind_work *work, struct unwind_stacktrace *trace, u64 cookie)
+{
+	struct perf_event *event = container_of(work, struct perf_event, pending_unwind_work);
+	struct perf_callchain_deferred_event deferred_event;
+	u64 callchain_context = PERF_CONTEXT_USER;
+	struct perf_output_handle handle;
+	struct perf_sample_data data;
+	u64 nr = trace->nr +1 ; /* +1 == callchain_context */
+
+	if (WARN_ON_ONCE(!event->pending_unwind_callback))
+		return;
+
+	/*
+	 * All accesses to the event must belong to the same implicit RCU
+	 * read-side critical section as the ->pending_unwind_callback reset.
+	 * See comment in perf_pending_unwind_sync().
+	 */
+	rcu_read_lock();
+
+	if (!current->mm)
+		goto out;
+
+	deferred_event.header.type = PERF_RECORD_CALLCHAIN_DEFERRED;
+	deferred_event.header.misc = PERF_RECORD_MISC_USER;
+	deferred_event.header.size = sizeof(deferred_event) + (nr * sizeof(u64));
+
+	deferred_event.nr = nr;
+
+	perf_event_header__init_id(&deferred_event.header, &data, event);
+
+	if (perf_output_begin(&handle, &data, event, deferred_event.header.size))
+		goto out;
+
+	perf_output_put(&handle, deferred_event);
+	perf_output_put(&handle, callchain_context);
+	perf_output_copy(&handle, trace->entries, trace->nr * sizeof(u64));
+	perf_event__output_id_sample(event, &handle, &data);
+
+	perf_output_end(&handle);
+
+out:
+	event->pending_unwind_callback = 0;
+	local_dec(&event->ctx->nr_no_switch_fast);
+	rcuwait_wake_up(&event->pending_unwind_wait);
+
+	rcu_read_unlock();
+}
+
 static void perf_pending_task(struct callback_head *head)
 {
 	struct perf_event *event = container_of(head, struct perf_event, pending_task);
@@ -7795,6 +7877,8 @@ perf_callchain(struct perf_event *event, struct pt_regs *regs)
 	bool user   = !event->attr.exclude_callchain_user && current->mm;
 	const u32 max_stack = event->attr.sample_max_stack;
 	struct perf_callchain_entry *callchain;
+	bool defer_user = IS_ENABLED(CONFIG_UNWIND_USER) && user &&
+			  event->attr.defer_callchain;
 
 	if (!kernel && !user)
 		return &__empty_callchain;
@@ -7803,7 +7887,21 @@ perf_callchain(struct perf_event *event, struct pt_regs *regs)
 	if (event->ctx->task && event->ctx->task != current)
 		return &__empty_callchain;
 
-	callchain = get_perf_callchain(regs, kernel, user, max_stack, true);
+	if (defer_user && !event->pending_unwind_callback) {
+		u64 cookie;
+
+		if (!unwind_deferred_request(&event->pending_unwind_work, &cookie)) {
+			event->pending_unwind_callback = 1;
+			local_inc(&event->ctx->nr_no_switch_fast);
+		}
+
+		if (!cookie)
+			defer_user = false;
+	}
+
+	callchain = get_perf_callchain(regs, kernel, user, max_stack, true,
+				       defer_user);
+
 	return callchain ?: &__empty_callchain;
 }
 
@@ -12224,6 +12322,9 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	event->pending_disable_irq = IRQ_WORK_INIT_HARD(perf_pending_disable);
 	init_task_work(&event->pending_task, perf_pending_task);
 	rcuwait_init(&event->pending_work_wait);
+
+	unwind_deferred_init(&event->pending_unwind_work, perf_event_callchain_deferred);
+	rcuwait_init(&event->pending_unwind_wait);
 
 	mutex_init(&event->mmap_mutex);
 	raw_spin_lock_init(&event->addr_filters.lock);
