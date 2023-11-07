@@ -55,10 +55,13 @@
 #include <linux/pgtable.h>
 #include <linux/buildid.h>
 #include <linux/task_work.h>
+#include <linux/unwind_user.h>
 
 #include "internal.h"
 
 #include <asm/irq_regs.h>
+
+static struct unwind_callback perf_unwind_callback_cb;
 
 typedef int (*remote_function_f)(void *);
 
@@ -6835,6 +6838,14 @@ static void perf_pending_irq(struct irq_work *entry)
 	struct perf_event *event = container_of(entry, struct perf_event, pending_irq);
 	int rctx;
 
+	if (!is_software_event(event)) {
+		if (event->pending_user_unwind) {
+			event->pending_user_unwind = 0;
+			unwind_user_deferred(&perf_unwind_callback_cb, NULL, event);
+		}
+		return;
+	}
+
 	/*
 	 * If we 'fail' here, that's OK, it means recursion is already disabled
 	 * and we won't recurse 'further'.
@@ -6852,6 +6863,43 @@ static void perf_pending_irq(struct irq_work *entry)
 
 	if (rctx >= 0)
 		perf_swevent_put_recursion_context(rctx);
+}
+
+struct perf_callchain_deferred_event {
+	struct perf_event_header	header;
+	u64				ctx_cookie;
+	u64				nr;
+	u64				ips[];
+};
+
+static void perf_event_callchain_deferred(struct unwind_stacktrace *trace,
+					  u64 ctx_cookie, void *_data)
+{
+	struct perf_callchain_deferred_event deferred_event;
+	u64 callchain_context = PERF_CONTEXT_USER;
+	struct perf_output_handle handle;
+	struct perf_event *event = _data;
+	struct perf_sample_data data;
+	u64 nr = trace->nr + 1;
+
+	deferred_event.header.type = PERF_RECORD_CALLCHAIN_DEFERRED;
+	deferred_event.header.misc = PERF_RECORD_MISC_USER;
+	deferred_event.header.size = sizeof(deferred_event) + (nr * sizeof(u64));
+
+	deferred_event.ctx_cookie = ctx_cookie;
+	deferred_event.nr = nr;
+
+	perf_event_header__init_id(&deferred_event.header, &data, event);
+
+	if (perf_output_begin(&handle, &data, event, deferred_event.header.size))
+		return;
+
+	perf_output_put(&handle, deferred_event);
+	perf_output_put(&handle, callchain_context);
+	perf_output_copy(&handle, trace, trace->nr * sizeof(u64));
+	perf_event__output_id_sample(event, &handle, &data);
+
+	perf_output_end(&handle);
 }
 
 static void perf_pending_task(struct callback_head *head)
@@ -7688,6 +7736,8 @@ perf_callchain(struct perf_event *event, struct pt_regs *regs)
 	bool user   = !event->attr.exclude_callchain_user;
 	const u32 max_stack = event->attr.sample_max_stack;
 	struct perf_callchain_entry *callchain;
+	bool defer_user = IS_ENABLED(CONFIG_HAVE_UNWIND_USER) &&
+			  event->attr.defer_callchain;
 
 	/* Disallow cross-task user callchains. */
 	user &= !event->ctx->task || event->ctx->task == current;
@@ -7695,7 +7745,14 @@ perf_callchain(struct perf_event *event, struct pt_regs *regs)
 	if (!kernel && !user)
 		return &__empty_callchain;
 
-	callchain = get_perf_callchain(regs, kernel, user, max_stack, true);
+	callchain = get_perf_callchain(regs, kernel, user, max_stack, true,
+				       defer_user);
+
+	if (user && defer_user && !event->pending_user_unwind) {
+		event->pending_user_unwind = 1;
+		irq_work_queue(&event->pending_irq);
+	}
+
 	return callchain ?: &__empty_callchain;
 }
 
@@ -13820,6 +13877,7 @@ void __init perf_event_init(void)
 	perf_tp_register();
 	perf_event_init_cpu(smp_processor_id());
 	register_reboot_notifier(&perf_reboot_notifier);
+	unwind_user_register(&perf_unwind_callback_cb, perf_event_callchain_deferred);
 
 	ret = init_hw_breakpoint();
 	WARN(ret, "hw_breakpoint initialization failed with: %d", ret);
