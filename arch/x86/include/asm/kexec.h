@@ -91,7 +91,9 @@ static inline void crash_setup_regs(struct pt_regs *newregs,
 		asm volatile("movl %%es, %%eax;" :"=a"(newregs->es));
 		asm volatile("pushfl; popl %0" :"=m"(newregs->flags));
 #else
+		asm volatile(UNWIND_HINT_SAVE);
 		asm volatile("movq %%rbx,%0" : "=m"(newregs->bx));
+		asm volatile(UNWIND_HINT_UNDEFINED);
 		asm volatile("movq %%rcx,%0" : "=m"(newregs->cx));
 		asm volatile("movq %%rdx,%0" : "=m"(newregs->dx));
 		asm volatile("movq %%rsi,%0" : "=m"(newregs->si));
@@ -109,6 +111,7 @@ static inline void crash_setup_regs(struct pt_regs *newregs,
 		asm volatile("movq %%r15,%0" : "=m"(newregs->r15));
 		asm volatile("movl %%ss, %%eax;" :"=a"(newregs->ss));
 		asm volatile("movl %%cs, %%eax;" :"=a"(newregs->cs));
+		asm volatile(UNWIND_HINT_RESTORE);
 		asm volatile("pushfq; popq %0" :"=m"(newregs->flags));
 #endif
 		newregs->ip = _THIS_IP_;

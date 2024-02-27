@@ -1054,7 +1054,6 @@ void __noclone __crash_kexec(struct pt_regs *regs)
 		kexec_unlock();
 	}
 }
-STACK_FRAME_NON_STANDARD(__crash_kexec);
 
 __bpf_kfunc void crash_kexec(struct pt_regs *regs)
 {
