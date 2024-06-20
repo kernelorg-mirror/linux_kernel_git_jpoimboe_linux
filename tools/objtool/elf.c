@@ -103,7 +103,7 @@ INTERVAL_TREE_DEFINE(struct symbol, node, unsigned long, __subtree_last,
 	     _iter; _iter = __sym_iter_next(_iter, (_start), (_end)))
 
 struct symbol_hole {
-	unsigned long key;
+	unsigned long offset;
 	const struct symbol *sym;
 };
 
@@ -115,10 +115,10 @@ static int symbol_hole_by_offset(const void *key, const struct rb_node *node)
 	const struct symbol *s = rb_entry(node, struct symbol, node);
 	struct symbol_hole *sh = (void *)key;
 
-	if (sh->key < s->offset)
+	if (sh->offset < s->offset)
 		return -1;
 
-	if (sh->key >= s->offset + s->len) {
+	if (sh->offset >= s->offset + s->len) {
 		if (s->type != STT_SECTION)
 			sh->sym = s;
 		return 1;
@@ -167,11 +167,11 @@ static struct symbol *find_symbol_by_index(struct elf *elf, unsigned int idx)
 struct symbol *find_symbol_by_offset(struct section *sec, unsigned long offset)
 {
 	struct rb_root_cached *tree = (struct rb_root_cached *)&sec->symbol_tree;
-	struct symbol *iter;
+	struct symbol *sym;
 
-	__sym_for_each(iter, tree, offset, offset) {
-		if (iter->offset == offset && !is_section_symbol(iter))
-			return iter;
+	__sym_for_each(sym, tree, offset, offset) {
+		if (sym->offset == offset && !is_section_symbol(sym))
+			return sym;
 	}
 
 	return NULL;
@@ -180,11 +180,11 @@ struct symbol *find_symbol_by_offset(struct section *sec, unsigned long offset)
 struct symbol *find_func_by_offset(struct section *sec, unsigned long offset)
 {
 	struct rb_root_cached *tree = (struct rb_root_cached *)&sec->symbol_tree;
-	struct symbol *iter;
+	struct symbol *sym;
 
-	__sym_for_each(iter, tree, offset, offset) {
-		if (iter->offset == offset && is_function_symbol(iter))
-			return iter;
+	__sym_for_each(sym, tree, offset, offset) {
+		if (sym->offset == offset && is_function_symbol(sym))
+			return sym;
 	}
 
 	return NULL;
@@ -209,26 +209,24 @@ struct symbol *find_symbol_containing(const struct section *sec, unsigned long o
 int find_symbol_hole_containing(const struct section *sec, unsigned long offset)
 {
 	struct symbol_hole hole = {
-		.key = offset,
+		.offset = offset,
 		.sym = NULL,
 	};
 	struct rb_node *n;
 	struct symbol *s;
 
-	/*
-	 * Find the rightmost symbol for which @offset is after it.
-	 */
+	/* Find the last symbol before @offset */
 	n = rb_find(&hole, &sec->symbol_tree.rb_root, symbol_hole_by_offset);
 
-	/* found a symbol that contains @offset */
+	/* found a symbol containing @offset */
 	if (n)
 		return 0; /* not a hole */
 
-	/* didn't find a symbol for which @offset is after it */
+	/* no symbol before @offset */
 	if (!hole.sym)
 		return 0; /* not a hole */
 
-	/* @offset >= sym->offset + sym->len, find symbol after it */
+	/* find first symbol after @offset */
 	n = rb_next(&hole.sym->node);
 	if (!n)
 		return -1; /* until end of address space */
@@ -241,11 +239,11 @@ int find_symbol_hole_containing(const struct section *sec, unsigned long offset)
 struct symbol *find_func_containing(struct section *sec, unsigned long offset)
 {
 	struct rb_root_cached *tree = (struct rb_root_cached *)&sec->symbol_tree;
-	struct symbol *iter;
+	struct symbol *sym;
 
-	__sym_for_each(iter, tree, offset, offset) {
-		if (is_function_symbol(iter))
-			return iter;
+	__sym_for_each(sym, tree, offset, offset) {
+		if (is_function_symbol(sym))
+			return sym;
 	}
 
 	return NULL;
@@ -393,7 +391,7 @@ static void elf_add_symbol(struct elf *elf, struct symbol *sym)
 {
 	struct list_head *entry;
 	struct rb_node *pnode;
-	struct symbol *iter;
+	struct symbol *s;
 
 	INIT_LIST_HEAD(&sym->pv_target);
 	sym->alias = sym;
@@ -407,9 +405,9 @@ static void elf_add_symbol(struct elf *elf, struct symbol *sym)
 	sym->offset = sym->sym.st_value;
 	sym->len = sym->sym.st_size;
 
-	__sym_for_each(iter, &sym->sec->symbol_tree, sym->offset, sym->offset) {
-		if (iter->offset == sym->offset && iter->type == sym->type)
-			iter->alias = sym;
+	__sym_for_each(s, &sym->sec->symbol_tree, sym->offset, sym->offset) {
+		if (s->offset == sym->offset && s->type == sym->type)
+			s->alias = sym;
 	}
 
 	__sym_insert(sym, &sym->sec->symbol_tree);
