@@ -931,10 +931,19 @@ ifdef CONFIG_DEBUG_SECTION_MISMATCH
 KBUILD_CFLAGS += -fno-inline-functions-called-once
 endif
 
+ifdef CONFIG_LIVEPATCH
+KBUILD_CFLAGS += -ffunction-sections -fdata-sections
 # `rustc`'s `-Zfunction-sections` applies to data too (as of 1.59.0).
+KBUILD_RUSTFLAGS += -Zfunction-sections=y
+else
 ifdef CONFIG_LD_DEAD_CODE_DATA_ELIMINATION
 KBUILD_CFLAGS_KERNEL += -ffunction-sections -fdata-sections
+# `rustc`'s `-Zfunction-sections` applies to data too (as of 1.59.0).
 KBUILD_RUSTFLAGS_KERNEL += -Zfunction-sections=y
+endif
+endif
+
+ifdef CONFIG_LD_DEAD_CODE_DATA_ELIMINATION
 LDFLAGS_vmlinux += --gc-sections
 endif
 
