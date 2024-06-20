@@ -98,7 +98,8 @@ static inline unsigned long __sym_last(struct symbol *s)
 }
 
 INTERVAL_TREE_DEFINE(struct symbol, node, unsigned long, __subtree_last,
-		     __sym_start, __sym_last, static inline, __sym)
+		     __sym_start, __sym_last, static inline __maybe_unused,
+		     __sym)
 
 #define __sym_for_each(_iter, _tree, _start, _end)			\
 	for (_iter = __sym_iter_first((_tree), (_start), (_end));	\
@@ -110,7 +111,7 @@ struct symbol_hole {
 };
 
 /*
- * Find !section symbol where @offset is after it.
+ * Find the last symbol before @offset.
  */
 static int symbol_hole_by_offset(const void *key, const struct rb_node *node)
 {
@@ -121,8 +122,7 @@ static int symbol_hole_by_offset(const void *key, const struct rb_node *node)
 		return -1;
 
 	if (sh->offset >= s->offset + s->len) {
-		if (s->type != STT_SECTION)
-			sh->sym = s;
+		sh->sym = s;
 		return 1;
 	}
 
@@ -416,7 +416,8 @@ static void elf_add_symbol(struct elf *elf, struct symbol *sym)
 	sym->len = sym->sym.st_size;
 
 	__sym_for_each(s, &sym->sec->symbol_tree, sym->offset, sym->offset) {
-		if (s->offset == sym->offset && s->type == sym->type)
+		if (s->type == sym->type && s->offset == sym->offset &&
+		    s->len == sym->len)
 			s->alias = sym;
 	}
 
@@ -433,9 +434,13 @@ static void elf_add_symbol(struct elf *elf, struct symbol *sym)
 	/*
 	 * Don't store empty STT_NOTYPE symbols in the rbtree.  They
 	 * can exist within a function, confusing the sorting.
+	 *
+	 * TODO: is this still true?
 	 */
-	if (!sym->len)
+#if 0
+	if (sym->type == STT_NOTYPE && !sym->len)
 		__sym_remove(sym, &sym->sec->symbol_tree);
+#endif
 }
 
 static void read_symbols(struct elf *elf)
