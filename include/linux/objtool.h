@@ -10,9 +10,27 @@
 
 #ifndef __ASSEMBLY__
 
-#define UNWIND_HINT(type, sp_reg, sp_offset, signal)	\
+#define DEFINE_FAKE_SYMBOL						\
+	".macro fake_symbol name, end\n\t"				\
+	"#ifdef __x86_64__\n"						\
+	".type \\name\\@, @object\n"					\
+	".size \\name\\@, \\end - .\n"					\
+	"\\name\\@:\n"							\
+	"#endif\n"							\
+	".endm\n\t"
+
+#define UNDEFINE_FAKE_SYMBOL						\
+	".purgem fake_symbol\n\t"
+
+#define FAKE_SYMBOL(name, end)							\
+	DEFINE_FAKE_SYMBOL							\
+	"fake_symbol " __stringify(name) ", \"" __stringify(end) "\"\n\t"	\
+	UNDEFINE_FAKE_SYMBOL
+
+#define UNWIND_HINT(type, sp_reg, sp_offset, signal)		\
 	"987: \n\t"						\
 	".pushsection .discard.unwind_hints\n\t"		\
+	FAKE_SYMBOL(__unwind_hint_, 988f)			\
 	/* struct unwind_hint */				\
 	".long 987b - .\n\t"					\
 	".short " __stringify(sp_offset) "\n\t"			\
@@ -20,6 +38,7 @@
 	".byte " __stringify(type) "\n\t"			\
 	".byte " __stringify(signal) "\n\t"			\
 	".balign 4 \n\t"					\
+	"988:\n\t"						\
 	".popsection\n\t"
 
 /*
@@ -60,6 +79,14 @@
 
 #else /* __ASSEMBLY__ */
 
+.macro fake_symbol name, end
+	.type \name\@, @object
+	.size \name\@, \end - .
+	\name\@:
+.endm
+
+#define FAKE_SYMBOL(name, end) fake_symbol name, __stringify(end)
+
 /*
  * This macro indicates that the following intra-function call is valid.
  * Any non-annotated intra-function call will cause objtool to issue a warning.
@@ -94,6 +121,7 @@
 .macro UNWIND_HINT type:req sp_reg=0 sp_offset=0 signal=0
 .Lhere_\@:
 	.pushsection .discard.unwind_hints
+		FAKE_SYMBOL(__unwind_hint_, .Lend_\@)
 		/* struct unwind_hint */
 		.long .Lhere_\@ - .
 		.short \sp_offset
@@ -101,6 +129,7 @@
 		.byte \type
 		.byte \signal
 		.balign 4
+		.Lend_\@:
 	.popsection
 .endm
 

@@ -157,7 +157,9 @@ static inline int alternatives_text_reserved(void *start, void *end)
 #define ALT_CALL_INSTR		"call BUG_func"
 
 #define b_replacement(num)	"664"#num
-#define e_replacement(num)	"665"#num
+
+#define __e_replacement(num)	__PASTE(665, num)
+#define e_replacement(num)	__stringify(__e_replacement(num))
 
 #define alt_end_marker		"663"
 #define alt_slen		"662b-661b"
@@ -203,15 +205,21 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	alt_end_marker ":\n"
 
 #define ALTINSTR_ENTRY(ft_flags, num)					      \
+	FAKE_SYMBOL(__alt_, 681f)					      \
 	" .long 661b - .\n"				/* label           */ \
 	" .long " b_replacement(num)"f - .\n"		/* new instruction */ \
 	" .4byte " __stringify(ft_flags) "\n"		/* feature + flags */ \
 	" .byte " alt_total_slen "\n"			/* source len      */ \
-	" .byte " alt_rlen(num) "\n"			/* replacement len */
+	" .byte " alt_rlen(num) "\n"			/* replacement len */ \
+	"681:\n"
 
-#define ALTINSTR_REPLACEMENT(newinstr, num)		/* replacement */	\
+#define ALTINSTR_REPLACEMENT(newinstr, num)					\
 	"# ALT: replacement " #num "\n"						\
-	b_replacement(num)":\n\t" newinstr "\n" e_replacement(num) ":\n"
+	FAKE_SYMBOL(__alt_instr_, __PASTE(__e_replacement(num), f))		\
+	b_replacement(num) ":\n"						\
+	"\t" newinstr "\n"							\
+	e_replacement(num) ":\n"
+
 
 /* alternative assembly primitive: */
 #define ALTERNATIVE(oldinstr, newinstr, ft_flags)			\
@@ -370,12 +378,20 @@ void nop_func(void);
  * enough information for the alternatives patching code to patch an
  * instruction. See apply_alternatives().
  */
-.macro altinstr_entry orig alt ft_flags orig_len alt_len
+.macro ALTINSTR_ENTRY orig alt ft_flags orig_len alt_len
+	FAKE_SYMBOL(__alt_, 681f)
 	.long \orig - .
 	.long \alt - .
 	.4byte \ft_flags
 	.byte \orig_len
 	.byte \alt_len
+	681:
+.endm
+
+.macro ALTINSTR_REPLACEMENT newinstr
+	FAKE_SYMBOL(__alt_instr_, 681f)
+	\newinstr
+	681:
 .endm
 
 .macro ALT_CALL_INSTR
@@ -396,12 +412,12 @@ void nop_func(void);
 142:
 
 	.pushsection .altinstructions,"a"
-	altinstr_entry 140b,143f,\ft_flags,142b-140b,144f-143f
+	ALTINSTR_ENTRY 140b,143f,\ft_flags,142b-140b,144f-143f
 	.popsection
 
 	.pushsection .altinstr_replacement,"ax"
 143:
-	\newinstr
+	ALTINSTR_REPLACEMENT "\newinstr"
 144:
 	.popsection
 .endm
@@ -435,15 +451,15 @@ void nop_func(void);
 142:
 
 	.pushsection .altinstructions,"a"
-	altinstr_entry 140b,143f,\ft_flags1,142b-140b,144f-143f
-	altinstr_entry 140b,144f,\ft_flags2,142b-140b,145f-144f
+	ALTINSTR_ENTRY 140b,143f,\ft_flags1,142b-140b,144f-143f
+	ALTINSTR_ENTRY 140b,144f,\ft_flags2,142b-140b,145f-144f
 	.popsection
 
 	.pushsection .altinstr_replacement,"ax"
 143:
-	\newinstr1
+	ALTINSTR_REPLACEMENT "\newinstr1"
 144:
-	\newinstr2
+	ALTINSTR_REPLACEMENT "\newinstr2"
 145:
 	.popsection
 .endm
@@ -457,18 +473,18 @@ void nop_func(void);
 142:
 
 	.pushsection .altinstructions,"a"
-	altinstr_entry 140b,143f,\ft_flags1,142b-140b,144f-143f
-	altinstr_entry 140b,144f,\ft_flags2,142b-140b,145f-144f
-	altinstr_entry 140b,145f,\ft_flags3,142b-140b,146f-145f
+	ALTINSTR_ENTRY 140b,143f,\ft_flags1,142b-140b,144f-143f
+	ALTINSTR_ENTRY 140b,144f,\ft_flags2,142b-140b,145f-144f
+	ALTINSTR_ENTRY 140b,145f,\ft_flags3,142b-140b,146f-145f
 	.popsection
 
 	.pushsection .altinstr_replacement,"ax"
 143:
-	\newinstr1
+	ALTINSTR_REPLACEMENT "\newinstr1"
 144:
-	\newinstr2
+	ALTINSTR_REPLACEMENT "\newinstr2"
 145:
-	\newinstr3
+	ALTINSTR_REPLACEMENT "\newinstr3"
 146:
 	.popsection
 .endm

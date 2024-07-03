@@ -15,9 +15,11 @@
 #define JUMP_TABLE_ENTRY				\
 	".pushsection __jump_table,  \"aw\" \n\t"	\
 	_ASM_ALIGN "\n\t"				\
+	FAKE_SYMBOL(__jump_table_, 2f)			\
 	".long 1b - . \n\t"				\
 	".long %l[l_yes] - . \n\t"			\
 	_ASM_PTR "%c0 + %c1 - .\n\t"			\
+	"2:\n\t"					\
 	".popsection \n\t"
 
 #ifdef CONFIG_HAVE_JUMP_LABEL_HACK
