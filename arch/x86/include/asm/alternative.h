@@ -170,16 +170,19 @@ static inline int alternatives_text_reserved(void *start, void *end)
 
 #define ALTINSTR_ENTRY(ft_flags)					      \
 	".pushsection .altinstructions,\"a\"\n"				      \
+	FAKE_SYMBOL(__alt_entry_, 776f)					      \
 	" .long 771b - .\n"				/* label           */ \
 	" .long 774f - .\n"				/* new instruction */ \
 	" .4byte " __stringify(ft_flags) "\n"		/* feature + flags */ \
 	" .byte " alt_total_slen "\n"			/* source len      */ \
 	" .byte " alt_rlen "\n"				/* replacement len */ \
+	"776:\n"							      \
 	".popsection\n"
 
 #define ALTINSTR_REPLACEMENT(newinstr)		/* replacement */	\
 	".pushsection .altinstr_replacement, \"ax\"\n"			\
 	"# ALT: replacement\n"						\
+	FAKE_SYMBOL(__alt_replacement_, 775f)				\
 	"774:\n\t" newinstr "\n775:\n"					\
 	".popsection\n"
 
@@ -328,11 +331,13 @@ void nop_func(void);
  * instruction. See apply_alternatives().
  */
 .macro altinstr_entry orig alt ft_flags orig_len alt_len
+	FAKE_SYMBOL(__alt_entry_, 745f)
 	.long \orig - .
 	.long \alt - .
 	.4byte \ft_flags
 	.byte \orig_len
 	.byte \alt_len
+745:
 .endm
 
 .macro ALT_CALL_INSTR
@@ -356,6 +361,7 @@ void nop_func(void);
 	.popsection ;							\
 	.pushsection .altinstr_replacement,"ax"	;			\
 743:									\
+	FAKE_SYMBOL(__alt_replacement_, 744f) ;				\
 	newinst	;							\
 744:									\
 	.popsection ;

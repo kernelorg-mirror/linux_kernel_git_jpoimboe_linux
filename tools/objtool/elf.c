@@ -1024,8 +1024,6 @@ struct elf *elf_create_file(GElf_Ehdr *ehdr, const char *name)
 	if (!gelf_update_ehdr(elf->elf, &elf->ehdr))
 		ERROR_ELF("gelf_update_ehdr");
 
-	INIT_LIST_HEAD(&elf->symbols);
-
 	elf_alloc_hash(section, 1000);
 	elf_alloc_hash(section_name, 1000);
 

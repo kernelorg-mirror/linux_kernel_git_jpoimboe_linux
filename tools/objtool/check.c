@@ -633,6 +633,18 @@ reachable:
 	}
 }
 
+static void create_fake_symbol(struct objtool_file *file, const char *name_pfx,
+			       struct section *sec, unsigned long offset,
+			       size_t size)
+{
+	char name[256];
+	static int ctr;
+
+	snprintf(name, 256, "%s_%d", name_pfx, ctr++);
+
+	elf_create_symbol(file->elf, name, sec, STB_LOCAL, STT_OBJECT, offset, size);
+}
+
 static void create_static_call_sections(struct objtool_file *file)
 {
 	struct static_call_site *site;
@@ -664,10 +676,11 @@ static void create_static_call_sections(struct objtool_file *file)
 
 	idx = 0;
 	list_for_each_entry(insn, &file->static_call_list, call_node) {
+		unsigned long offset = idx * sizeof(*site);
 
 		/* populate reloc for 'addr' */
-		elf_init_reloc_text_sym(file->elf, sec, idx * sizeof(*site),
-					idx * 2, insn->sec, insn->offset);
+		elf_init_reloc_text_sym(file->elf, sec, offset, idx * 2,
+					insn->sec, insn->offset);
 
 		/* find key symbol */
 		key_name = strdup(insn_call_dest(insn)->name);
@@ -698,9 +711,12 @@ static void create_static_call_sections(struct objtool_file *file)
 		free(key_name);
 
 		/* populate reloc for 'key' */
-		elf_init_reloc_data_sym(file->elf, sec, idx * sizeof(*site) + 4,
+		elf_init_reloc_data_sym(file->elf, sec, offset + 4,
 					(idx * 2) + 1, key_sym,
 					is_sibling_call(insn) * STATIC_CALL_SITE_TAIL);
+
+		create_fake_symbol(file, "__static_call_site_", sec,
+				   offset, sizeof(*site));
 
 		idx++;
 	}
