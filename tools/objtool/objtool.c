@@ -8,6 +8,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
+
 #include <subcmd/exec-cmd.h>
 #include <subcmd/pager.h>
 #include <linux/kernel.h>
@@ -21,82 +23,59 @@ bool help;
 char *Objname;
 static struct objtool_file file;
 
-static bool objtool_create_backup(const char *objname)
+static void objtool_create_backup(const char *objname)
 {
 	int len = strlen(objname);
 	char *buf, *base, *name = malloc(len+6);
 	int s, d, l, t;
 
-	if (!name) {
-		perror("failed backup name malloc");
-		return false;
-	}
+	name = malloc(len+6);
+	ERROR_ON(!name, "malloc");
 
 	strcpy(name, objname);
 	strcpy(name + len, ".orig");
 
 	d = open(name, O_CREAT|O_WRONLY|O_TRUNC, 0644);
-	if (d < 0) {
-		perror("failed to create backup file");
-		return false;
-	}
+	ERROR_ON(d < 0, "can't create '%s': %s", name, strerror(errno));
 
 	s = open(objname, O_RDONLY);
-	if (s < 0) {
-		perror("failed to open orig file");
-		return false;
-	}
+	ERROR_ON(s < 0, "can't open '%s': %s", objname, strerror(errno));
 
 	buf = malloc(4096);
-	if (!buf) {
-		perror("failed backup data malloc");
-		return false;
-	}
+	ERROR_ON(!buf, "malloc");
 
 	while ((l = read(s, buf, 4096)) > 0) {
 		base = buf;
 		do {
 			t = write(d, base, l);
-			if (t < 0) {
-				perror("failed backup write");
-				return false;
-			}
+			ERROR_ON(t < 0, "failed backup write");
+
 			base += t;
 			l -= t;
 		} while (l);
 	}
 
-	if (l < 0) {
-		perror("failed backup read");
-		return false;
-	}
+	ERROR_ON(l < 0, "failed backup read");
 
 	free(name);
 	free(buf);
 	close(d);
 	close(s);
-
-	return true;
 }
 
 struct objtool_file *objtool_open_read(const char *objname)
 {
 	if (Objname) {
-		if (strcmp(Objname, objname)) {
-			WARN("won't handle more than one file at a time");
-			return NULL;
-		}
+		if (strcmp(Objname, objname))
+			ERROR("won't handle more than one file at a time");
+
 		return &file;
 	}
 
 	file.elf = elf_open_read(objname, O_RDWR);
-	if (!file.elf)
-		return NULL;
 
-	if (opts.backup && !objtool_create_backup(objname)) {
-		WARN("can't create backup file");
-		return NULL;
-	}
+	if (opts.backup)
+		objtool_create_backup(objname);
 
 	hash_init(file.insn_hash);
 	INIT_LIST_HEAD(&file.retpoline_call_list);
@@ -116,10 +95,8 @@ void objtool_pv_add(struct objtool_file *f, int idx, struct symbol *func)
 	if (!opts.noinstr)
 		return;
 
-	if (!f->pv_ops) {
-		WARN("paravirt confusion");
-		return;
-	}
+	if (!f->pv_ops)
+		ERROR("paravirt confusion");
 
 	/*
 	 * These functions will be patched into native code,

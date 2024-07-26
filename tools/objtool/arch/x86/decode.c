@@ -36,8 +36,7 @@ static int is_x86_64(const struct elf *elf)
 	case EM_386:
 		return 0;
 	default:
-		WARN("unexpected ELF machine type %d", elf->ehdr.e_machine);
-		return -1;
+		ERROR("unexpected ELF machine type %d", elf->ehdr.e_machine);
 	}
 }
 
@@ -172,10 +171,8 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 
 	ret = insn_decode(&ins, sec->data->d_buf + offset, maxlen,
 			  x86_64 ? INSN_MODE_64 : INSN_MODE_32);
-	if (ret < 0) {
-		WARN("can't decode instruction at %s:0x%lx", sec->name, offset);
-		return -1;
-	}
+	if (ret < 0)
+		ERROR("can't decode instruction at %s:0x%lx", sec->name, offset);
 
 	insn->len = ins.length;
 	insn->type = INSN_OTHER;
@@ -447,10 +444,8 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 		break;
 
 	case 0x8d:
-		if (mod_is_reg()) {
-			WARN("invalid LEA encoding at %s:0x%lx", sec->name, offset);
-			break;
-		}
+		if (mod_is_reg())
+			ERROR("invalid LEA encoding at %s:0x%lx", sec->name, offset);
 
 		/* skip non 64bit ops */
 		if (!rex_w)
@@ -559,8 +554,7 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 			if (ins.prefixes.nbytes == 1 &&
 			    ins.prefixes.bytes[0] == 0xf2) {
 				/* ENQCMD cannot be used in the kernel. */
-				WARN("ENQCMD instruction at %s:%lx", sec->name,
-				     offset);
+				ERROR("ENQCMD instruction at %s:%lx", sec->name, offset);
 			}
 
 		} else if (op2 == 0xa0 || op2 == 0xa8) {
@@ -643,10 +637,8 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 			func = disp->sym;
 			if (disp->sym->type == STT_SECTION)
 				func = find_symbol_by_offset(disp->sym->sec, reloc_addend(disp));
-			if (!func) {
-				WARN("no func for pv_ops[]");
-				return -1;
-			}
+			if (!func)
+				ERROR("no func for pv_ops[]");
 
 			objtool_pv_add(file, idx, func);
 		}
@@ -709,13 +701,13 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 
 			insn->type = INSN_CALL_DYNAMIC;
 			if (has_notrack_prefix(&ins))
-				WARN("notrack prefix found at %s:0x%lx", sec->name, offset);
+				ERROR("notrack prefix found at %s:0x%lx", sec->name, offset);
 
 		} else if (modrm_reg == 4) {
 
 			insn->type = INSN_JUMP_DYNAMIC;
 			if (has_notrack_prefix(&ins))
-				WARN("notrack prefix found at %s:0x%lx", sec->name, offset);
+				ERROR("notrack prefix found at %s:0x%lx", sec->name, offset);
 
 		} else if (modrm_reg == 5) {
 
@@ -770,10 +762,8 @@ const char *arch_nop_insn(int len)
 		{ BYTES_NOP5 },
 	};
 
-	if (len < 1 || len > 5) {
-		WARN("invalid NOP size: %d\n", len);
-		return NULL;
-	}
+	if (len < 1 || len > 5)
+		ERROR("invalid NOP size: %d\n", len);
 
 	return nops[len-1];
 }
@@ -790,10 +780,8 @@ const char *arch_ret_insn(int len)
 		{ BYTE_RET, 0xcc, BYTES_NOP3 },
 	};
 
-	if (len < 1 || len > 5) {
-		WARN("invalid RET size: %d\n", len);
-		return NULL;
-	}
+	if (len < 1 || len > 5)
+		ERROR("invalid RET size: %d\n", len);
 
 	return ret[len-1];
 }

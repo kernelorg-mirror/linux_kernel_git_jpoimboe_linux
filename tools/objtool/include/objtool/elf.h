@@ -128,10 +128,10 @@ struct reloc *elf_init_reloc_data_sym(struct elf *elf, struct section *sec,
 				      struct symbol *sym,
 				      s64 addend);
 
-int elf_write_insn(struct elf *elf, struct section *sec,
-		   unsigned long offset, unsigned int len,
-		   const char *insn);
-int elf_write(struct elf *elf);
+void elf_write_insn(struct elf *elf, struct section *sec,
+		    unsigned long offset, unsigned int len,
+		    const char *insn);
+void elf_write(struct elf *elf);
 void elf_close(struct elf *elf);
 
 struct section *find_section_by_name(const struct elf *elf, const char *name);

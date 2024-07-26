@@ -7,7 +7,7 @@
 #include <objtool/warn.h>
 #include <objtool/endianness.h>
 
-int init_orc_entry(struct orc_entry *orc, struct cfi_state *cfi, struct instruction *insn)
+void init_orc_entry(struct orc_entry *orc, struct cfi_state *cfi, struct instruction *insn)
 {
 	struct cfi_reg *bp = &cfi->regs[CFI_BP];
 
@@ -20,16 +20,16 @@ int init_orc_entry(struct orc_entry *orc, struct cfi_state *cfi, struct instruct
 		 * STACK_FRAME_NON_STANDARD functions.
 		 */
 		orc->type = ORC_TYPE_UNDEFINED;
-		return 0;
+		return;
 	}
 
 	switch (cfi->type) {
 	case UNWIND_HINT_TYPE_UNDEFINED:
 		orc->type = ORC_TYPE_UNDEFINED;
-		return 0;
+		return;
 	case UNWIND_HINT_TYPE_END_OF_STACK:
 		orc->type = ORC_TYPE_END_OF_STACK;
-		return 0;
+		return;
 	case UNWIND_HINT_TYPE_CALL:
 		orc->type = ORC_TYPE_CALL;
 		break;
@@ -40,8 +40,7 @@ int init_orc_entry(struct orc_entry *orc, struct cfi_state *cfi, struct instruct
 		orc->type = ORC_TYPE_REGS_PARTIAL;
 		break;
 	default:
-		WARN_INSN(insn, "unknown unwind hint type %d", cfi->type);
-		return -1;
+		ERROR_INSN(insn, "unknown unwind hint type %d", cfi->type);
 	}
 
 	orc->signal = cfi->signal;
@@ -72,8 +71,7 @@ int init_orc_entry(struct orc_entry *orc, struct cfi_state *cfi, struct instruct
 		orc->sp_reg = ORC_REG_DX;
 		break;
 	default:
-		WARN_INSN(insn, "unknown CFA base reg %d", cfi->cfa.base);
-		return -1;
+		ERROR_INSN(insn, "unknown CFA base reg %d", cfi->cfa.base);
 	}
 
 	switch (bp->base) {
@@ -87,17 +85,14 @@ int init_orc_entry(struct orc_entry *orc, struct cfi_state *cfi, struct instruct
 		orc->bp_reg = ORC_REG_BP;
 		break;
 	default:
-		WARN_INSN(insn, "unknown BP base reg %d", bp->base);
-		return -1;
+		ERROR_INSN(insn, "unknown BP base reg %d", bp->base);
 	}
 
 	orc->sp_offset = cfi->cfa.offset;
 	orc->bp_offset = bp->offset;
-
-	return 0;
 }
 
-int write_orc_entry(struct elf *elf, struct section *orc_sec,
+void write_orc_entry(struct elf *elf, struct section *orc_sec,
 		    struct section *ip_sec, unsigned int idx,
 		    struct section *insn_sec, unsigned long insn_off,
 		    struct orc_entry *o)
@@ -111,11 +106,7 @@ int write_orc_entry(struct elf *elf, struct section *orc_sec,
 	orc->bp_offset = bswap_if_needed(elf, orc->bp_offset);
 
 	/* populate reloc for ip */
-	if (!elf_init_reloc_text_sym(elf, ip_sec, idx * sizeof(int), idx,
-				     insn_sec, insn_off))
-		return -1;
-
-	return 0;
+	elf_init_reloc_text_sym(elf, ip_sec, idx * sizeof(int), idx, insn_sec, insn_off);
 }
 
 static const char *reg_name(unsigned int reg)

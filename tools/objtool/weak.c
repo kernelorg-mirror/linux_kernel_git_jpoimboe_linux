@@ -12,7 +12,7 @@
 #define UNSUPPORTED(name)						\
 ({									\
 	fprintf(stderr, "error: objtool: " name " not implemented\n");	\
-	return ENOSYS;							\
+	exit(1);							\
 })
 
 int __weak orc_dump(const char *objname)
