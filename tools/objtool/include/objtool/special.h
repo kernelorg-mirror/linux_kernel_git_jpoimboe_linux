@@ -30,7 +30,7 @@ struct special_alt {
 	unsigned int orig_len, new_len; /* group only */
 };
 
-int special_get_alts(struct elf *elf, struct list_head *alts);
+void special_get_alts(struct elf *elf, struct list_head *alts);
 
 void arch_handle_alternative(unsigned short feature, struct special_alt *alt);
 

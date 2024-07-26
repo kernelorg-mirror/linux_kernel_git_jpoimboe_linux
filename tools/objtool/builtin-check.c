@@ -8,11 +8,7 @@
 #include <stdlib.h>
 #include <objtool/builtin.h>
 #include <objtool/objtool.h>
-
-#define ERROR(format, ...)				\
-	fprintf(stderr,					\
-		"error: objtool: " format "\n",		\
-		##__VA_ARGS__)
+#include <objtool/warn.h>
 
 struct opts opts;
 
@@ -129,7 +125,7 @@ int cmd_parse_options(int argc, const char **argv, const char * const usage[])
 	return argc;
 }
 
-static bool opts_valid(void)
+static void validate_opts(void)
 {
 	if (opts.hack_jump_label	||
 	    opts.hack_noinstr		||
@@ -143,63 +139,46 @@ static bool opts_valid(void)
 	    opts.stackval		||
 	    opts.static_call		||
 	    opts.uaccess) {
-		if (opts.dump_orc) {
+		if (opts.dump_orc)
 			ERROR("--dump can't be combined with other options");
-			return false;
-		}
 
-		return true;
+		return;
 	}
 
-	if (opts.unret && !opts.rethunk) {
+	if (opts.unret && !opts.rethunk)
 		ERROR("--unret requires --rethunk");
-		return false;
-	}
 
 	if (opts.dump_orc)
-		return true;
+		return;
 
 	ERROR("At least one command required");
-	return false;
 }
 
-static bool mnop_opts_valid(void)
+static void validate_mnop_opts(void)
 {
-	if (opts.mnop && !opts.mcount) {
+	if (opts.mnop && !opts.mcount)
 		ERROR("--mnop requires --mcount");
-		return false;
-	}
-
-	return true;
 }
 
-static bool link_opts_valid(struct objtool_file *file)
+static void validate_link_opts(struct objtool_file *file)
 {
 	if (opts.link)
-		return true;
+		return;
 
 	if (has_multiple_files(file->elf)) {
-		ERROR("Linked object detected, forcing --link");
+		WARN("Linked object detected, forcing --link");
 		opts.link = true;
-		return true;
+		return;
 	}
 
-	if (opts.noinstr) {
+	if (opts.noinstr)
 		ERROR("--noinstr requires --link");
-		return false;
-	}
 
-	if (opts.ibt) {
+	if (opts.ibt)
 		ERROR("--ibt requires --link");
-		return false;
-	}
 
-	if (opts.unret) {
+	if (opts.unret)
 		ERROR("--unret requires --link");
-		return false;
-	}
-
-	return true;
 }
 
 int objtool_run(int argc, const char **argv)
@@ -211,8 +190,7 @@ int objtool_run(int argc, const char **argv)
 	argc = cmd_parse_options(argc, argv, check_usage);
 	objname = argv[0];
 
-	if (!opts_valid())
-		return 1;
+	validate_opts();
 
 	if (opts.dump_orc)
 		return orc_dump(objname);
@@ -221,18 +199,15 @@ int objtool_run(int argc, const char **argv)
 	if (!file)
 		return 1;
 
-	if (!mnop_opts_valid())
-		return 1;
-
-	if (!link_opts_valid(file))
-		return 1;
+	validate_mnop_opts();
+	validate_link_opts(file);
 
 	ret = check(file);
 	if (ret)
 		return ret;
 
 	if (file->elf->changed)
-		return elf_write(file->elf);
+		elf_write(file->elf);
 
 	return 0;
 }

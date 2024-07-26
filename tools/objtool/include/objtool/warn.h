@@ -48,7 +48,7 @@ static inline char *offstr(struct section *sec, unsigned long offset)
 		"%s: warning: objtool: " format "\n",	\
 		filename, ##__VA_ARGS__)
 
-#define WARN_FUNC(format, sec, offset, ...)		\
+#define WARN_FUNC(sec, offset, format, ...)		\
 ({							\
 	char *_str = offstr(sec, offset);		\
 	WARN("%s: " format, _str, ##__VA_ARGS__);	\
@@ -59,10 +59,19 @@ static inline char *offstr(struct section *sec, unsigned long offset)
 ({									\
 	struct instruction *_insn = (insn);				\
 	if (!_insn->sym || !_insn->sym->warned)				\
-		WARN_FUNC(format, _insn->sec, _insn->offset,		\
+		WARN_FUNC(_insn->sec, _insn->offset, format,		\
 			  ##__VA_ARGS__);				\
 	if (_insn->sym)							\
 		_insn->sym->warned = 1;					\
+})
+
+#define WARN_ONCE(format, ...)						\
+({									\
+	static bool warned;						\
+	if (!warned) {							\
+		warned = true;						\
+		WARN(format, ##__VA_ARGS__);				\
+	}								\
 })
 
 #define BT_INSN(insn, format, ...)				\
@@ -77,5 +86,34 @@ static inline char *offstr(struct section *sec, unsigned long offset)
 
 #define WARN_ELF(format, ...)				\
 	WARN(format ": %s", ##__VA_ARGS__, elf_errmsg(-1))
+
+#define ERROR(format, ...)						\
+({									\
+	fprintf(stderr,							\
+		"%s: error: objtool [%s:%d]: " format "\n",		\
+		Objname, __FILE__, __LINE__, ##__VA_ARGS__);		\
+	exit(1);							\
+})
+
+#define ERROR_ON(cond, format, ...)					\
+({									\
+	if (cond)							\
+		ERROR(format, ##__VA_ARGS__);				\
+})
+
+#define ERROR_ELF(format, ...)						\
+	ERROR(format ": %s", ##__VA_ARGS__, elf_errmsg(-1))
+
+#define ERROR_FUNC(sec, offset, format, ...)				\
+({									\
+	char *_str = offstr(sec, offset);				\
+	ERROR("%s: " format, _str, ##__VA_ARGS__);			\
+})
+
+#define ERROR_INSN(insn, format, ...)					\
+({									\
+	struct instruction *_insn = (insn);				\
+	ERROR_FUNC(_insn->sec, _insn->offset, format, ##__VA_ARGS__);	\
+})
 
 #endif /* _WARN_H */

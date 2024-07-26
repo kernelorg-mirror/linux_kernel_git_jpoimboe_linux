@@ -21,22 +21,19 @@ struct orc_list_entry {
 	unsigned long insn_off;
 };
 
-static int orc_list_add(struct list_head *orc_list, struct orc_entry *orc,
+static void orc_list_add(struct list_head *orc_list, struct orc_entry *orc,
 			struct section *sec, unsigned long offset)
 {
-	struct orc_list_entry *entry = malloc(sizeof(*entry));
+	struct orc_list_entry *entry;
 
-	if (!entry) {
-		WARN("malloc failed");
-		return -1;
-	}
+	entry = malloc(sizeof(*entry));
+	ERROR_ON(!entry, "malloc");
 
 	entry->orc	= *orc;
 	entry->insn_sec = sec;
 	entry->insn_off = offset;
 
 	list_add_tail(&entry->list, orc_list);
-	return 0;
 }
 
 static unsigned long alt_group_len(struct alt_group *alt_group)
@@ -70,13 +67,13 @@ int orc_create(struct objtool_file *file)
 			int i;
 
 			if (!alt_group) {
-				if (init_orc_entry(&orc, insn->cfi, insn))
-					return -1;
+				init_orc_entry(&orc, insn->cfi, insn);
+
 				if (!memcmp(&prev_orc, &orc, sizeof(orc)))
 					continue;
-				if (orc_list_add(&orc_list, &orc, sec,
-						 insn->offset))
-					return -1;
+
+				orc_list_add(&orc_list, &orc, sec, insn->offset);
+
 				nr++;
 				prev_orc = orc;
 				empty = false;
@@ -95,13 +92,10 @@ int orc_create(struct objtool_file *file)
 				if (!cfi)
 					continue;
 				/* errors are reported on the original insn */
-				if (init_orc_entry(&orc, cfi, insn))
-					return -1;
+				init_orc_entry(&orc, cfi, insn);
 				if (!memcmp(&prev_orc, &orc, sizeof(orc)))
 					continue;
-				if (orc_list_add(&orc_list, &orc, insn->sec,
-						 insn->offset + i))
-					return -1;
+				orc_list_add(&orc_list, &orc, insn->sec, insn->offset + i);
 				nr++;
 				prev_orc = orc;
 				empty = false;
@@ -124,23 +118,17 @@ int orc_create(struct objtool_file *file)
 	sec = find_section_by_name(file->elf, ".orc_unwind");
 	if (sec) {
 		WARN("file already has .orc_unwind section, skipping");
-		return -1;
+		return 0;
 	}
 	orc_sec = elf_create_section(file->elf, ".orc_unwind",
 				     sizeof(struct orc_entry), nr);
-	if (!orc_sec)
-		return -1;
 
 	sec = elf_create_section_pair(file->elf, ".orc_unwind_ip", sizeof(int), nr, nr);
-	if (!sec)
-		return -1;
 
 	/* Write ORC entries to sections: */
 	list_for_each_entry(entry, &orc_list, list) {
-		if (write_orc_entry(file->elf, orc_sec, sec, idx++,
-				    entry->insn_sec, entry->insn_off,
-				    &entry->orc))
-			return -1;
+		write_orc_entry(file->elf, orc_sec, sec, idx++, entry->insn_sec,
+				entry->insn_off, &entry->orc);
 	}
 
 	return 0;

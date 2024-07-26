@@ -65,9 +65,9 @@ static void reloc_to_sec_off(struct reloc *reloc, struct section **sec,
 	*off = reloc->sym->offset + reloc_addend(reloc);
 }
 
-static int get_alt_entry(struct elf *elf, const struct special_entry *entry,
-			 struct section *sec, int idx,
-			 struct special_alt *alt)
+static void get_alt_entry(struct elf *elf, const struct special_entry *entry,
+			  struct section *sec, int idx,
+			  struct special_alt *alt)
 {
 	struct reloc *orig_reloc, *new_reloc;
 	unsigned long offset;
@@ -95,20 +95,15 @@ static int get_alt_entry(struct elf *elf, const struct special_entry *entry,
 	}
 
 	orig_reloc = find_reloc_by_dest(elf, sec, offset + entry->orig);
-	if (!orig_reloc) {
-		WARN_FUNC("can't find orig reloc", sec, offset + entry->orig);
-		return -1;
-	}
+	if (!orig_reloc)
+		ERROR_FUNC(sec, offset + entry->orig, "can't find orig reloc");
 
 	reloc_to_sec_off(orig_reloc, &alt->orig_sec, &alt->orig_off);
 
 	if (!entry->group || alt->new_len) {
 		new_reloc = find_reloc_by_dest(elf, sec, offset + entry->new);
-		if (!new_reloc) {
-			WARN_FUNC("can't find new reloc",
-				  sec, offset + entry->new);
-			return -1;
-		}
+		if (!new_reloc)
+			ERROR_FUNC(sec, offset + entry->new, "can't find new reloc");
 
 		reloc_to_sec_off(new_reloc, &alt->new_sec, &alt->new_off);
 
@@ -121,15 +116,11 @@ static int get_alt_entry(struct elf *elf, const struct special_entry *entry,
 		struct reloc *key_reloc;
 
 		key_reloc = find_reloc_by_dest(elf, sec, offset + entry->key);
-		if (!key_reloc) {
-			WARN_FUNC("can't find key reloc",
-				  sec, offset + entry->key);
-			return -1;
-		}
+		if (!key_reloc)
+			ERROR_FUNC(sec, offset + entry->key, "can't find key reloc");
+
 		alt->key_addend = reloc_addend(key_reloc);
 	}
-
-	return 0;
 }
 
 /*
@@ -137,13 +128,13 @@ static int get_alt_entry(struct elf *elf, const struct special_entry *entry,
  * describe all the alternate instructions which can be patched in or
  * redirected to at runtime.
  */
-int special_get_alts(struct elf *elf, struct list_head *alts)
+void special_get_alts(struct elf *elf, struct list_head *alts)
 {
 	const struct special_entry *entry;
 	struct section *sec;
 	unsigned int nr_entries;
 	struct special_alt *alt;
-	int idx, ret;
+	int idx;
 
 	INIT_LIST_HEAD(alts);
 
@@ -152,31 +143,18 @@ int special_get_alts(struct elf *elf, struct list_head *alts)
 		if (!sec)
 			continue;
 
-		if (sec_size(sec) % entry->size != 0) {
-			WARN("%s size not a multiple of %d",
-			     sec->name, entry->size);
-			return -1;
-		}
+		if (sec_size(sec) % entry->size != 0)
+			ERROR("%s size not a multiple of %d", sec->name, entry->size);
 
 		nr_entries = sec_size(sec) / entry->size;
 
 		for (idx = 0; idx < nr_entries; idx++) {
-			alt = malloc(sizeof(*alt));
-			if (!alt) {
-				WARN("malloc failed");
-				return -1;
-			}
-			memset(alt, 0, sizeof(*alt));
+			alt = calloc(1, sizeof(*alt));
+			ERROR_ON(!alt, "calloc");
 
-			ret = get_alt_entry(elf, entry, sec, idx, alt);
-			if (ret > 0)
-				continue;
-			if (ret < 0)
-				return ret;
+			get_alt_entry(elf, entry, sec, idx, alt);
 
 			list_add_tail(&alt->list, alts);
 		}
 	}
-
-	return 0;
 }
