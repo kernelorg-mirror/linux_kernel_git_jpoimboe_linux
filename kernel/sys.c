@@ -1291,7 +1291,7 @@ static int override_release(char __user *release, size_t len)
 	int ret = 0;
 
 	if (current->personality & UNAME26) {
-		const char *rest = UTS_RELEASE;
+		static const char *rest = UTS_RELEASE;
 		char buf[65] = { 0 };
 		int ndots = 0;
 		unsigned v;
