@@ -10,7 +10,7 @@
 #define EM_LOONGARCH	258
 #endif
 
-int arch_ftrace_match(char *name)
+int arch_ftrace_match(const char *name)
 {
 	return !strcmp(name, "_mcount");
 }
