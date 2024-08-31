@@ -814,7 +814,7 @@ elf_create_section_symbol(struct elf *elf, struct section *sec)
 	return sym;
 }
 
-static int elf_add_string(struct elf *elf, struct section *strtab, char *str);
+static int elf_add_string(struct elf *elf, struct section *strtab, const char *str);
 
 struct symbol *
 elf_create_prefix_symbol(struct elf *elf, struct symbol *orig, long size)
@@ -1048,7 +1048,7 @@ err:
 	return NULL;
 }
 
-static int elf_add_string(struct elf *elf, struct section *strtab, char *str)
+static int elf_add_string(struct elf *elf, struct section *strtab, const char *str)
 {
 	Elf_Data *data;
 	Elf_Scn *s;
@@ -1073,7 +1073,7 @@ static int elf_add_string(struct elf *elf, struct section *strtab, char *str)
 		return -1;
 	}
 
-	data->d_buf = str;
+	data->d_buf = strdup(str);
 	data->d_size = strlen(str) + 1;
 	data->d_align = 1;
 
