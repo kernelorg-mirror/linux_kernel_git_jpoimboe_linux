@@ -107,7 +107,7 @@ static struct instruction *prev_insn_same_sym(struct objtool_file *file,
 #define for_each_insn(file, insn)					\
 	for (struct section *__sec, *__fake = (struct section *)1;	\
 	     __fake; __fake = NULL)					\
-		for_each_sec(file, __sec)				\
+		for_each_sec(file->elf, __sec)				\
 			sec_for_each_insn(file, __sec, insn)
 
 #define func_for_each_insn(file, func, insn)				\
@@ -374,7 +374,7 @@ static int decode_instructions(struct objtool_file *file)
 	struct instruction *insn;
 	int ret;
 
-	for_each_sec(file, sec) {
+	for_each_sec(file->elf, sec) {
 		struct instruction *insns = NULL;
 		u8 prev_len = 0;
 		u8 idx = 0;
@@ -899,7 +899,7 @@ static int create_cfi_sections(struct objtool_file *file)
 	}
 
 	idx = 0;
-	for_each_sym(file, sym) {
+	for_each_sym(file->elf, sym) {
 		if (sym->type != STT_FUNC)
 			continue;
 
@@ -915,7 +915,7 @@ static int create_cfi_sections(struct objtool_file *file)
 		return -1;
 
 	idx = 0;
-	for_each_sym(file, sym) {
+	for_each_sym(file->elf, sym) {
 		if (sym->type != STT_FUNC)
 			continue;
 
@@ -2198,7 +2198,7 @@ static int add_jump_table_alts(struct objtool_file *file)
 	if (!file->rodata)
 		return 0;
 
-	for_each_sym(file, func) {
+	for_each_sym(file->elf, func) {
 		if (func->type != STT_FUNC)
 			continue;
 
@@ -2534,7 +2534,7 @@ static int classify_symbols(struct objtool_file *file)
 {
 	struct symbol *func;
 
-	for_each_sym(file, func) {
+	for_each_sym(file->elf, func) {
 		if (func->type == STT_NOTYPE && strstarts(func->name, ".L"))
 			func->local_label = true;
 
@@ -2579,7 +2579,7 @@ static void mark_rodata(struct objtool_file *file)
 	 *
 	 * .rodata.str1.* sections are ignored; they don't contain jump tables.
 	 */
-	for_each_sec(file, sec) {
+	for_each_sec(file->elf, sec) {
 		if (!strncmp(sec->name, ".rodata", 7) &&
 		    !strstr(sec->name, ".str1.")) {
 			sec->rodata = true;
@@ -4198,7 +4198,7 @@ static int add_prefix_symbols(struct objtool_file *file)
 	struct section *sec;
 	struct symbol *func;
 
-	for_each_sec(file, sec) {
+	for_each_sec(file->elf, sec) {
 		if (!(sec->sh.sh_flags & SHF_EXECINSTR))
 			continue;
 
@@ -4289,7 +4289,7 @@ static int validate_functions(struct objtool_file *file)
 	struct section *sec;
 	int warnings = 0;
 
-	for_each_sec(file, sec) {
+	for_each_sec(file->elf, sec) {
 		if (!(sec->sh.sh_flags & SHF_EXECINSTR))
 			continue;
 
@@ -4458,7 +4458,7 @@ static int validate_ibt(struct objtool_file *file)
 	for_each_insn(file, insn)
 		warnings += validate_ibt_insn(file, insn);
 
-	for_each_sec(file, sec) {
+	for_each_sec(file->elf, sec) {
 
 		/* Already done by validate_ibt_insn() */
 		if (sec->sh.sh_flags & SHF_EXECINSTR)
@@ -4645,7 +4645,7 @@ static int disas_warned_funcs(struct objtool_file *file)
 	struct symbol *sym;
 	char *funcs = NULL, *tmp;
 
-	for_each_sym(file, sym) {
+	for_each_sym(file->elf, sym) {
 		if (sym->warned) {
 			if (!funcs) {
 				funcs = malloc(strlen(sym->name) + 1);
