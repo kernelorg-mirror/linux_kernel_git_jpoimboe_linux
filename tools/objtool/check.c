@@ -1486,7 +1486,7 @@ static void add_jump_destinations(struct objtool_file *file)
 		if (reloc) {
 			dest_sec = reloc->sym->sec;
 			dest_off = reloc->sym->sym.st_value +
-				   arch_dest_reloc_offset(reloc_addend(reloc));
+				   arch_insn_adjusted_addend(insn, reloc);
 		} else {
 			dest_sec = insn->sec;
 			dest_off = arch_jump_destination(insn);
@@ -1619,7 +1619,7 @@ static void add_call_destinations(struct objtool_file *file)
 				ERROR_INSN(insn, "unsupported call to non-function");
 
 		} else if (is_section_symbol(reloc->sym)) {
-			dest_off = arch_dest_reloc_offset(reloc_addend(reloc));
+			dest_off = arch_insn_adjusted_addend(insn, reloc);
 			dest = find_call_destination(reloc->sym->sec, dest_off);
 			if (!dest)
 				ERROR_INSN(insn, "can't find call dest symbol at %s+0x%lx",
@@ -3129,7 +3129,7 @@ static bool pv_call_dest(struct objtool_file *file, struct instruction *insn)
 	if (!reloc || strcmp(reloc->sym->name, "pv_ops"))
 		return false;
 
-	idx = (arch_dest_reloc_offset(reloc_addend(reloc)) / sizeof(void *));
+	idx = (arch_insn_adjusted_addend(insn, reloc) / sizeof(void *));
 
 	if (file->pv_ops[idx].clean)
 		return true;
@@ -4080,12 +4080,7 @@ static int validate_ibt_insn(struct objtool_file *file, struct instruction *insn
 		if (reloc->sym->static_call_tramp)
 			continue;
 
-		off = reloc->sym->offset;
-		if (reloc_type(reloc) == R_X86_64_PC32 ||
-		    reloc_type(reloc) == R_X86_64_PLT32)
-			off += arch_dest_reloc_offset(reloc_addend(reloc));
-		else
-			off += reloc_addend(reloc);
+		off = reloc->sym->offset + arch_insn_adjusted_addend(insn, reloc);
 
 		dest = find_insn(file, reloc->sym->sec, off);
 		if (!dest)
