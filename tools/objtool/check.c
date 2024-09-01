@@ -595,15 +595,7 @@ static int add_dead_ends(struct objtool_file *file)
 		goto reachable;
 
 	for_each_reloc(rsec, reloc) {
-		if (reloc->sym->type == STT_SECTION) {
-			offset = reloc_addend(reloc);
-		} else if (reloc->sym->local_label) {
-			offset = reloc->sym->offset;
-		} else {
-			WARN("unexpected relocation symbol type in %s", rsec->name);
-			return -1;
-		}
-
+		offset = reloc->sym->offset + reloc_addend(reloc);
 		insn = find_insn(file, reloc->sym->sec, offset);
 		if (insn)
 			insn = prev_insn_same_sec(file, insn);
@@ -635,15 +627,7 @@ reachable:
 		return 0;
 
 	for_each_reloc(rsec, reloc) {
-		if (reloc->sym->type == STT_SECTION) {
-			offset = reloc_addend(reloc);
-		} else if (reloc->sym->local_label) {
-			offset = reloc->sym->offset;
-		} else {
-			WARN("unexpected relocation symbol type in %s", rsec->name);
-			return -1;
-		}
-
+		offset = reloc->sym->offset + reloc_addend(reloc);
 		insn = find_insn(file, reloc->sym->sec, offset);
 		if (insn)
 			insn = prev_insn_same_sec(file, insn);
@@ -1274,12 +1258,9 @@ static int add_ignore_alternatives(struct objtool_file *file)
 		return 0;
 
 	for_each_reloc(rsec, reloc) {
-		if (reloc->sym->type != STT_SECTION) {
-			WARN("unexpected relocation symbol type in %s", rsec->name);
-			return -1;
-		}
+		unsigned long offset = reloc->sym->offset + reloc_addend(reloc);
 
-		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
+		insn = find_insn(file, reloc->sym->sec, offset);
 		if (!insn) {
 			WARN("bad .discard.ignore_alts entry");
 			return -1;
@@ -2255,15 +2236,7 @@ static int read_unwind_hints(struct objtool_file *file)
 			return -1;
 		}
 
-		if (reloc->sym->type == STT_SECTION) {
-			offset = reloc_addend(reloc);
-		} else if (reloc->sym->local_label) {
-			offset = reloc->sym->offset;
-		} else {
-			WARN("unexpected relocation symbol type in %s", sec->rsec->name);
-			return -1;
-		}
-
+		offset = reloc->sym->offset + reloc_addend(reloc);
 		insn = find_insn(file, reloc->sym->sec, offset);
 		if (!insn) {
 			WARN("can't find insn for unwind_hints[%d]", i);
@@ -2356,12 +2329,9 @@ static int read_retpoline_hints(struct objtool_file *file)
 		return 0;
 
 	for_each_reloc(rsec, reloc) {
-		if (reloc->sym->type != STT_SECTION) {
-			WARN("unexpected relocation symbol type in %s", rsec->name);
-			return -1;
-		}
+		unsigned long offset = reloc->sym->offset + reloc_addend(reloc);
 
-		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
+		insn = find_insn(file, reloc->sym->sec, offset);
 		if (!insn) {
 			WARN("bad .discard.retpoline_safe entry");
 			return -1;
@@ -2392,12 +2362,9 @@ static int read_instr_hints(struct objtool_file *file)
 		return 0;
 
 	for_each_reloc(rsec, reloc) {
-		if (reloc->sym->type != STT_SECTION) {
-			WARN("unexpected relocation symbol type in %s", rsec->name);
-			return -1;
-		}
+		unsigned long offset = reloc->sym->offset + reloc_addend(reloc);
 
-		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
+		insn = find_insn(file, reloc->sym->sec, offset);
 		if (!insn) {
 			WARN("bad .discard.instr_end entry");
 			return -1;
@@ -2411,12 +2378,9 @@ static int read_instr_hints(struct objtool_file *file)
 		return 0;
 
 	for_each_reloc(rsec, reloc) {
-		if (reloc->sym->type != STT_SECTION) {
-			WARN("unexpected relocation symbol type in %s", rsec->name);
-			return -1;
-		}
+		unsigned long offset = reloc->sym->offset + reloc_addend(reloc);
 
-		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
+		insn = find_insn(file, reloc->sym->sec, offset);
 		if (!insn) {
 			WARN("bad .discard.instr_begin entry");
 			return -1;
@@ -2439,12 +2403,9 @@ static int read_validate_unret_hints(struct objtool_file *file)
 		return 0;
 
 	for_each_reloc(rsec, reloc) {
-		if (reloc->sym->type != STT_SECTION) {
-			WARN("unexpected relocation symbol type in %s", rsec->name);
-			return -1;
-		}
+		unsigned long offset = reloc->sym->offset + reloc_addend(reloc);
 
-		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
+		insn = find_insn(file, reloc->sym->sec, offset);
 		if (!insn) {
 			WARN("bad .discard.instr_end entry");
 			return -1;
@@ -2468,14 +2429,9 @@ static int read_intra_function_calls(struct objtool_file *file)
 
 	for_each_reloc(rsec, reloc) {
 		unsigned long dest_off;
+		unsigned long offset = reloc->sym->offset + reloc_addend(reloc);
 
-		if (!is_section_symbol(reloc->sym)) {
-			WARN("unexpected relocation symbol type in %s",
-			     rsec->name);
-			return -1;
-		}
-
-		insn = find_insn(file, reloc->sym->sec, reloc_addend(reloc));
+		insn = find_insn(file, reloc->sym->sec, offset);
 		if (!insn) {
 			WARN("bad .discard.intra_function_call entry");
 			return -1;
