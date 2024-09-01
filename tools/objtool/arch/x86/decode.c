@@ -528,10 +528,18 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 			/* sysenter, sysret */
 			insn->type = INSN_CONTEXT_SWITCH;
 
-		} else if (op2 == 0x0b || op2 == 0xb9) {
+		} else if (op2 == 0x0b) {
 
 			/* ud2 */
 			insn->type = INSN_BUG;
+
+		} else if (op2 == 0xb9) {
+
+			/*
+			 * ud1 - only used for the static call trampoline to
+			 * stop speculation.  Basically used like an int3.
+			 */
+			insn->type = INSN_TRAP;
 
 		} else if (op2 == 0x0d || op2 == 0x1f) {
 
