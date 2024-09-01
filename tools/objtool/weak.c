@@ -15,7 +15,7 @@
 	return ENOSYS;							\
 })
 
-int __weak orc_dump(const char *_objname)
+int __weak orc_dump(const char *objname)
 {
 	UNSUPPORTED("ORC");
 }

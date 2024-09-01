@@ -39,7 +39,7 @@ struct objtool_file {
 	struct pv_state *pv_ops;
 };
 
-struct objtool_file *objtool_open_read(const char *_objname);
+struct objtool_file *objtool_open_read(const char *objname);
 
 void objtool_pv_add(struct objtool_file *file, int idx, struct symbol *func);
 

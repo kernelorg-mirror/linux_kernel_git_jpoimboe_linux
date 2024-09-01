@@ -996,6 +996,9 @@ struct elf *elf_open_read(const char *name, int flags)
 	struct elf *elf;
 	Elf_Cmd cmd;
 
+	if (!Objname)
+		Objname = strdup(name);
+
 	elf_version(EV_CURRENT);
 
 	elf = malloc(sizeof(*elf));

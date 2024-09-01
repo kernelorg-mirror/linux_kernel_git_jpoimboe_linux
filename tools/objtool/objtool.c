@@ -18,12 +18,12 @@
 
 bool help;
 
-const char *objname;
+char *Objname;
 static struct objtool_file file;
 
-static bool objtool_create_backup(const char *_objname)
+static bool objtool_create_backup(const char *objname)
 {
-	int len = strlen(_objname);
+	int len = strlen(objname);
 	char *buf, *base, *name = malloc(len+6);
 	int s, d, l, t;
 
@@ -32,7 +32,7 @@ static bool objtool_create_backup(const char *_objname)
 		return false;
 	}
 
-	strcpy(name, _objname);
+	strcpy(name, objname);
 	strcpy(name + len, ".orig");
 
 	d = open(name, O_CREAT|O_WRONLY|O_TRUNC, 0644);
@@ -41,7 +41,7 @@ static bool objtool_create_backup(const char *_objname)
 		return false;
 	}
 
-	s = open(_objname, O_RDONLY);
+	s = open(objname, O_RDONLY);
 	if (s < 0) {
 		perror("failed to open orig file");
 		return false;
@@ -79,16 +79,15 @@ static bool objtool_create_backup(const char *_objname)
 	return true;
 }
 
-struct objtool_file *objtool_open_read(const char *_objname)
+struct objtool_file *objtool_open_read(const char *objname)
 {
-	if (objname) {
-		if (strcmp(objname, _objname)) {
+	if (Objname) {
+		if (strcmp(Objname, objname)) {
 			WARN("won't handle more than one file at a time");
 			return NULL;
 		}
 		return &file;
 	}
-	objname = _objname;
 
 	file.elf = elf_open_read(objname, O_RDWR);
 	if (!file.elf)
