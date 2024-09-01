@@ -4623,7 +4623,7 @@ static int disas_funcs(const char *funcs)
 			"}' 1>&2";
 
 	/* fake snprintf() to calculate the size */
-	size = snprintf(NULL, 0, objdump_str, cross_compile, objname, funcs) + 1;
+	size = snprintf(NULL, 0, objdump_str, cross_compile, Objname, funcs) + 1;
 	if (size <= 0) {
 		WARN("objdump string size calculation failed");
 		return -1;
@@ -4632,7 +4632,7 @@ static int disas_funcs(const char *funcs)
 	cmd = malloc(size);
 
 	/* real snprintf() */
-	snprintf(cmd, size, objdump_str, cross_compile, objname, funcs);
+	snprintf(cmd, size, objdump_str, cross_compile, Objname, funcs);
 	ret = system(cmd);
 	if (ret) {
 		WARN("disassembly failed: %d", ret);

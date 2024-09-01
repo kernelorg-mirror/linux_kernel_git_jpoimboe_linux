@@ -14,7 +14,7 @@
 #include <objtool/builtin.h>
 #include <objtool/elf.h>
 
-extern const char *objname;
+extern char *Objname;
 
 static inline char *offstr(struct section *sec, unsigned long offset)
 {
@@ -41,10 +41,12 @@ static inline char *offstr(struct section *sec, unsigned long offset)
 	return str;
 }
 
-#define WARN(format, ...)				\
+#define WARN(...) WARN_FILENAME(Objname, ##__VA_ARGS__)
+
+#define WARN_FILENAME(filename, format, ...)		\
 	fprintf(stderr,					\
 		"%s: warning: objtool: " format "\n",	\
-		objname, ##__VA_ARGS__)
+		filename, ##__VA_ARGS__)
 
 #define WARN_FUNC(format, sec, offset, ...)		\
 ({							\

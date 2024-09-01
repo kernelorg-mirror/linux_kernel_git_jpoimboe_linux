@@ -204,8 +204,8 @@ static bool link_opts_valid(struct objtool_file *file)
 
 int objtool_run(int argc, const char **argv)
 {
-	const char *objname;
 	struct objtool_file *file;
+	const char *objname;
 	int ret;
 
 	argc = cmd_parse_options(argc, argv, check_usage);
