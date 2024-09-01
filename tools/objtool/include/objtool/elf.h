@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <gelf.h>
+#include <linux/string.h>
 #include <linux/list.h>
 #include <linux/hashtable.h>
 #include <linux/rbtree.h>
@@ -174,9 +175,74 @@ static inline unsigned int elf_text_rela_type(struct elf *elf)
 	return elf_addr_size(elf) == 4 ? R_TEXT32 : R_TEXT64;
 }
 
-static inline bool is_reloc_sec(struct section *sec)
+static inline bool sym_has_section(struct symbol *sym)
+{
+	return sym->sec->idx;
+}
+
+static inline bool is_null_symbol(struct symbol *sym)
+{
+	return !sym->idx;
+}
+
+static inline bool is_section_symbol(struct symbol *sym)
+{
+	return sym->type == STT_SECTION;
+}
+
+static inline bool is_object_symbol(struct symbol *sym)
+{
+	return sym->type == STT_OBJECT;
+}
+
+static inline bool is_function_symbol(struct symbol *sym)
+{
+	return sym->type == STT_FUNC;
+}
+
+static inline bool is_file_symbol(struct symbol *sym)
+{
+	return sym->type == STT_FILE;
+}
+
+static inline bool is_notype_symbol(struct symbol *sym)
+{
+	return sym->type == STT_NOTYPE;
+}
+
+static inline bool is_prefix_symbol(struct symbol *sym)
+{
+	return is_function_symbol(sym) && strstarts(sym->name, "__pfx_");
+}
+
+static inline bool is_global_symbol(struct symbol *sym)
+{
+	return sym->bind == STB_GLOBAL;
+}
+
+static inline bool is_weak_symbol(struct symbol *sym)
+{
+	return sym->bind == STB_WEAK;
+}
+
+static inline bool is_local_symbol(struct symbol *sym)
+{
+	return sym->bind == STB_LOCAL;
+}
+
+static inline bool is_reloc_section(struct section *sec)
 {
 	return sec->sh.sh_type == SHT_RELA || sec->sh.sh_type == SHT_REL;
+}
+
+static inline bool is_string_section(struct section *sec)
+{
+	return sec->sh.sh_flags & SHF_STRINGS;
+}
+
+static inline bool is_text_section(struct section *sec)
+{
+	return sec->sh.sh_flags & SHF_EXECINSTR;
 }
 
 static inline bool sec_changed(struct section *sec)
@@ -217,6 +283,11 @@ static inline bool is_32bit_reloc(struct reloc *reloc)
 	 * Elf64_Rela: 24 bytes
 	 */
 	return reloc->sec->sh.sh_entsize < 16;
+}
+
+static inline unsigned long sec_size(struct section *sec)
+{
+	return sec->sh.sh_size;
 }
 
 #define __get_reloc_field(reloc, field)					\
