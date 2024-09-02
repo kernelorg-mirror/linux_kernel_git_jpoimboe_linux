@@ -46,5 +46,6 @@ extern struct opts opts;
 extern int cmd_parse_options(int argc, const char **argv, const char * const usage[]);
 
 extern int objtool_run(int argc, const char **argv);
+extern int cmd_klp(int argc, const char **argv);
 
 #endif /* _BUILTIN_H */

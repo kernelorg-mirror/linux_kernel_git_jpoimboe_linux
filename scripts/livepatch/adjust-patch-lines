@@ -1,0 +1,181 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (C) 2024 Josh Poimboeuf <jpoimboe@kernel.org>
+#
+# Add #line statements to a patch so it doesn't affect __LINE__ usage
+
+SCRIPT="$(basename "$0")"
+
+set -o errexit
+set -o errtrace
+set -o pipefail
+
+warn() {
+	str="$1"
+	if [ -n "$str" ]; then
+		echo -e "$SCRIPT: error: $*" >&2
+	else
+		echo -e "$SCRIPT: error" >&2
+
+	fi
+}
+
+die() {
+	warn "$@"
+	if [ -n "$TMPFILE" ]; then
+		rm -f "$TMPFILE"
+	fi
+	exit 1
+}
+
+do_trap() {
+	die
+}
+
+trap do_trap ERR
+
+__usage() {
+	echo "Usage: $SCRIPT [options] patch_file [output_file]"
+	echo "Add #line statements to a patch so it doesn't affect __LINE__ usage"
+	echo "for the rest of the file.  This prevents false positive changes in the binary."
+	echo
+	echo "Options:"
+	echo "  -h, --help       Show this help message and exit"
+	echo
+	echo "Arguments:"
+	echo "  patch_file       Source .patch file"
+	echo "  output_file      Optional output file.  If not provided 'patch_file' will be"
+	echo "                   edited in place."
+}
+
+usage() {
+	__usage >&2
+}
+
+args=$(getopt -o "h" -l "help" -- "$@")
+eval set -- "$args"
+
+while true; do
+	case "$1" in
+		-h | --help)
+			usage
+			exit 0
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			usage
+			exit 1
+			;;
+	esac
+done
+
+if [ $# != 1 ] && [ $# != 2 ]; then
+	usage
+	die "unexpected # of args $#"
+fi
+
+patch="$1"
+
+if [ ! -e "$patch" ]; then
+	die "missing file: $patch"
+fi
+
+if [ $# = 2 ]; then
+	output="$2"
+else
+	output="$patch"
+fi
+
+TMPFILE="$(mktemp)"
+
+skip_file=false
+in_hunk=false
+needs_update=false
+while IFS= read -r line; do
+	if [[ "$line" =~ ^---\  ]]; then
+		filename="${line#--- */}"
+
+		if [[ ! "$filename" =~ \.[ch]$ ]]; then
+			skip_file=true
+			echo "$line" >> "$TMPFILE"
+			continue
+		fi
+
+		case "$filename" in
+			*vmlinux.lds.h)
+				skip_file=true
+				echo "$line" >> "$TMPFILE"
+				continue
+				;;
+		esac
+
+		skip_file=false
+		in_hunk=false
+		needs_update=false
+		echo "$line" >> "$TMPFILE"
+		continue
+	fi
+
+	if $skip_file; then
+		echo "$line" >> "$TMPFILE"
+		continue
+	fi
+
+	if [[ "$line" =~ ^@@ ]]; then
+
+		in_hunk=true
+		needs_update=false
+
+		cur="${line#*-}"
+		cur="${cur%%,*}"
+		((cur--))
+
+		last="${line#*,}"
+		last="${last%% *}"
+		last=$((cur + last))
+
+		echo "$line" >> "$TMPFILE"
+		continue
+	fi
+
+	if $in_hunk; then
+		if [[ "$line" =~ ^\+ ]]; then
+			needs_update=true
+			echo "$line" >> "$TMPFILE"
+			continue
+		fi
+
+		if [[ "$line" =~ ^- ]]; then
+			((cur++))
+			needs_update=true
+			echo "$line" >> "$TMPFILE"
+			continue
+		fi
+
+		if $needs_update; then
+			((cur++))
+			needs_update=false
+			echo "+#line $cur" >> "$TMPFILE"
+			echo "$line" >> "$TMPFILE"
+			continue
+		fi
+
+		((cur++))
+		echo "$line" >> "$TMPFILE"
+
+		if [ $cur = $last ]; then
+			in_hunk=false
+		fi
+
+		continue
+	fi
+
+	echo "$line" >> "$TMPFILE"
+
+done < "$patch"
+
+mv -f "$TMPFILE" "$output"

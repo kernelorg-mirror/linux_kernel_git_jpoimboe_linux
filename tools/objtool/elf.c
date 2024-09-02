@@ -21,6 +21,7 @@
 #include <linux/interval_tree_generic.h>
 #include <objtool/builtin.h>
 #include <objtool/elf.h>
+#include <objtool/klp.h>
 #include <objtool/warn.h>
 
 #define ALIGN_UP(x, align_to) (((x) + ((align_to)-1)) & ~((align_to)-1))
@@ -456,6 +457,8 @@ static void elf_add_symbol(struct elf *elf, struct symbol *sym)
 	else
 		entry = &sym->sec->symbol_list;
 	list_add(&sym->list, entry);
+
+	list_add_tail(&sym->global_list, &elf->symbols);
 	elf_hash_add(symbol, &sym->hash, sym->idx);
 	elf_hash_add(symbol_name, &sym->name_hash, str_hash(sym->name));
 
@@ -504,6 +507,8 @@ static void read_symbols(struct elf *elf)
 
 	elf->symbol_data = calloc(symbols_nr, sizeof(*sym));
 	ERROR_ON(!elf->symbol_data, "calloc");
+
+	INIT_LIST_HEAD(&elf->symbols);
 
 	for (i = 0; i < symbols_nr; i++) {
 		sym = &elf->symbol_data[i];
@@ -720,7 +725,7 @@ static void elf_update_symbol(struct elf *elf, struct section *symtab,
 static struct symbol *__elf_create_symbol(struct elf *elf, const char *name,
 					  struct section *sec, unsigned int bind,
 					  unsigned int type, unsigned long offset,
-					  size_t size)
+					  size_t size, bool klp)
 {
 	struct section *symtab, *symtab_shndx;
 	Elf32_Word first_non_local, new_idx;
@@ -734,6 +739,9 @@ static struct symbol *__elf_create_symbol(struct elf *elf, const char *name,
 		if (type != STT_SECTION)
 			sym->sym.st_name = elf_add_string(elf, NULL, sym->name);
 	}
+
+	if (klp)
+		sym->sym.st_shndx = SHN_LIVEPATCH;
 
 	sym->sec = sec ? : find_section_by_index(elf, 0);
 
@@ -799,7 +807,7 @@ struct symbol *elf_create_symbol(struct elf *elf, const char *name,
 				   unsigned int type, unsigned long offset,
 				   size_t size)
 {
-	return __elf_create_symbol(elf, name, sec, bind, type, offset, size);
+	return __elf_create_symbol(elf, name, sec, bind, type, offset, size, false);
 }
 
 struct symbol *elf_create_section_symbol(struct elf *elf, struct section *sec)
@@ -810,6 +818,12 @@ struct symbol *elf_create_section_symbol(struct elf *elf, struct section *sec)
 	sec->sym = sym;
 
 	return sym;
+}
+
+struct symbol *elf_create_klp_symbol(struct elf *elf, const char *name,
+				     unsigned int bind, unsigned int type)
+{
+	return __elf_create_symbol(elf, name, NULL, bind, type, 0, 0, true);
 }
 
 struct symbol *
