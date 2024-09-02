@@ -16,6 +16,7 @@
 #include <xxhash.h>
 #include <arch/elf.h>
 
+#define SEC_NAME_LEN		512
 #define SYM_NAME_LEN		512
 
 #ifdef LIBELF_USE_DEPRECATED
@@ -53,10 +54,12 @@ struct section {
 	int idx;
 	bool _changed, text, rodata, noinstr, init, truncate;
 	struct reloc *relocs;
+	struct section *twin;
 };
 
 struct symbol {
 	struct list_head list;
+	struct list_head global_list;
 	struct rb_node node;
 	struct elf_hash_node hash;
 	struct elf_hash_node name_hash;
@@ -77,8 +80,11 @@ struct symbol {
 	u8 warned	     : 1;
 	u8 embedded_insn     : 1;
 	u8 local_label       : 1;
+	u8 changed	     : 1;
+	u8 added	     : 1;
 	struct list_head pv_target;
 	struct reloc *relocs;
+	struct symbol *twin, *clone;
 
 	XXH3_state_t *checksum_state;
 	XXH64_hash_t checksum;
@@ -99,6 +105,7 @@ struct elf {
 	const char *name, *tmp_name;
 	unsigned int num_files;
 	struct list_head sections;
+	struct list_head symbols;
 	unsigned long num_relocs;
 
 	int symbol_bits;
@@ -138,6 +145,8 @@ struct symbol *elf_create_symbol(struct elf *elf, const char *name,
 struct symbol *elf_create_section_symbol(struct elf *elf, struct section *sec);
 struct symbol *elf_create_prefix_symbol(struct elf *elf, struct symbol *orig,
 					size_t size);
+struct symbol *elf_create_klp_symbol(struct elf *elf, const char *name,
+				     unsigned int bind, unsigned int type);
 
 struct reloc *elf_create_reloc(struct elf *elf, struct section *sec,
 			       unsigned long offset, struct symbol *sym,
@@ -412,11 +421,14 @@ static inline void set_reloc_type(struct elf *elf, struct reloc *reloc, unsigned
 #define sec_for_each_sym_continue_reverse(sec, sym)			\
 	list_for_each_entry_continue_reverse(sym, &sec->symbol_list, list)
 
+#define sec_prev_sym(sec, sym)						\
+	sym->list.prev == &sec->symbol_list ? NULL : list_prev_entry(sym, list)
+
 #define for_each_sym(elf, sym)						\
-	for (struct section *__sec, *__fake = (struct section *)1;	\
-	     __fake; __fake = NULL)					\
-		for_each_sec(elf, __sec)				\
-			sec_for_each_sym(__sec, sym)
+	list_for_each_entry(sym, &elf->symbols, global_list)
+
+#define for_each_sym_continue(elf, sym)					\
+	list_for_each_entry_continue(sym, &elf->symbols, global_list)
 
 #define for_each_reloc(rsec, reloc)					\
 	for (int __i = 0, __fake = 1; __fake; __fake = 0)		\

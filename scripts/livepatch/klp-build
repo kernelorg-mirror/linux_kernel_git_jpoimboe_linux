@@ -1,0 +1,393 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (C) 2024 Josh Poimboeuf <jpoimboe@kernel.org>
+
+set -o errexit
+set -o errtrace
+set -o pipefail
+
+SCRIPT="$(basename "$0")"
+SCRIPTDIR="$(readlink -f "$(dirname "$(type -p "$0")")")"
+
+SRC="$(pwd)"
+BUILD_DIR="$SRC"
+TMP_DIR="$BUILD_DIR/klp-tmp"
+ORIG_DIR="$TMP_DIR/orig"
+PATCHED_DIR="$TMP_DIR/patched"
+OUTPUT_DIR="$TMP_DIR/out"
+TMP_TMP_DIR="$TMP_DIR/tmp"
+
+shopt -o xtrace | grep -q 'on' && XTRACE=1
+
+status() {
+	echo -e "- $SCRIPT: $*"
+}
+
+warn() {
+	str="$1"
+	if [[ -n "$str" ]]; then
+		echo "$SCRIPT: error: $*" >&2
+	else
+		echo "$SCRIPT: error" >&2
+	fi
+}
+
+die() {
+	warn "$@"
+	revert_applied_patches "--recount"
+	[[ -z "$DEBUG" ]] && rm -rf "$TMP_DIR"
+	exit 1
+}
+
+__trap() {
+	die "line $1"
+}
+
+trap '__trap ${LINENO}' ERR INT
+
+__usage() {
+	cat <<EOF
+Usage: $SCRIPT [options] patch_file(s)
+Generate a livepatch module.
+
+Options:
+  -d, --debug			Don't remove 'klp_tmp' directory
+      --diff-all		Diff all files (for testing false positives)
+  -h, --help			Show this help message and exit
+      --no-replace		Disable livepatch atomic replace
+  -o, --output <file.ko>	Output file [default: livepatch.ko]
+  -v, --verbose			Add V=1 to kernel/module builds
+EOF
+}
+
+usage() {
+	__usage >&2
+}
+
+apply_patch() {
+	local patch="$1"
+	local extra_args="$2"
+
+	[[ -f "$patch" ]] || die "$patch doesn't exist"
+
+	( cd "$SRC" && git apply --quiet --check $extra_args "$patch" ) || die "$patch failed to apply"
+	( cd "$SRC" && git apply --quiet $extra_args "$patch" )         || die "$patch failed to apply"
+	APPLIED_PATCHES+=("$patch")
+}
+
+revert_patch() {
+	local patch="$1"
+	local extra_args="$2"
+
+	( cd "$SRC" && git apply --reverse --quiet $extra_args "$patch" ) || die "$patch failed to apply"
+	APPLIED_PATCHES=("${APPLIED_PATCHES[@]/$patch}")
+}
+
+revert_applied_patches() {
+	local patches=("${APPLIED_PATCHES[@]}")
+	local extra_args="$1"
+
+	for (( i=${#patches[@]}-1 ; i>=0 ; i-- )) ; do
+		local patch="${patches[$i]}"
+
+		# "deleted" entry can still exist as an empty string
+		[[ "$patch" ]] || continue
+
+		revert_patch "${patches[$i]}" "$extra_args"
+	done
+
+	APPLIED_PATCHES=()
+}
+
+apply_patches() {
+	for patch in "${PATCHES[@]}"; do
+		apply_patch "$patch"
+	done
+}
+
+validate_patches() {
+	apply_patches
+	revert_applied_patches
+}
+
+refresh_patch() {
+	local patch="$1"
+	local tmp="$TMP_TMP_DIR"
+
+	rm -rf "$tmp"
+	mkdir -p "$tmp"
+
+	while read -r file; do
+		local dest
+		dest="$tmp/a/$(dirname "$file")"
+		mkdir -p "$dest"
+		cp -f "$SRC/$file" "$dest"
+	done < <(grep -E '^(--- |\+\+\+ )' "$patch" | sed -E 's/(--- a\/|\+\+\+ b\/)//' | sort | uniq)
+
+	apply_patch "$patch" --recount
+
+	while read -r file; do
+		local dest
+		dest="$tmp/b/$(dirname "$file")"
+		mkdir -p "$dest"
+		cp -f "$SRC/$file" "$dest"
+	done < <(grep -E '^(--- |\+\+\+ )' "$patch" | sed -E 's/(--- a\/|\+\+\+ b\/)//' | sort | uniq)
+
+	revert_patch "$patch" --recount
+
+	(
+		cd "$tmp"
+		git diff --no-index --no-prefix a b > "$patch" || true
+	)
+}
+
+# Copy the patches to a temporary directory, fix their lines so as not to
+# affect the __LINE__ macro for otherwise unchanged functions, and update
+# $PATCHES to point to fixed patches.
+copy_and_fix_patches() {
+
+	idx=0001
+	for patch in "${PATCHES[@]}"; do
+		cp -f "$patch"  "$TMP_DIR/$idx-$(basename "$patch")"
+		idx=$(printf "%04d" $((10#$idx + 1)))
+	done
+
+	PATCHES=()
+	idx=0001
+	while true; do
+		patch="$(ls "$TMP_DIR"/"$idx"-*.patch 2> /dev/null || true)"
+		[[ -z "$patch" ]] && break
+
+		refresh_patch "$patch"
+		"$SCRIPTDIR/adjust-patch-lines" "$patch" || die "adjust-patch-lines failed"
+		refresh_patch "$patch"
+		apply_patch "$patch"
+
+		idx=$(printf "%04d" $((10#$idx + 1)))
+	done
+
+	revert_applied_patches
+
+	idx=0001
+	while true; do
+		patch="$(ls "$TMP_DIR"/"$idx"-*.patch 2> /dev/null || true)"
+		[[ -z "$patch" ]] && break
+
+		PATCHES+=("$patch")
+
+		idx=$(printf "%04d" $((10#$idx + 1)))
+	done
+}
+
+build_kernel() {
+	local options
+
+	if [[ -n "$VERBOSE" ]]; then
+		options="V=1"
+	else
+		options="-s"
+	fi
+
+	( cd "$SRC" && make -j"$(nproc)" "$options" vmlinux modules ) || die "kernel build failed"
+}
+
+copy_orig_objs() {
+	# if [[ "$XTRACE" = 1 ]]; then
+	# 	set +x
+	# fi
+
+	while read -r _file; do
+		local file="${_file/.ko/.o}"
+		local rel_file="${file#"$BUILD_DIR"/}"
+		local dest_dir="$ORIG_DIR/$(dirname "$rel_file")"
+
+		# ignore any livepatch modules in pwd
+		if [[ "$_file" = *.ko ]] && [[ "$(dirname "$file")" -ef "$BUILD_DIR" ]]; then
+			continue
+		fi
+
+		[[ -f "$file" ]] || die "can't find $file"
+
+		mkdir -p "$dest_dir"
+		cp -f "$file" "$dest_dir" || die "cp -f $file $dest_dir failed"
+
+		local cmd_file="$(dirname "$rel_file")/.$(basename "$rel_file").cmd"
+		[[ -e "$cmd_file" ]] && cp -f "$cmd_file" "$dest_dir"
+
+
+	done < <(find "$BUILD_DIR" -type f \( -name vmlinux.o -o -name "*.ko" \))
+
+	# if [[ -n "$XTRACE" ]]; then
+	# 	set -x
+	# fi
+}
+
+diff_objects() {
+	local timestamp="$1"
+	local newer
+	local changed_objs=()
+
+	if [[ -n "$DIFF_ALL" ]]; then
+		changed_objs=("vmlinux.o")
+		newer=""
+	else
+		[[ "$BUILD_DIR/vmlinux.o" -nt "$timestamp" ]] && changed_objs=("vmlinux.o")
+		newer="-newer "$timestamp""
+	fi
+
+	changed_objs+=( $(find "$BUILD_DIR" -mindepth 2 -path "$TMP_DIR" -prune -o -name "*.ko" -type f $newer -print) )
+
+	for _file in "${changed_objs[@]}"; do
+		local file="${_file/.ko/.o}"
+		local rel_file="${file#"$BUILD_DIR"/}"
+		local orig_file="$ORIG_DIR/$rel_file"
+		local patched_file="$PATCHED_DIR/$rel_file"
+		local out_file="$OUTPUT_DIR/$rel_file"
+
+		[[ -f "$file" ]] || die "missing $file file"
+
+		mkdir -p "$(dirname "$patched_file")"
+		cp -f "$file" "$patched_file"
+
+		local cmd_file="$ORIG_DIR/$(dirname "$rel_file")/.$(basename "$rel_file").cmd"
+		[[ -e "$cmd_file" ]] && cp -f "$cmd_file" "$(dirname "$patched_file")"
+
+		mkdir -p "$(dirname "$out_file")"
+
+		"$SRC/tools/objtool/objtool" klp diff "$orig_file" "$patched_file" "$out_file" || die "objtool klp diff failed"
+
+		cmd_file="$PATCHED_DIR/$(dirname "$rel_file")/.$(basename "$rel_file").cmd"
+		if [[ -e "$out_file" ]] && [[ -e "$cmd_file" ]]; then
+			cp -f "$cmd_file" "$(dirname "$out_file")"
+		fi
+	done
+
+	local nr_objs="$(find "$OUTPUT_DIR" -type f \( -name vmlinux.o -o -name "*.ko" \) | wc -l)"
+
+	if [[ "$nr_objs" = 0 ]]; then
+		die "no changes detected"
+	fi
+}
+
+build_patch_module() {
+	local makefile="$OUTPUT_DIR/Kbuild"
+	local verbose
+	local replace
+
+	cp -f "$SRC/scripts/livepatch/main.c" "$OUTPUT_DIR"
+
+	echo "obj-m := $NAME.o" > "$makefile"
+	echo -n "$NAME-y := main.o" >> "$makefile"
+
+	while read -r file; do
+		cp -f "$file" "$file"_shipped
+		echo -n " ${file#"$OUTPUT_DIR"/}" >> "$makefile"
+	done < <(find "$OUTPUT_DIR" -type f -name "*.o" )
+	echo >> "$makefile"
+
+	if [[ -n "$VERBOSE" ]]; then
+		options="V=1"
+	else
+		options="-s"
+	fi
+
+	[[ $REPLACE == 0 ]] && replace="KCFLAGS=-DKLP_NO_REPLACE"
+
+	make -C . M="$OUTPUT_DIR" "$options" $replace || die "module build failed"
+
+	cp -f "$OUTPUT_DIR/$NAME.ko" "$OUTPUT_DIR/$NAME.ko.prelink"
+
+	"$SRC/tools/objtool/objtool" klp link "$OUTPUT_DIR/$NAME.ko" || die "objtool klp link failed"
+
+	cp -f "$OUTPUT_DIR/$NAME.ko" "$OUTFILE"
+}
+
+args=$(getopt -o dho:v -l "debug,help,output:,verbose,diff-all,no-replace," -- "$@") || {
+	echo; usage; exit
+}
+eval set -- "$args"
+
+OUTFILE="livepatch.ko"
+NAME="livepatch"
+
+# recommended default
+REPLACE=1
+
+while true; do
+	case "$1" in
+		-d | --debug)
+			DEBUG=1
+			;;
+		-h | --help)
+			usage
+			exit 0
+			;;
+		-o | --output)
+			[[ "$2" != *.ko ]] && die "output filename should end with .ko"
+			OUTFILE="$2"
+			NAME="$(basename "$OUTFILE")"
+			NAME="${OUTFILE%.ko}"
+			shift
+			;;
+		-v | --verbose)
+			VERBOSE=1
+			;;
+		--diff-all)
+			DIFF_ALL=1
+			;;
+		--no-replace)
+			REPLACE=0
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			usage
+			exit 1
+			;;
+	esac
+	shift
+done
+
+if [[ $# -eq 0 ]]; then
+	usage
+	exit 1
+fi
+
+# not yet smart enough to handle anything other than in-tree builds from pwd
+[[ "$PWD" -ef "$SCRIPTDIR/../.." ]] || die "please run from the kernel root directory"
+
+[[ -x "$SCRIPTDIR/adjust-patch-lines" ]] || die "can't find adjust-patch-lines script"
+
+validate_patches
+
+rm -rf "$TMP_DIR"
+mkdir -p "$TMP_DIR"
+APPLIED_PATCHES=()
+PATCHES=("$@")
+
+# this updates ${PATCHES} to point to the modified versions
+copy_and_fix_patches
+
+status "building original kernel"
+build_kernel
+copy_orig_objs
+
+touch "$TMP_DIR/timestamp"
+
+status "building patched kernel"
+apply_patches
+export KBUILD_MODPOST_WARN=1
+build_kernel
+revert_applied_patches
+
+status "diffing objects"
+diff_objects "$TMP_DIR/timestamp"
+
+status "building patch module"
+build_patch_module
+
+status  "success"
+[[ -z "$DEBUG" ]] && rm -rf "$TMP_DIR"

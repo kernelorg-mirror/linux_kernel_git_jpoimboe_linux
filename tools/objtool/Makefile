@@ -2,6 +2,25 @@
 include ../scripts/Makefile.include
 include ../scripts/Makefile.arch
 
+BUILD_ORC := n
+BUILD_KLP := n
+
+ifeq ($(SRCARCH),x86)
+BUILD_ORC := y
+BUILD_KLP := y
+endif
+
+ifeq ($(SRCARCH),loongarch)
+BUILD_ORC := y
+endif
+
+export BUILD_ORC BUILD_KLP
+
+ifeq ($(BUILD_KLP),y)
+LIBXXHASH_FLAGS := $(shell $(HOSTPKG_CONFIG) libxxhash --cflags 2>/dev/null)
+LIBXXHASH_LIBS  := $(shell $(HOSTPKG_CONFIG) libxxhash --libs 2>/dev/null || echo -lxxhash)
+endif
+
 ifeq ($(srctree),)
 srctree := $(patsubst %/,%,$(dir $(CURDIR)))
 srctree := $(patsubst %/,%,$(dir $(srctree)))
@@ -20,9 +39,6 @@ OBJTOOL_IN := $(OBJTOOL)-in.o
 
 LIBELF_FLAGS := $(shell $(HOSTPKG_CONFIG) libelf --cflags 2>/dev/null)
 LIBELF_LIBS  := $(shell $(HOSTPKG_CONFIG) libelf --libs 2>/dev/null || echo -lelf)
-
-LIBXXHASH_FLAGS := $(shell $(HOSTPKG_CONFIG) libxxhash --cflags 2>/dev/null)
-LIBXXHASH_LIBS  := $(shell $(HOSTPKG_CONFIG) libxxhash --libs 2>/dev/null || echo -lxxhash)
 
 all: $(OBJTOOL)
 
@@ -58,17 +74,6 @@ else
   Q = @
 endif
 
-BUILD_ORC := n
-
-ifeq ($(SRCARCH),x86)
-	BUILD_ORC := y
-endif
-
-ifeq ($(SRCARCH),loongarch)
-	BUILD_ORC := y
-endif
-
-export BUILD_ORC
 export srctree OUTPUT CFLAGS SRCARCH AWK
 include $(srctree)/tools/build/Makefile.include
 

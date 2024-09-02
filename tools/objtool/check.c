@@ -3,6 +3,7 @@
  * Copyright (C) 2015-2017 Josh Poimboeuf <jpoimboe@redhat.com>
  */
 
+#define _GNU_SOURCE
 #include <string.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -647,6 +648,20 @@ static void create_fake_symbol(struct objtool_file *file, const char *name_pfx,
 	elf_create_symbol(file->elf, name, sec, STB_LOCAL, STT_OBJECT, offset, size);
 }
 
+static bool is_livepatch_module(struct objtool_file *file)
+{
+	struct section *sec;
+
+	if (!opts.module)
+		return false;
+
+	sec = find_section_by_name(file->elf, ".modinfo");
+	if (!sec)
+		return false;
+
+	return memmem(sec->data->d_buf, sec_size(sec), "livepatch=Y", 12);
+}
+
 static void create_static_call_sections(struct objtool_file *file)
 {
 	struct static_call_site *site;
@@ -659,7 +674,14 @@ static void create_static_call_sections(struct objtool_file *file)
 	sec = find_section_by_name(file->elf, ".static_call_sites");
 	if (sec) {
 		INIT_LIST_HEAD(&file->static_call_list);
-		WARN("file already has .static_call_sites section, skipping");
+
+		/*
+		 * Livepatch modules may have already extracted the static call
+		 * site entries.
+		 */
+		if (!file->klp)
+			WARN("file already has .static_call_sites section, skipping");
+
 		return;
 	}
 
@@ -696,7 +718,7 @@ static void create_static_call_sections(struct objtool_file *file)
 
 		key_sym = find_symbol_by_name(file->elf, tmp);
 		if (!key_sym) {
-			if (!opts.module)
+			if (!opts.module || file->klp)
 				ERROR("static_call: can't find static_call_key symbol: %s", tmp);
 
 			/*
@@ -2416,6 +2438,8 @@ static void mark_rodata(struct objtool_file *file)
 
 static void decode_sections(struct objtool_file *file)
 {
+	file->klp = is_livepatch_module(file);
+
 	mark_rodata(file);
 
 	init_pv_ops(file);
@@ -4016,7 +4040,7 @@ static void add_prefix_symbol(struct objtool_file *file, struct symbol *func)
 			continue;
 
 		sym_pfx = elf_create_prefix_symbol(file->elf, func, opts.prefix);
-		if (!sym_pfx)
+		if (!sym_pfx && !file->klp)
 			ERROR("duplicate prefix symbol for %s\n", func->name);
 
 		break;
@@ -4341,6 +4365,7 @@ static int validate_ibt(struct objtool_file *file)
 		    !strcmp(sec->name, "__bug_table")			||
 		    !strcmp(sec->name, "__ex_table")			||
 		    !strcmp(sec->name, "__jump_table")			||
+		    !strcmp(sec->name, "__klp_funcs")			||
 		    !strcmp(sec->name, "__mcount_loc")			||
 		    !strcmp(sec->name, "__patchable_function_entries"))
 			continue;
