@@ -8,6 +8,8 @@
 #include <inttypes.h>
 #include <sys/mman.h>
 
+#include <xxhash.h>
+
 #include <objtool/builtin.h>
 #include <objtool/cfi.h>
 #include <objtool/arch.h>
@@ -951,6 +953,48 @@ static void create_direct_call_sections(struct objtool_file *file)
 	}
 }
 
+static void create_sym_checksum_section(struct objtool_file *file)
+{
+	struct section *sec;
+	struct symbol *sym;
+	unsigned int idx = 0;
+	struct sym_checksum *sym_checksum;
+	size_t entsize = sizeof(struct sym_checksum);
+
+	sec = find_section_by_name(file->elf, SYM_CHECKSUM_SEC);
+	if (sec) {
+		WARN("file already has " SYM_CHECKSUM_SEC " section, skipping");
+		return;
+	}
+
+	for_each_sym(file->elf, sym)
+		if (sym->checksum)
+			idx++;
+
+	if (!idx)
+		return;
+
+	sec = elf_create_section_pair(file->elf, ".discard.sym_checksum", entsize,
+				      idx, idx);
+
+	idx = 0;
+	for_each_sym(file->elf, sym) {
+		if (!sym->checksum)
+			continue;
+
+		elf_init_reloc(file->elf, sec->rsec, idx, idx * entsize, sym,
+			       0, R_TEXT64);
+
+		sym_checksum = (struct sym_checksum *)sec->data->d_buf + idx;
+		sym_checksum->addr = 0; /* reloc */
+		sym_checksum->checksum = sym->checksum;
+
+		mark_sec_changed(file->elf, sec, true);
+
+		idx++;
+	}
+}
+
 /*
  * Warnings shouldn't be reported for ignored functions.
  */
@@ -1719,6 +1763,7 @@ static void handle_group_alt(struct objtool_file *file,
 		nop->sym = orig_insn->sym;
 		nop->alt_group = new_alt_group;
 		nop->ignore = orig_insn->ignore_alts;
+		nop->fake = 1;
 	}
 
 	if (!special_alt->new_len) {
@@ -3301,6 +3346,58 @@ next_orig:
 	return next_insn_same_sec(file, alt_group->orig_group->last_insn);
 }
 
+static void update_sym_checksum(struct symbol *func, struct instruction *insn,
+				const void *data, size_t size)
+{
+	XXH3_64bits_update(func->checksum_state, data, size);
+}
+
+static void update_insn_sym_checksum(struct objtool_file *file, struct symbol *func,
+				 struct instruction *insn)
+{
+	struct reloc *reloc = insn_reloc(file, insn);
+	struct symbol *dest = insn_call_dest(insn);
+
+	if (dest && !reloc) {
+		update_sym_checksum(func, insn, insn->sec->data->d_buf + insn->offset, 1);
+		update_sym_checksum(func, insn, dest->name, strlen(dest->name));
+	} else if (!insn->fake) {
+		update_sym_checksum(func, insn, insn->sec->data->d_buf + insn->offset, insn->len);
+	}
+
+	if (reloc) {
+		struct symbol *sym = reloc->sym;
+
+		if (sym->sec && is_string_section(sym->sec)) {
+			s64 addend;
+			char *str;
+
+			addend = arch_insn_adjusted_addend(insn, reloc);
+
+			str = sym->sec->data->d_buf + sym->offset + addend;
+
+			update_sym_checksum(func, insn, str, strlen(str));
+
+		} else {
+			u64 offset = arch_insn_adjusted_addend(insn, reloc);
+
+			if (is_section_symbol(sym)) {
+				sym = find_symbol_containing(reloc->sym->sec, offset);
+				if (!sym)
+					return;
+
+				offset -= sym->offset;
+			}
+
+			update_sym_checksum(func, insn, sym->demangled_name,
+					    strlen(sym->demangled_name));
+
+			update_sym_checksum(func, insn, &offset, sizeof(offset));
+		}
+	}
+}
+
+
 /*
  * Follow the branch starting at the given instruction, and recursively follow
  * any other branches (jumps).  Meanwhile, track the frame pointer state at
@@ -3316,10 +3413,14 @@ static int validate_branch(struct objtool_file *file, struct symbol *func,
 	u8 visited;
 	int ret;
 
-	sec = insn->sec;
-
 	while (1) {
 		next_insn = next_insn_to_validate(file, insn);
+
+		// moved this because alt can continue to orig thanks to next_insn_same_sec
+		sec = insn->sec;
+
+		if (opts.sym_checksum && func && sec)
+			update_insn_sym_checksum(file, func, insn);
 
 		if (func && insn_func(insn) && func != insn_func(insn)->pfunc) {
 			/* Ignore KCFI type preambles, which always fall through */
@@ -3559,7 +3660,15 @@ static int validate_unwind_hint(struct objtool_file *file,
 				  struct insn_state *state)
 {
 	if (insn->hint && !insn->visited && !insn->ignore) {
-		int ret = validate_branch(file, insn_func(insn), insn, *state);
+		struct symbol *func = insn_func(insn);
+		int ret;
+
+		if (func && !func->checksum_state) {
+			func->checksum_state = XXH3_createState();
+			XXH3_64bits_reset(func->checksum_state);
+		}
+
+		ret = validate_branch(file, func, insn, *state);
 		if (ret)
 			BT_INSN(insn, "<=== (hint)");
 		return ret;
@@ -3951,7 +4060,9 @@ static void add_prefix_symbols(struct objtool_file *file)
 static int validate_symbol(struct objtool_file *file, struct section *sec,
 			   struct symbol *sym, struct insn_state *state)
 {
+	static XXH3_state_t *checksum_state;
 	struct instruction *insn;
+	struct symbol *func;
 	int ret;
 
 	if (!sym->len) {
@@ -3968,9 +4079,24 @@ static int validate_symbol(struct objtool_file *file, struct section *sec,
 
 	state->uaccess = sym->uaccess_safe;
 
-	ret = validate_branch(file, insn_func(insn), insn, *state);
+	func = insn_func(insn);
+
+	if (func && !func->checksum_state) {
+		if (!checksum_state)
+			checksum_state = XXH3_createState();
+		XXH3_64bits_reset(checksum_state);
+		func->checksum_state = checksum_state;
+	}
+
+	ret = validate_branch(file, func, insn, *state);
 	if (ret)
 		BT_INSN(insn, "<=== (sym)");
+
+	if (func) {
+		func->checksum = XXH3_64bits_digest(func->checksum_state);
+		func->checksum_state = NULL;
+	}
+
 	return ret;
 }
 
@@ -4518,6 +4644,9 @@ int check(struct objtool_file *file)
 
 	if (opts.ibt)
 		create_ibt_endbr_seal_sections(file);
+
+	if (opts.sym_checksum)
+		create_sym_checksum_section(file);
 
 	if (opts.orc && nr_insns) {
 		ret = orc_create(file);
