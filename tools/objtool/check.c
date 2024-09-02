@@ -3866,6 +3866,7 @@ static void add_prefix_symbol(struct objtool_file *file, struct symbol *func)
 	for (prev = prev_insn_same_sec(file, insn);
 	     prev;
 	     prev = prev_insn_same_sec(file, prev)) {
+		struct symbol *sym_pfx;
 		u64 offset;
 
 		if (prev->type != INSN_NOP)
@@ -3879,7 +3880,9 @@ static void add_prefix_symbol(struct objtool_file *file, struct symbol *func)
 		if (offset < opts.prefix)
 			continue;
 
-		elf_create_prefix_symbol(file->elf, func, opts.prefix);
+		sym_pfx = elf_create_prefix_symbol(file->elf, func, opts.prefix);
+		if (!sym_pfx)
+			ERROR("duplicate prefix symbol for %s\n", func->name);
 
 		break;
 	}

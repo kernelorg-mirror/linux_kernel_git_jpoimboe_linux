@@ -399,6 +399,9 @@ static inline void set_reloc_type(struct elf *elf, struct reloc *reloc, unsigned
 #define sec_for_each_sym(sec, sym)					\
 	list_for_each_entry(sym, &sec->symbol_list, list)
 
+#define sec_for_each_sym_continue_reverse(sec, sym)			\
+	list_for_each_entry_continue_reverse(sym, &sec->symbol_list, list)
+
 #define for_each_sym(elf, sym)						\
 	for (struct section *__sec, *__fake = (struct section *)1;	\
 	     __fake; __fake = NULL)					\
