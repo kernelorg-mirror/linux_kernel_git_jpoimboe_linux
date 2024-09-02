@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <libgen.h>
+#include <ctype.h>
 #include <linux/interval_tree_generic.h>
 #include <objtool/builtin.h>
 #include <objtool/elf.h>
@@ -396,6 +397,34 @@ static void read_sections(struct elf *elf)
 		ERROR("section entry mismatch");
 }
 
+static const char *demangle_name(struct symbol *sym)
+{
+	char *str;
+
+	if (!is_local_symbol(sym))
+		return sym->name;
+
+	if (!is_function_symbol(sym) && !is_object_symbol(sym))
+		return sym->name;
+
+	if (!strstarts(sym->name, "__UNIQUE_ID_") && !strchr(sym->name, '.'))
+		return sym->name;
+
+	str = strdup(sym->name);
+	ERROR_ON(!str, "strdup");
+
+	for (int i = strlen(str) - 1; i >= 0; i--) {
+		char c = str[i];
+
+		if (!isdigit(c) && c != '.') {
+			str[i + 1] = '\0';
+			break;
+		}
+	};
+
+	return str;
+}
+
 static void elf_add_symbol(struct elf *elf, struct symbol *sym)
 {
 	struct list_head *entry;
@@ -440,6 +469,8 @@ static void elf_add_symbol(struct elf *elf, struct symbol *sym)
 	if (sym->type == STT_NOTYPE && !sym->len)
 		__sym_remove(sym, &sym->sec->symbol_tree);
 #endif
+
+	sym->demangled_name = demangle_name(sym);
 }
 
 static void read_symbols(struct elf *elf)
