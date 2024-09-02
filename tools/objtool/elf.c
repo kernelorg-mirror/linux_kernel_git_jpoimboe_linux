@@ -16,6 +16,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <libgen.h>
 #include <linux/interval_tree_generic.h>
 #include <objtool/builtin.h>
 #include <objtool/elf.h>
@@ -926,6 +927,9 @@ struct elf *elf_open_read(const char *name, int flags)
 	elf->fd = open(name, flags);
 	ERROR_ON(elf->fd == -1, "can't open '%s': %s", name, strerror(errno));
 
+	elf->name = strdup(name);
+	ERROR_ON(!elf->name, "strdup");
+
 	if ((flags & O_ACCMODE) == O_RDONLY)
 		cmd = ELF_C_READ_MMAP;
 	else if ((flags & O_ACCMODE) == O_RDWR)
@@ -945,6 +949,108 @@ struct elf *elf_open_read(const char *name, int flags)
 	read_symbols(elf);
 
 	read_relocs(elf);
+
+	return elf;
+}
+
+struct elf *elf_create_file(GElf_Ehdr *ehdr, const char *name)
+{
+	struct section *null, *symtab, *strtab, *shstrtab;
+	char *dir, *base, *tmp_name;
+	struct symbol *sym;
+	struct elf *elf;
+
+	elf_version(EV_CURRENT);
+
+	elf = calloc(1, sizeof(*elf));
+	ERROR_ON(!elf, "calloc");
+
+	INIT_LIST_HEAD(&elf->sections);
+
+	dir = strdup(name);
+	ERROR_ON(!dir, "strdup");
+	dir = dirname(dir);
+
+	base = strdup(name);
+	ERROR_ON(!base, "strdup");
+	base = basename(base);
+
+	tmp_name = malloc(256);
+	ERROR_ON(!tmp_name, "malloc");
+
+	snprintf(tmp_name, 256, "%s/%s.XXXXXX", dir, base);
+
+	elf->fd = mkstemp(tmp_name);
+	if (elf->fd == -1) {
+		fprintf(stderr, "objtool: Can't open '%s': %s\n",
+			elf->tmp_name, strerror(errno));
+		exit(1);
+	}
+
+	elf->tmp_name = tmp_name;
+
+	elf->name = strdup(name);
+	ERROR_ON(!elf->name, "strdup");
+
+	elf->elf = elf_begin(elf->fd, ELF_C_WRITE, NULL);
+	if (!elf->elf)
+		ERROR_ELF("elf_begin");
+
+	if (!gelf_newehdr(elf->elf, ELFCLASS64))
+		ERROR_ELF("gelf_newehdr");
+
+	memcpy(&elf->ehdr, ehdr, sizeof(elf->ehdr));
+
+	if (!gelf_update_ehdr(elf->elf, &elf->ehdr))
+		ERROR_ELF("gelf_update_ehdr");
+
+	INIT_LIST_HEAD(&elf->symbols);
+
+	elf_alloc_hash(section, 1000);
+	elf_alloc_hash(section_name, 1000);
+
+	elf_alloc_hash(symbol, 10000);
+	elf_alloc_hash(symbol_name, 10000);
+
+	elf_alloc_hash(reloc, 100000);
+
+	/*
+	 * NULL section: add it to the section list without actually adding it
+	 * to elf as we use it for some things (such as?)
+	 */
+	null		= elf_create_section(elf, NULL, 0, 0, SHT_NULL, 0, 0);
+	null->name	= "";
+
+	shstrtab	= elf_create_section(elf, NULL, 0, 0, SHT_STRTAB, 1, 0);
+	shstrtab->name	= ".shstrtab";
+
+	strtab		= elf_create_section(elf, NULL, 0, 0, SHT_STRTAB, 1, 0);
+	strtab->name	= ".strtab";
+
+	null->sh.sh_name	= elf_add_string(elf, shstrtab, null->name);
+	shstrtab->sh.sh_name	= elf_add_string(elf, shstrtab, shstrtab->name);
+	strtab->sh.sh_name	= elf_add_string(elf, shstrtab, strtab->name);
+
+	elf_hash_add(section_name, &null->name_hash,		str_hash(null->name));
+	elf_hash_add(section_name, &strtab->name_hash,		str_hash(strtab->name));
+	elf_hash_add(section_name, &shstrtab->name_hash,	str_hash(shstrtab->name));
+
+	elf_add_string(elf, strtab, "");
+
+	symtab = elf_create_section(elf, ".symtab", 0x18, 0x18, SHT_SYMTAB, 0x8, 0);
+	symtab->sh.sh_link = strtab->idx;
+	symtab->sh.sh_info = 1;
+
+	elf->ehdr.e_shstrndx = shstrtab->idx;
+	if (!gelf_update_ehdr(elf->elf, &elf->ehdr))
+		ERROR_ELF("gelf_update_ehdr");
+
+	sym = calloc(1, sizeof(*sym));
+	ERROR_ON(!sym, "calloc");
+
+	sym->name = "";
+	sym->sec = null;
+	elf_add_symbol(elf, sym);
 
 	return elf;
 }
@@ -1281,6 +1387,18 @@ void elf_write(struct elf *elf)
 		ERROR_ELF("elf_update");
 
 	elf->changed = false;
+
+	if (elf->tmp_name) {
+		int ret;
+
+		unlink(elf->name);
+
+		ret = linkat(AT_FDCWD, elf->tmp_name, AT_FDCWD, elf->name, 0);
+		ERROR_ON(ret, "linkat");
+
+		close(elf->fd);
+		unlink(elf->tmp_name);
+	}
 }
 
 void elf_close(struct elf *elf)
