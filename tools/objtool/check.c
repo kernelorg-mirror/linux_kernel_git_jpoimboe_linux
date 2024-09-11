@@ -4478,6 +4478,7 @@ static int validate_ibt(struct objtool_file *file)
 		    !strncmp(sec->name, ".debug", 6)			||
 		    !strcmp(sec->name, ".altinstructions")		||
 		    !strcmp(sec->name, ".ibt_endbr_seal")		||
+		    !strcmp(sec->name, ".kcfi_traps")			||
 		    !strcmp(sec->name, ".orc_unwind_ip")		||
 		    !strcmp(sec->name, ".retpoline_sites")		||
 		    !strcmp(sec->name, ".smp_locks")			||
@@ -4488,8 +4489,7 @@ static int validate_ibt(struct objtool_file *file)
 		    !strcmp(sec->name, "__ex_table")			||
 		    !strcmp(sec->name, "__jump_table")			||
 		    !strcmp(sec->name, "__mcount_loc")			||
-		    !strcmp(sec->name, ".kcfi_traps")			||
-		    strstr(sec->name, "__patchable_function_entries"))
+		    !strcmp(sec->name, "__patchable_function_entries"))
 			continue;
 
 		for_each_reloc(sec->rsec, reloc)
