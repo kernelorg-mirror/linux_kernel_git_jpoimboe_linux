@@ -10,11 +10,20 @@
 #include <linux/unwind_user.h>
 #include <linux/sframe.h>
 #include <linux/uaccess.h>
+#include <linux/slab.h>
+#include <linux/task_work.h>
 #include <asm/unwind_user.h>
+
+#define UNWIND_MAX_ENTRIES 512
 
 static struct unwind_user_frame fp_frame = {
 	ARCH_INIT_USER_FP_FRAME
 };
+
+static DEFINE_MUTEX(callbacks_mutex);
+static struct unwind_callback *callbacks[UNWIND_MAX_CALLBACKS];
+
+static DEFINE_PER_CPU(u64, ctx_ctr);
 
 int unwind_user_next(struct unwind_user_state *state)
 {
@@ -98,4 +107,150 @@ int unwind_user(struct unwind_stacktrace *trace, unsigned int max_entries)
 	}
 
 	return 0;
+}
+
+static void unwind_user_deferred_task_work(struct callback_head *unused)
+{
+	struct unwind_stacktrace trace;
+	unsigned long pending;
+	unsigned long flags;
+	u64 cookie;
+	int i;
+
+	if (WARN_ON_ONCE(!current->unwind_ctx_cookie ||
+			 !current->unwind_pending))
+		return;
+
+	local_irq_save(flags);
+
+	pending = current->unwind_pending;
+	cookie = current->unwind_ctx_cookie;
+
+	current->unwind_pending = 0;
+	current->unwind_ctx_cookie = 0;
+
+	local_irq_restore(flags);
+
+	if (!current->unwind_entries) {
+		current->unwind_entries = kmalloc(UNWIND_MAX_ENTRIES * sizeof(long),
+						  GFP_KERNEL);
+		if (!current->unwind_entries)
+			return;
+	}
+
+	trace.entries = current->unwind_entries;
+
+	if (current->unwind_cached == cookie) {
+		trace.nr = current->unwind_nr_entries;
+	} else {
+		trace.nr = 0;
+		unwind_user(&trace, UNWIND_MAX_ENTRIES);
+		current->unwind_cached = cookie;
+	}
+
+	mutex_lock(&callbacks_mutex);
+
+	for_each_set_bit(i, &pending, UNWIND_MAX_CALLBACKS) {
+		struct unwind_callback *callback;
+
+		callback = callbacks[i];
+
+		/*
+		 * Make sure the callback is still registered.
+		 *
+		 * FIXME: There's a race where a pending callback gets
+		 * unregistered and a new one gets registered in the same slot,
+		 * causing a spurious callback.
+		 */
+		if (!callback)
+			continue;
+
+		callback->func(&trace, cookie, current->unwind_privs[i]);
+	}
+
+	mutex_unlock(&callbacks_mutex);
+}
+
+int unwind_user_deferred(struct unwind_callback *callback, u64 *ctx_cookie, void *data)
+{
+	u64 cookie = current->unwind_ctx_cookie;
+
+	if (WARN_ON_ONCE(in_nmi() || !irqs_disabled()))
+		return -EINVAL;
+
+	if (WARN_ON_ONCE(!callback->func || callback->idx < 0))
+		return -EINVAL;
+
+	if (!cookie) {
+		u64 cpu = smp_processor_id();
+
+		BUILD_BUG_ON(NR_CPUS > 65535);
+
+		cookie = __this_cpu_read(ctx_ctr);
+		cookie++;
+		cookie &= (1UL << 48) - 1;
+		cookie |= cpu << 48;
+		__this_cpu_write(ctx_ctr, cookie);
+
+		current->unwind_ctx_cookie = cookie;
+		task_work_add(current, &current->unwind_work, TWA_RESUME);
+	}
+
+	if (ctx_cookie)
+		*ctx_cookie = cookie;
+
+	current->unwind_pending |= (1 << callback->idx);
+	current->unwind_privs[callback->idx] = data;
+
+	return 0;
+}
+
+int unwind_user_register(struct unwind_callback *callback, unwind_callback_t func)
+{
+	scoped_guard(mutex, &callbacks_mutex) {
+		for (int i = 0; i < UNWIND_MAX_CALLBACKS; i++) {
+			if (!callbacks[i]) {
+				callback->func = func;
+				callback->idx = i;
+				callbacks[i] = callback;
+				return 0;
+			}
+		}
+	}
+
+	callback->func = NULL;
+	callback->idx = -1;
+	return -ENOSPC;
+}
+
+int unwind_user_unregister(struct unwind_callback *callback)
+{
+	if (callback->idx < 0)
+		return -EINVAL;
+
+	mutex_lock(&callbacks_mutex);
+	callbacks[callback->idx] = NULL;
+	mutex_unlock(&callbacks_mutex);
+
+	callback->func = NULL;
+	callback->idx = -1;
+
+	return 0;
+}
+
+void unwind_task_init(struct task_struct *task)
+{
+	task->unwind_entries	= NULL;
+	task->unwind_nr_entries	= 0;
+	task->unwind_pending	= 0;
+	task->unwind_ctx_cookie	= 0;
+	task->unwind_cached	= 0;
+
+	init_task_work(&task->unwind_work, unwind_user_deferred_task_work);
+}
+
+void unwind_task_free(struct task_struct *task)
+{
+	if (task->unwind_entries)
+		kfree(task->unwind_entries);
 }

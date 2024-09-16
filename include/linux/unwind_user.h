@@ -4,6 +4,8 @@
 
 #include <linux/types.h>
 
+#define UNWIND_MAX_CALLBACKS 32
+
 enum unwind_user_type {
 	UNWIND_USER_TYPE_FP,
 	UNWIND_USER_TYPE_SFRAME,
@@ -39,5 +41,23 @@ int unwind_user(struct unwind_stacktrace *trace, unsigned int max_entries);
 
 #define for_each_user_frame(state) \
 	for (unwind_user_start((state)); !(state)->done; unwind_user_next((state)))
+
+
+/* Asynchronous interface: */
+
+struct unwind_callback;
+
+typedef void (*unwind_callback_t)(struct unwind_stacktrace *trace,
+				  u64 ctx_cookie, void *data);
+
+struct unwind_callback {
+	unwind_callback_t		func;
+	int				idx;
+};
+
+int unwind_user_register(struct unwind_callback *callback, unwind_callback_t func);
+int unwind_user_unregister(struct unwind_callback *callback);
+
+int unwind_user_deferred(struct unwind_callback *callback, u64 *ctx_cookie, void *data);
 
 #endif /* _LINUX_UNWIND_USER_H */

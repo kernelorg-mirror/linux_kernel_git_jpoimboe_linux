@@ -47,6 +47,7 @@
 #include <linux/livepatch_sched.h>
 #include <linux/uidgid_types.h>
 #include <asm/kmap_size.h>
+#include <linux/unwind_user.h>
 
 /* task_struct member predeclarations (sorted alphabetically): */
 struct audit_context;
@@ -1567,6 +1568,15 @@ struct task_struct {
 #ifdef CONFIG_USER_EVENTS
 	struct user_event_mm		*user_event_mm;
 #endif
+
+	// TODO put these in a struct
+	unsigned long			*unwind_entries;
+	unsigned int			unwind_nr_entries;
+	void *				unwind_privs[UNWIND_MAX_CALLBACKS];
+	unsigned long			unwind_pending;
+	u64				unwind_ctx_cookie;
+	u64				unwind_cached;
+	struct callback_head		unwind_work;
 
 	/*
 	 * New fields for task_struct should be added above here, so that
