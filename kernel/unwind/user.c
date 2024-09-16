@@ -8,6 +8,7 @@
 #include <linux/sched.h>
 #include <linux/sched/task_stack.h>
 #include <linux/unwind_user.h>
+#include <linux/sframe.h>
 #include <linux/uaccess.h>
 #include <asm/unwind_user.h>
 
@@ -28,6 +29,11 @@ int unwind_user_next(struct unwind_user_state *state)
 	switch (state->type) {
 	case UNWIND_USER_TYPE_FP:
 		frame = &fp_frame;
+		break;
+	case UNWIND_USER_TYPE_SFRAME:
+		ret = sframe_find(state->ip, frame);
+		if (ret)
+			goto the_end;
 		break;
 	default:
 		BUG();
@@ -64,7 +70,10 @@ int unwind_user_start(struct unwind_user_state *state)
 		return -EINVAL;
 	}
 
-	state->type = UNWIND_USER_TYPE_FP;
+	if (current_has_sframe())
+		state->type = UNWIND_USER_TYPE_SFRAME;
+	else
+		state->type = UNWIND_USER_TYPE_FP;
 
 	state->sp = user_stack_pointer(regs);
 	state->ip = instruction_pointer(regs);
