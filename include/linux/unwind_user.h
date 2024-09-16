@@ -5,7 +5,9 @@
 #include <linux/types.h>
 
 enum unwind_user_type {
+	UNWIND_USER_TYPE_NONE,
 	UNWIND_USER_TYPE_FP,
+	UNWIND_USER_TYPE_SFRAME,
 };
 
 struct unwind_stacktrace {

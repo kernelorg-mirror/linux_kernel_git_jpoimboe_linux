@@ -442,6 +442,10 @@ config HAVE_UNWIND_USER_FP
 	bool
 	select UNWIND_USER
 
+config HAVE_UNWIND_USER_SFRAME
+	bool
+	select UNWIND_USER
+
 config HAVE_PERF_REGS
 	bool
 	help

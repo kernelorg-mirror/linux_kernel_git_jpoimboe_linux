@@ -8,12 +8,17 @@
 #include <linux/sched.h>
 #include <linux/sched/task_stack.h>
 #include <linux/unwind_user.h>
+#include <linux/sframe.h>
 #include <linux/uaccess.h>
-#include <asm/unwind_user.h>
 
+#ifdef CONFIG_HAVE_UNWIND_USER_FP
+#include <asm/unwind_user.h>
 static struct unwind_user_frame fp_frame = {
 	ARCH_INIT_USER_FP_FRAME
 };
+#else
+static struct unwind_user_frame fp_frame;
+#endif
 
 int unwind_user_next(struct unwind_user_state *state)
 {
@@ -30,6 +35,16 @@ int unwind_user_next(struct unwind_user_state *state)
 	case UNWIND_USER_TYPE_FP:
 		frame = &fp_frame;
 		break;
+	case UNWIND_USER_TYPE_SFRAME:
+		if (sframe_find(state->ip, frame)) {
+			if (!IS_ENABLED(CONFIG_HAVE_UNWIND_USER_FP))
+				goto the_end;
+
+			frame = &fp_frame;
+		}
+		break;
+	case UNWIND_USER_TYPE_NONE:
+		goto the_end;
 	default:
 		BUG();
 	}
@@ -68,7 +83,12 @@ int unwind_user_start(struct unwind_user_state *state)
 		return -EINVAL;
 	}
 
-	state->type = UNWIND_USER_TYPE_FP;
+	if (current_has_sframe())
+		state->type = UNWIND_USER_TYPE_SFRAME;
+	else if (IS_ENABLED(CONFIG_UNWIND_USER_FP))
+		state->type = UNWIND_USER_TYPE_FP;
+	else
+		state->type = UNWIND_USER_TYPE_NONE;
 
 	state->sp = user_stack_pointer(regs);
 	state->ip = instruction_pointer(regs);
