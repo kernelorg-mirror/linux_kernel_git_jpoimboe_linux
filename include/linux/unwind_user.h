@@ -40,4 +40,28 @@ int unwind_user(struct unwind_stacktrace *trace, unsigned int max_entries);
 #define for_each_user_frame(state) \
 	for (unwind_user_start(state); !state.done; unwind_user_next(state))
 
+
+/* Asynchronous interface: */
+
+struct unwind_callback;
+
+typedef void (*unwind_callback_t)(struct unwind_callback *callback,
+				  struct unwind_stacktrace *trace,
+				  u64 ctx_cookie);
+
+struct unwind_callback_private {
+	unsigned char idx;
+};
+
+struct unwind_callback {
+	unwind_callback_t		func;
+	void				*callback_priv;
+	struct unwind_callback_private	unwind_priv;
+};
+
+int unwind_user_register(struct unwind_callback *callback);
+int unwind_user_unregister(struct unwind_callback *callback);
+
+int unwind_user_deferred(struct unwind_callback *callback, u64 *ctx_cookie);
+
 #endif /* _LINUX_UNWIND_USER_H */

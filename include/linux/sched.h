@@ -1568,6 +1568,13 @@ struct task_struct {
 	struct user_event_mm		*user_event_mm;
 #endif
 
+	unsigned long			*unwind_entries;
+	unsigned int			unwind_nr_entries;
+	unsigned long			unwind_pending;
+	u64				unwind_ctx_cookie;
+	u64				unwind_cached;
+	struct callback_head		unwind_work;
+
 	/*
 	 * New fields for task_struct should be added above here, so that
 	 * they are included in the randomized portion of task_struct.
