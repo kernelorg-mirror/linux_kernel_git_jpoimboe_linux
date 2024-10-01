@@ -1792,17 +1792,17 @@ EXPORT_SYMBOL(arch_free_page);
 
 #ifdef CONFIG_TRACEPOINTS
 #ifdef CONFIG_JUMP_LABEL
-struct static_key hcall_tracepoint_key = STATIC_KEY_INIT;
+DEFINE_STATIC_KEY_FALSE(hcall_tracepoint_key);
 
 int hcall_tracepoint_regfunc(void)
 {
-	static_key_slow_inc(&hcall_tracepoint_key);
+	static_branch_inc(&hcall_tracepoint_key);
 	return 0;
 }
 
 void hcall_tracepoint_unregfunc(void)
 {
-	static_key_slow_dec(&hcall_tracepoint_key);
+	static_branch_dec(&hcall_tracepoint_key);
 }
 #else
 /*

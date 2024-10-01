@@ -499,6 +499,7 @@
 
 #ifndef __ASSEMBLY__
 #include <linux/types.h>
+#include <linux/jump_label.h>
 
 /**
  * plpar_hcall_norets: - Make a pseries hypervisor call with no return arguments
@@ -553,7 +554,7 @@ long plpar_hcall9(unsigned long opcode, unsigned long retbuf[static PLPAR_HCALL9
 long plpar_hcall9_raw(unsigned long opcode, unsigned long retbuf[static PLPAR_HCALL9_BUFSIZE], ...);
 
 /* pseries hcall tracing */
-extern struct static_key hcall_tracepoint_key;
+DECLARE_STATIC_KEY_FALSE(hcall_tracepoint_key);
 void __trace_hcall_entry(unsigned long opcode, unsigned long *args);
 void __trace_hcall_exit(long opcode, long retval, unsigned long *retbuf);
 
