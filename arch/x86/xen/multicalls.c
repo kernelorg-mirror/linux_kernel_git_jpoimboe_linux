@@ -59,13 +59,13 @@ static DEFINE_PER_CPU(struct mc_debug_data *, mc_debug_data) =
 static struct mc_debug_data __percpu *mc_debug_data_ptr;
 DEFINE_PER_CPU(unsigned long, xen_mc_irq_flags);
 
-static struct static_key mc_debug __ro_after_init;
+static __ro_after_init DEFINE_STATIC_KEY_FALSE(mc_debug);
 static bool mc_debug_enabled __initdata;
 
 static int __init xen_parse_mc_debug(char *arg)
 {
 	mc_debug_enabled = true;
-	static_key_slow_inc(&mc_debug);
+	static_branch_inc(&mc_debug);
 
 	return 0;
 }
@@ -86,7 +86,7 @@ static int __init mc_debug_enable(void)
 	mc_debug_data_ptr = alloc_percpu(struct mc_debug_data);
 	if (!mc_debug_data_ptr) {
 		pr_err("xen_mc_debug inactive\n");
-		static_key_slow_dec(&mc_debug);
+		static_branch_dec(&mc_debug);
 		return -ENOMEM;
 	}
 
@@ -154,7 +154,7 @@ void xen_mc_flush(void)
 
 	trace_xen_mc_flush(b->mcidx, b->argidx, b->cbidx);
 
-	if (static_key_false(&mc_debug)) {
+	if (static_branch_unlikely(&mc_debug)) {
 		mcdb = __this_cpu_read(mc_debug_data);
 		memcpy(mcdb->entries, b->entries,
 		       b->mcidx * sizeof(struct multicall_entry));
@@ -189,7 +189,7 @@ void xen_mc_flush(void)
 		pr_err("%d of %d multicall(s) failed: cpu %d\n",
 		       ret, b->mcidx, smp_processor_id());
 		for (i = 0; i < b->mcidx; i++) {
-			if (static_key_false(&mc_debug)) {
+			if (static_branch_unlikely(&mc_debug)) {
 				print_debug_data(b, mcdb, i);
 			} else if (b->entries[i].result < 0) {
 				pr_err("  call %2d: op=%lu arg=[%lx] result=%ld\n",
@@ -234,7 +234,7 @@ struct multicall_space __xen_mc_entry(size_t args)
 	}
 
 	ret.mc = &b->entries[b->mcidx];
-	if (static_key_false(&mc_debug)) {
+	if (static_branch_unlikely(&mc_debug)) {
 		struct mc_debug_data *mcdb = __this_cpu_read(mc_debug_data);
 
 		mcdb->caller[b->mcidx] = __builtin_return_address(0);
