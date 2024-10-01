@@ -3,11 +3,11 @@
 #define _ASM_ARM_PARAVIRT_H
 
 #ifdef CONFIG_PARAVIRT
+#include <linux/jump_label.h>
 #include <linux/static_call_types.h>
 
-struct static_key;
-extern struct static_key paravirt_steal_enabled;
-extern struct static_key paravirt_steal_rq_enabled;
+DECLARE_STATIC_KEY_FALSE(paravirt_steal_enabled);
+DECLARE_STATIC_KEY_FALSE(paravirt_steal_rq_enabled);
 
 u64 dummy_steal_clock(int cpu);
 

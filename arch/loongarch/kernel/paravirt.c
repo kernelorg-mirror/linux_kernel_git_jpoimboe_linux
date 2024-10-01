@@ -10,8 +10,10 @@
 #include <asm/paravirt.h>
 
 static int has_steal_clock;
-struct static_key paravirt_steal_enabled;
-struct static_key paravirt_steal_rq_enabled;
+
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_enabled);
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_rq_enabled);
+
 static DEFINE_PER_CPU(struct kvm_steal_time, steal_time) __aligned(64);
 DEFINE_STATIC_KEY_FALSE(virt_spin_lock_key);
 
@@ -298,10 +300,10 @@ int __init pv_time_init(void)
 
 	static_call_update(pv_steal_clock, paravt_steal_clock);
 
-	static_key_slow_inc(&paravirt_steal_enabled);
+	static_branch_inc(&paravirt_steal_enabled);
 #ifdef CONFIG_PARAVIRT_TIME_ACCOUNTING
 	if (steal_acc)
-		static_key_slow_inc(&paravirt_steal_rq_enabled);
+		static_branch_inc(&paravirt_steal_rq_enabled);
 #endif
 
 	pr_info("Using paravirt steal-time\n");

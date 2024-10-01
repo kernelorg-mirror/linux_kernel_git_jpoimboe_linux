@@ -22,8 +22,8 @@
 #include <asm/paravirt.h>
 #include <asm/sbi.h>
 
-struct static_key paravirt_steal_enabled;
-struct static_key paravirt_steal_rq_enabled;
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_enabled);
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_rq_enabled);
 
 static u64 native_steal_clock(int cpu)
 {
@@ -125,9 +125,9 @@ int __init pv_time_init(void)
 
 	static_call_update(pv_steal_clock, pv_time_steal_clock);
 
-	static_key_slow_inc(&paravirt_steal_enabled);
+	static_branch_inc(&paravirt_steal_enabled);
 	if (steal_acc)
-		static_key_slow_inc(&paravirt_steal_rq_enabled);
+		static_branch_inc(&paravirt_steal_rq_enabled);
 
 	pr_info("Computing paravirt steal-time\n");
 

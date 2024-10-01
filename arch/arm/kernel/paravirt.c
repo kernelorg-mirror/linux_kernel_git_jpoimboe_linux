@@ -12,8 +12,8 @@
 #include <linux/static_call.h>
 #include <asm/paravirt.h>
 
-struct static_key paravirt_steal_enabled;
-struct static_key paravirt_steal_rq_enabled;
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_enabled);
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_rq_enabled);
 
 static u64 native_steal_clock(int cpu)
 {

@@ -76,6 +76,7 @@
 #include <asm/dtl.h>
 #include <asm/hvconsole.h>
 #include <asm/setup.h>
+#include <asm/paravirt.h>
 
 #include "pseries.h"
 
@@ -83,8 +84,8 @@ DEFINE_STATIC_KEY_FALSE(shared_processor);
 EXPORT_SYMBOL(shared_processor);
 
 #ifdef CONFIG_PARAVIRT_TIME_ACCOUNTING
-struct static_key paravirt_steal_enabled;
-struct static_key paravirt_steal_rq_enabled;
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_enabled);
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_rq_enabled);
 
 static bool steal_acc = true;
 static int __init parse_no_stealacc(char *arg)
@@ -853,9 +854,9 @@ static void __init pSeries_setup_arch(void)
 			static_branch_enable(&shared_processor);
 			pv_spinlocks_init();
 #ifdef CONFIG_PARAVIRT_TIME_ACCOUNTING
-			static_key_slow_inc(&paravirt_steal_enabled);
+			static_branch_inc(&paravirt_steal_enabled);
 			if (steal_acc)
-				static_key_slow_inc(&paravirt_steal_rq_enabled);
+				static_branch_inc(&paravirt_steal_rq_enabled);
 #endif
 		}
 
