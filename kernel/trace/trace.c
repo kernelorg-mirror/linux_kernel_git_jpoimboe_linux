@@ -2813,9 +2813,9 @@ int tracepoint_printk_sysctl(const struct ctl_table *table, int write,
 		goto out;
 
 	if (tracepoint_printk)
-		static_key_enable(&tracepoint_printk_key.key);
+		static_branch_enable(&tracepoint_printk_key);
 	else
-		static_key_disable(&tracepoint_printk_key.key);
+		static_branch_disable(&tracepoint_printk_key);
 
  out:
 	mutex_unlock(&tracepoint_printk_mutex);
@@ -2832,7 +2832,7 @@ void trace_event_buffer_commit(struct trace_event_buffer *fbuffer)
 			fbuffer->entry, &tt))
 		goto discard;
 
-	if (static_key_false(&tracepoint_printk_key.key))
+	if (static_branch_unlikely(&tracepoint_printk_key))
 		output_printk(fbuffer);
 
 	if (static_branch_unlikely(&trace_event_exports_enabled))
@@ -10796,7 +10796,7 @@ void __init early_trace_init(void)
 			     "Failed to allocate trace iterator\n"))
 			tracepoint_printk = 0;
 		else
-			static_key_enable(&tracepoint_printk_key.key);
+			static_branch_enable(&tracepoint_printk_key);
 	}
 	tracer_alloc_buffers();
 
@@ -10853,7 +10853,7 @@ static inline void tracing_set_default_clock(void) { }
 __init static int late_trace_init(void)
 {
 	if (tracepoint_printk && tracepoint_printk_stop_on_boot) {
-		static_key_disable(&tracepoint_printk_key.key);
+		static_branch_disable(&tracepoint_printk_key);
 		tracepoint_printk = 0;
 	}
 
