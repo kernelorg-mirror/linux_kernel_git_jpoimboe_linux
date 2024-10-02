@@ -2411,8 +2411,8 @@ int netdev_txq_to_tc(struct net_device *dev, unsigned int txq)
 EXPORT_SYMBOL(netdev_txq_to_tc);
 
 #ifdef CONFIG_XPS
-static struct static_key xps_needed __read_mostly;
-static struct static_key xps_rxqs_needed __read_mostly;
+static __read_mostly DEFINE_STATIC_KEY_FALSE(xps_needed);
+static __read_mostly DEFINE_STATIC_KEY_FALSE(xps_rxqs_needed);
 static DEFINE_MUTEX(xps_map_mutex);
 #define xmap_dereference(P)		\
 	rcu_dereference_protected((P), lockdep_is_held(&xps_map_mutex))
@@ -2472,9 +2472,9 @@ static void reset_xps_maps(struct net_device *dev,
 			   struct xps_dev_maps *dev_maps,
 			   enum xps_map_type type)
 {
-	static_key_slow_dec_cpuslocked(&xps_needed);
+	static_branch_dec_cpuslocked(&xps_needed);
 	if (type == XPS_RXQS)
-		static_key_slow_dec_cpuslocked(&xps_rxqs_needed);
+		static_branch_dec_cpuslocked(&xps_rxqs_needed);
 
 	RCU_INIT_POINTER(dev->xps_maps[type], NULL);
 
@@ -2507,13 +2507,13 @@ static void clean_xps_maps(struct net_device *dev, enum xps_map_type type,
 static void netif_reset_xps_queues(struct net_device *dev, u16 offset,
 				   u16 count)
 {
-	if (!static_key_false(&xps_needed))
+	if (!static_branch_unlikely(&xps_needed))
 		return;
 
 	cpus_read_lock();
 	mutex_lock(&xps_map_mutex);
 
-	if (static_key_false(&xps_rxqs_needed))
+	if (static_branch_unlikely(&xps_rxqs_needed))
 		clean_xps_maps(dev, XPS_RXQS, offset, count);
 
 	clean_xps_maps(dev, XPS_CPUS, offset, count);
@@ -2668,9 +2668,9 @@ int __netif_set_xps_queue(struct net_device *dev, const unsigned long *mask,
 
 	if (!dev_maps) {
 		/* Increment static keys at most once per type */
-		static_key_slow_inc_cpuslocked(&xps_needed);
+		static_branch_inc_cpuslocked(&xps_needed);
 		if (type == XPS_RXQS)
-			static_key_slow_inc_cpuslocked(&xps_rxqs_needed);
+			static_branch_inc_cpuslocked(&xps_rxqs_needed);
 	}
 
 	for (j = 0; j < nr_ids; j++) {
@@ -4216,11 +4216,11 @@ static int get_xps_queue(struct net_device *dev, struct net_device *sb_dev,
 	struct sock *sk = skb->sk;
 	int queue_index = -1;
 
-	if (!static_key_false(&xps_needed))
+	if (!static_branch_unlikely(&xps_needed))
 		return -1;
 
 	rcu_read_lock();
-	if (!static_key_false(&xps_rxqs_needed))
+	if (!static_branch_unlikely(&xps_rxqs_needed))
 		goto get_cpus_map;
 
 	dev_maps = rcu_dereference(sb_dev->xps_maps[XPS_RXQS]);
