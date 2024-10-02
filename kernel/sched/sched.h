@@ -2208,17 +2208,23 @@ extern const_debug unsigned int sysctl_sched_features;
 
 #ifdef CONFIG_JUMP_LABEL
 
-#define SCHED_FEAT(name, enabled)					\
-static __always_inline bool static_branch_##name(struct static_key *key) \
-{									\
-	return static_key_##enabled(key);				\
-}
-
+#define declare_sched_feat_key_true(name)	DECLARE_STATIC_KEY_TRUE(sched_feat_key_##name)
+#define declare_sched_feat_key_false(name)	DECLARE_STATIC_KEY_FALSE(sched_feat_key_##name)
+#define SCHED_FEAT(name, enabled)		declare_sched_feat_key_##enabled(name);
 #include "features.h"
 #undef SCHED_FEAT
 
-extern struct static_key sched_feat_keys[__SCHED_FEAT_NR];
-#define sched_feat(x) (static_branch_##x(&sched_feat_keys[__SCHED_FEAT_##x]))
+#define __static_branch_true			static_branch_likely
+#define __static_branch_false			static_branch_unlikely
+#define SCHED_FEAT(name, enabled)					\
+static __always_inline bool static_branch_##name(void)			\
+{									\
+	return __static_branch_##enabled(&sched_feat_key_##name); 	\
+}
+#include "features.h"
+#undef SCHED_FEAT
+
+#define sched_feat(x) (static_branch_##x())
 
 #else /* !CONFIG_JUMP_LABEL: */
 
