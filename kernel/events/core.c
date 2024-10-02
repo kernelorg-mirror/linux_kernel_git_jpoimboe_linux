@@ -10264,7 +10264,7 @@ fail:
 	return err;
 }
 
-struct static_key perf_swevent_enabled[PERF_COUNT_SW_MAX];
+DEFINE_STATIC_KEY_ARRAY_FALSE(perf_swevent_enabled, PERF_COUNT_SW_MAX);
 
 static void sw_perf_event_destroy(struct perf_event *event)
 {
@@ -10272,7 +10272,7 @@ static void sw_perf_event_destroy(struct perf_event *event)
 
 	WARN_ON(event->parent);
 
-	static_key_slow_dec(&perf_swevent_enabled[event_id]);
+	static_branch_dec(&perf_swevent_enabled[event_id]);
 	swevent_hlist_put();
 }
 
@@ -10314,7 +10314,7 @@ static int perf_swevent_init(struct perf_event *event)
 		if (err)
 			return err;
 
-		static_key_slow_inc(&perf_swevent_enabled[event_id]);
+		static_branch_inc(&perf_swevent_enabled[event_id]);
 		event->destroy = sw_perf_event_destroy;
 	}
 

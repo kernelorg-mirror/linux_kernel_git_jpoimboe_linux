@@ -1426,7 +1426,7 @@ static inline int is_exclusive_pmu(struct pmu *pmu)
 	return pmu->capabilities & PERF_PMU_CAP_EXCLUSIVE;
 }
 
-extern struct static_key perf_swevent_enabled[PERF_COUNT_SW_MAX];
+DECLARE_STATIC_KEY_FALSE(perf_swevent_enabled[PERF_COUNT_SW_MAX]);
 
 extern void ___perf_sw_event(u32, u64, struct pt_regs *, u64);
 extern void __perf_sw_event(u32, u64, struct pt_regs *, u64);
@@ -1457,7 +1457,7 @@ static inline void perf_fetch_caller_regs(struct pt_regs *regs)
 static __always_inline void
 perf_sw_event(u32 event_id, u64 nr, struct pt_regs *regs, u64 addr)
 {
-	if (static_key_false(&perf_swevent_enabled[event_id]))
+	if (static_branch_unlikely(&perf_swevent_enabled[event_id]))
 		__perf_sw_event(event_id, nr, regs, addr);
 }
 
@@ -1480,7 +1480,7 @@ extern struct static_key_false perf_sched_events;
 
 static __always_inline bool __perf_sw_enabled(int swevt)
 {
-	return static_key_false(&perf_swevent_enabled[swevt]);
+	return static_branch_unlikely(&perf_swevent_enabled[swevt]);
 }
 
 static inline void perf_event_task_migrate(struct task_struct *task)
