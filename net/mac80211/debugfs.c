@@ -319,7 +319,7 @@ static ssize_t aql_enable_read(struct file *file, char __user *user_buf,
 	int len;
 
 	len = scnprintf(buf, sizeof(buf), "%d\n",
-			!static_key_enabled(&aql_disable.key));
+			static_key_enabled(&aql_enabled));
 
 	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
 }
@@ -342,9 +342,9 @@ static ssize_t aql_enable_write(struct file *file, const char __user *user_buf,
 		buf[len - 1] = 0;
 
 	if (buf[0] == '0' && buf[1] == '\0') {
-		static_branch_enable(&aql_disable);
+		static_branch_disable(&aql_enabled);
 	} else if (buf[0] == '1' && buf[1] == '\0') {
-		static_branch_disable(&aql_disable);
+		static_branch_enable(&aql_enabled);
 	} else {
 		return -EINVAL;
 	}

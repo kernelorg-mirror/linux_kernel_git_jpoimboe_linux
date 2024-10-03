@@ -1329,7 +1329,7 @@ enum mac80211_scan_state {
 	SCAN_ABORT,
 };
 
-DECLARE_STATIC_KEY_FALSE(aql_disable);
+DECLARE_STATIC_KEY_TRUE(aql_enabled);
 
 struct ieee80211_local {
 	/* embed the driver visible part.
