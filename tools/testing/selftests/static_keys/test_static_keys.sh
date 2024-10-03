@@ -23,6 +23,7 @@ if /sbin/modprobe -q test_static_key_base; then
 	else
 		echo "static_keys: [FAIL]"
 		/sbin/modprobe -q -r test_static_key_base
+		exit 1
 	fi
 else
 	echo "static_keys: [FAIL]"
