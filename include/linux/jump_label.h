@@ -8,17 +8,7 @@
  * Copyright (C) 2009-2012 Jason Baron <jbaron@redhat.com>
  * Copyright (C) 2011-2012 Red Hat, Inc., Peter Zijlstra
  *
- * DEPRECATED API:
- *
- * The use of 'struct static_key' directly, is now DEPRECATED. In addition
- * static_key_{true,false}() is also DEPRECATED. IE DO NOT use the following:
- *
- * struct static_key false = STATIC_KEY_INIT_FALSE;
- * struct static_key true = STATIC_KEY_INIT_TRUE;
- * static_key_true()
- * static_key_false()
- *
- * The updated API replacements are:
+ * API:
  *
  * DEFINE_STATIC_KEY_TRUE(key);
  * DEFINE_STATIC_KEY_FALSE(key);
@@ -202,16 +192,6 @@ struct module;
 #define JUMP_TYPE_LINKED	2UL
 #define JUMP_TYPE_MASK		3UL
 
-static __always_inline bool static_key_false(struct static_key *key)
-{
-	return arch_static_branch(key, false);
-}
-
-static __always_inline bool static_key_true(struct static_key *key)
-{
-	return !arch_static_branch(key, true);
-}
-
 extern struct jump_entry __start___jump_table[];
 extern struct jump_entry __stop___jump_table[];
 
@@ -267,20 +247,6 @@ static __always_inline void jump_label_init(void)
 }
 
 static __always_inline void jump_label_init_ro(void) { }
-
-static __always_inline bool static_key_false(struct static_key *key)
-{
-	if (unlikely_notrace(static_key_count(key) > 0))
-		return true;
-	return false;
-}
-
-static __always_inline bool static_key_true(struct static_key *key)
-{
-	if (likely_notrace(static_key_count(key) > 0))
-		return true;
-	return false;
-}
 
 static inline bool static_key_fast_inc_not_disabled(struct static_key *key)
 {
@@ -346,9 +312,6 @@ static inline void static_key_disable(struct static_key *key)
 #define STATIC_KEY_INIT_FALSE	{ .enabled = ATOMIC_INIT(0) }
 
 #endif	/* CONFIG_JUMP_LABEL */
-
-#define STATIC_KEY_INIT STATIC_KEY_INIT_FALSE
-#define jump_label_enabled static_key_enabled
 
 /* -------------------------------------------------------------------------- */
 

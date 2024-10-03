@@ -2,27 +2,6 @@
 Static Keys
 ===========
 
-.. warning::
-
-   DEPRECATED API:
-
-   The use of 'struct static_key' directly, is now DEPRECATED. In addition
-   static_key_{true,false}() is also DEPRECATED. IE DO NOT use the following::
-
-	struct static_key false = STATIC_KEY_INIT_FALSE;
-	struct static_key true = STATIC_KEY_INIT_TRUE;
-	static_key_true()
-	static_key_false()
-
-   The updated API replacements are::
-
-	DEFINE_STATIC_KEY_TRUE(key);
-	DEFINE_STATIC_KEY_FALSE(key);
-	DEFINE_STATIC_KEY_ARRAY_TRUE(keys, count);
-	DEFINE_STATIC_KEY_ARRAY_FALSE(keys, count);
-	static_branch_likely()
-	static_branch_unlikely()
-
 Abstract
 ========
 
