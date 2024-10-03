@@ -349,7 +349,7 @@ DECLARE_PER_CPU(seqcount_t, xt_recseq);
  *
  * Enabled if current ip(6)tables ruleset has at least one -j TEE rule.
  */
-extern struct static_key xt_tee_enabled;
+DECLARE_STATIC_KEY_FALSE(xt_tee_enabled);
 
 /**
  * xt_write_recseq_begin - start of a write section

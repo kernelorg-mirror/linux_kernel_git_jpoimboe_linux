@@ -1320,7 +1320,7 @@ EXPORT_SYMBOL_GPL(xt_compat_unlock);
 DEFINE_PER_CPU(seqcount_t, xt_recseq);
 EXPORT_PER_CPU_SYMBOL_GPL(xt_recseq);
 
-struct static_key xt_tee_enabled __read_mostly;
+__read_mostly DEFINE_STATIC_KEY_FALSE(xt_tee_enabled);
 EXPORT_SYMBOL_GPL(xt_tee_enabled);
 
 static int xt_jumpstack_alloc(struct xt_table_info *i)
