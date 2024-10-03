@@ -398,6 +398,13 @@ struct static_key_false {
 		[0 ... (count) - 1] = STATIC_KEY_FALSE_INIT,	\
 	}
 
+#define DEFINE_STATIC_KEY_ARRAY_2D_FALSE(name, count1, count2)		\
+	struct static_key_false name[(count1)][(count2)] = {		\
+		[0 ... (count1) - 1] = {				\
+			[0 ... (count2) - 1] = STATIC_KEY_FALSE_INIT,	\
+		},							\
+	}
+
 #define _DEFINE_STATIC_KEY_1(name)	DEFINE_STATIC_KEY_TRUE(name)
 #define _DEFINE_STATIC_KEY_0(name)	DEFINE_STATIC_KEY_FALSE(name)
 #define DEFINE_STATIC_KEY_MAYBE(cfg, name)			\

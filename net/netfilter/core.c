@@ -35,7 +35,7 @@ DEFINE_PER_CPU(bool, nf_skb_duplicated);
 EXPORT_SYMBOL_GPL(nf_skb_duplicated);
 
 #ifdef CONFIG_JUMP_LABEL
-struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+DEFINE_STATIC_KEY_ARRAY_2D_FALSE(nf_hooks_needed, NFPROTO_NUMPROTO, NF_MAX_HOOKS);
 EXPORT_SYMBOL(nf_hooks_needed);
 #endif
 
@@ -374,7 +374,7 @@ static void nf_static_key_inc(const struct nf_hook_ops *reg, int pf)
 	} else {
 		hooknum = reg->hooknum;
 	}
-	static_key_slow_inc(&nf_hooks_needed[pf][hooknum]);
+	static_branch_inc(&nf_hooks_needed[pf][hooknum]);
 #endif
 }
 
@@ -389,7 +389,7 @@ static void nf_static_key_dec(const struct nf_hook_ops *reg, int pf)
 	} else {
 		hooknum = reg->hooknum;
 	}
-	static_key_slow_dec(&nf_hooks_needed[pf][hooknum]);
+	static_branch_dec(&nf_hooks_needed[pf][hooknum]);
 #endif
 }
 

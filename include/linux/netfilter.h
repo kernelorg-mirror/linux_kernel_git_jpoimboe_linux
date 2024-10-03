@@ -205,7 +205,7 @@ int nf_register_sockopt(struct nf_sockopt_ops *reg);
 void nf_unregister_sockopt(struct nf_sockopt_ops *reg);
 
 #ifdef CONFIG_JUMP_LABEL
-extern struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+DECLARE_STATIC_KEY_FALSE(nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS]);
 #endif
 
 int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state,
@@ -231,7 +231,7 @@ static inline int nf_hook(u_int8_t pf, unsigned int hook, struct net *net,
 #ifdef CONFIG_JUMP_LABEL
 	if (__builtin_constant_p(pf) &&
 	    __builtin_constant_p(hook) &&
-	    !static_key_false(&nf_hooks_needed[pf][hook]))
+	    !static_branch_unlikely(&nf_hooks_needed[pf][hook]))
 		return 1;
 #endif
 
@@ -325,7 +325,7 @@ NF_HOOK_LIST(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk,
 #ifdef CONFIG_JUMP_LABEL
 	if (__builtin_constant_p(pf) &&
 	    __builtin_constant_p(hook) &&
-	    !static_key_false(&nf_hooks_needed[pf][hook]))
+	    !static_branch_unlikely(&nf_hooks_needed[pf][hook]))
 		return;
 #endif
 
