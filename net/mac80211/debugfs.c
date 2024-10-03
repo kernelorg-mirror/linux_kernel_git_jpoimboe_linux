@@ -319,7 +319,7 @@ static ssize_t aql_enable_read(struct file *file, char __user *user_buf,
 	int len;
 
 	len = scnprintf(buf, sizeof(buf), "%d\n",
-			!static_key_false(&aql_disable.key));
+			!static_key_enabled(&aql_disable.key));
 
 	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
 }
@@ -327,7 +327,7 @@ static ssize_t aql_enable_read(struct file *file, char __user *user_buf,
 static ssize_t aql_enable_write(struct file *file, const char __user *user_buf,
 				size_t count, loff_t *ppos)
 {
-	bool aql_disabled = static_key_false(&aql_disable.key);
+	bool aql_disabled = static_key_enabled(&aql_disable.key);
 	char buf[3];
 	size_t len;
 
