@@ -60,7 +60,6 @@
 	_ASM_EXTABLE_UA(1b, __get_user_handle_exception)
 .endm
 
-
 	.text
 SYM_FUNC_START(__get_user_1)
 	check_range size=1
@@ -110,10 +109,36 @@ SYM_FUNC_START(__get_user_8)
 SYM_FUNC_END(__get_user_8)
 EXPORT_SYMBOL(__get_user_8)
 
+.macro __get_user_nocheck_nospec
+#ifdef CONFIG_X86_64
+	movq $0x0123456789abcdef, %rdx
+ 1:
+.pushsection runtime_ptr_USER_PTR_MAX, "a"
+	.long 1b - 8 - .
+.popsection
+	cmp %rax, %rdx
+	jb 10f
+	sbb %rdx, %rdx
+	or %rdx, %rax
+	jmp 11f
+10:	/*
+	 * Stop access_ok() branch misprediction -- both of them ;-)
+	 *
+	 * As a benefit this also punishes callers who intentionally call this
+	 * with a kernel address.  Once they're rooted out, __get_user() can
+	 * just become an alias of get_user().
+	 *
+	 * TODO: Add WARN_ON()
+	 */
+#endif
+	ASM_BARRIER_NOSPEC
+11:
+.endm
+
 /* .. and the same for __get_user, just without the range checks */
 SYM_FUNC_START(__get_user_nocheck_1)
+	__get_user_nocheck_nospec
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 	UACCESS movzbl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -122,8 +147,8 @@ SYM_FUNC_END(__get_user_nocheck_1)
 EXPORT_SYMBOL(__get_user_nocheck_1)
 
 SYM_FUNC_START(__get_user_nocheck_2)
+	__get_user_nocheck_nospec
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 	UACCESS movzwl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -132,8 +157,8 @@ SYM_FUNC_END(__get_user_nocheck_2)
 EXPORT_SYMBOL(__get_user_nocheck_2)
 
 SYM_FUNC_START(__get_user_nocheck_4)
+	__get_user_nocheck_nospec
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 	UACCESS movl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -142,8 +167,8 @@ SYM_FUNC_END(__get_user_nocheck_4)
 EXPORT_SYMBOL(__get_user_nocheck_4)
 
 SYM_FUNC_START(__get_user_nocheck_8)
+	__get_user_nocheck_nospec
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 #ifdef CONFIG_X86_64
 	UACCESS movq (%_ASM_AX),%rdx
 #else
