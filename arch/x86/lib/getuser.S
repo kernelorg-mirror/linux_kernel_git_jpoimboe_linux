@@ -34,6 +34,7 @@
 #include <asm/thread_info.h>
 #include <asm/asm.h>
 #include <asm/smap.h>
+#include <asm/bug.h>
 
 #define ASM_BARRIER_NOSPEC ALTERNATIVE "", "lfence", X86_FEATURE_LFENCE_RDTSC
 
@@ -110,10 +111,40 @@ SYM_FUNC_START(__get_user_8)
 SYM_FUNC_END(__get_user_8)
 EXPORT_SYMBOL(__get_user_8)
 
-/* .. and the same for __get_user, just without the range checks */
-SYM_FUNC_START(__get_user_nocheck_1)
-	ASM_STAC
+
+/*
+ * If a user address was provided, do pointer masking to prevent a mispredicted
+ * branch from accessing a kernel address.  Otherwise, do ASM_BARRIER_NOSPEC.
+ *
+ * Unfortunately there may still be kernel code out there using __get_user()
+ * off-label by skipping access_ok() and passing a kernel address.  Root out
+ * the "bad" callers by adding a warning.
+ *
+ * Once this has run for a bit without any reported warnings, we can delete
+ * this nonsense and "#define __get_user get_user" with the eventual goal of
+ * getting rid of __get_user() tree-wide.
+ */
+.macro __get_user_nocheck_nospec
+#ifdef CONFIG_X86_64
+	movq $0x0123456789abcdef, %rdx
+ 1:
+.pushsection runtime_ptr_USER_PTR_MAX, "a"
+	.long 1b - 8 - .
+.popsection
+	cmp %rax, %rdx
+	jb 10f
+	sbb %rdx, %rdx
+	or %rdx, %rax
+	jmp 11f
+10:	WARN_ONCE
+#endif /* CONFIG_X86_64 */
 	ASM_BARRIER_NOSPEC
+11:
+.endm
+
+SYM_FUNC_START(__get_user_nocheck_1)
+	__get_user_nocheck_nospec
+	ASM_STAC
 	UACCESS movzbl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -122,8 +153,8 @@ SYM_FUNC_END(__get_user_nocheck_1)
 EXPORT_SYMBOL(__get_user_nocheck_1)
 
 SYM_FUNC_START(__get_user_nocheck_2)
+	__get_user_nocheck_nospec
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 	UACCESS movzwl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -132,8 +163,8 @@ SYM_FUNC_END(__get_user_nocheck_2)
 EXPORT_SYMBOL(__get_user_nocheck_2)
 
 SYM_FUNC_START(__get_user_nocheck_4)
+	__get_user_nocheck_nospec
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 	UACCESS movl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -142,8 +173,8 @@ SYM_FUNC_END(__get_user_nocheck_4)
 EXPORT_SYMBOL(__get_user_nocheck_4)
 
 SYM_FUNC_START(__get_user_nocheck_8)
+	__get_user_nocheck_nospec
 	ASM_STAC
-	ASM_BARRIER_NOSPEC
 #ifdef CONFIG_X86_64
 	UACCESS movq (%_ASM_AX),%rdx
 #else
