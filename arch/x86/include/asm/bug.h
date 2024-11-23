@@ -88,6 +88,31 @@ do {								\
 	instrumentation_end();					\
 } while (0)
 
+
+#ifdef __ASSEMBLY__
+#ifdef CONFIG_BUG
+
+#ifdef CONFIG_DEBUG_BUGVERBOSE
+#define FILE_STR						\
+.pushsection .rodata.str1.1, "aMS",@progbits,1;			\
+	1: .string __FILE__;					\
+.popsection
+#else
+#define FILE_STR
+#endif
+
+#define WARN_ONCE								\
+	FILE_STR;								\
+	2: ud2;									\
+	ASM_BUGTABLE_FLAGS(2b, 1b, __LINE__, BUGFLAG_WARNING | BUGFLAG_ONCE);	\
+	REACHABLE
+
+#else /* !CONFIG_BUG */
+#define WARN_ONCE
+#endif /* CONFIG_BUG */
+#endif /* __ASSEMBLY__ */
+
+
 #include <asm-generic/bug.h>
 
 #endif /* _ASM_X86_BUG_H */
