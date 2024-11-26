@@ -645,14 +645,8 @@ static int add_dead_ends(struct objtool_file *file)
 		goto reachable;
 
 	for_each_reloc(rsec, reloc) {
-		if (reloc->sym->type == STT_SECTION) {
-			offset = reloc_addend(reloc);
-		} else if (reloc->sym->local_label) {
-			offset = reloc->sym->offset;
-		} else {
-			WARN("unexpected relocation symbol type in %s", rsec->name);
-			return -1;
-		}
+
+		offset = reloc->sym->offset + reloc_addend(reloc);
 
 		insn = find_insn(file, reloc->sym->sec, offset);
 		if (insn)
@@ -685,14 +679,8 @@ reachable:
 		return 0;
 
 	for_each_reloc(rsec, reloc) {
-		if (reloc->sym->type == STT_SECTION) {
-			offset = reloc_addend(reloc);
-		} else if (reloc->sym->local_label) {
-			offset = reloc->sym->offset;
-		} else {
-			WARN("unexpected relocation symbol type in %s", rsec->name);
-			return -1;
-		}
+
+		offset = reloc->sym->offset + reloc_addend(reloc);
 
 		insn = find_insn(file, reloc->sym->sec, offset);
 		if (insn)
@@ -2307,14 +2295,7 @@ static int read_unwind_hints(struct objtool_file *file)
 			return -1;
 		}
 
-		if (reloc->sym->type == STT_SECTION) {
-			offset = reloc_addend(reloc);
-		} else if (reloc->sym->local_label) {
-			offset = reloc->sym->offset;
-		} else {
-			WARN("unexpected relocation symbol type in %s", sec->rsec->name);
-			return -1;
-		}
+		offset = reloc->sym->offset + reloc_addend(reloc);
 
 		insn = find_insn(file, reloc->sym->sec, offset);
 		if (!insn) {
@@ -2587,9 +2568,6 @@ static int classify_symbols(struct objtool_file *file)
 	struct symbol *func;
 
 	for_each_sym(file, func) {
-		if (func->type == STT_NOTYPE && strstarts(func->name, ".L"))
-			func->local_label = true;
-
 		if (func->bind != STB_GLOBAL)
 			continue;
 
