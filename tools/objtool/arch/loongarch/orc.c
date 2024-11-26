@@ -134,6 +134,10 @@ static const char *reg_name(unsigned int reg)
 static const char *orc_type_name(unsigned int type)
 {
 	switch (type) {
+	case UNWIND_HINT_TYPE_UNDEFINED:
+		return "(und)";
+	case UNWIND_HINT_TYPE_END_OF_STACK:
+		return "end";
 	case UNWIND_HINT_TYPE_CALL:
 		return "call";
 	case UNWIND_HINT_TYPE_REGS:
@@ -148,9 +152,9 @@ static const char *orc_type_name(unsigned int type)
 static void print_reg(unsigned int reg, int offset)
 {
 	if (reg == ORC_REG_UNDEFINED)
-		printf(" (und) ");
+		printf("(und)");
 	else
-		printf("%s + %3d", reg_name(reg), offset);
+		printf("%s%+d", reg_name(reg), offset);
 
 }
 
