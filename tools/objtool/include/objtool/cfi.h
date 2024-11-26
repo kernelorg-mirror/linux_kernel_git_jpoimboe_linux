@@ -14,6 +14,10 @@
 #define CFI_SP_INDIRECT		-3
 #define CFI_BP_INDIRECT		-4
 
+#ifndef arch_fp_points_to
+#define arch_fp_points_to()	CFI_CFA
+#endif
+
 struct cfi_reg {
 	int base;
 	int offset;

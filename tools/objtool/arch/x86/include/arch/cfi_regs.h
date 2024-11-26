@@ -22,4 +22,6 @@
 #define CFI_RA			16
 #define CFI_NUM_REGS		17
 
+#define arch_fp_points_to()	CFI_BP
+
 #endif /* _OBJTOOL_CFI_REGS_H */
