@@ -4930,9 +4930,6 @@ int check(struct objtool_file *file)
 
 	free_insns(file);
 
-	if (opts.verbose)
-		disas_warned_funcs(file);
-
 	if (opts.stats) {
 		printf("nr_insns_visited: %ld\n", nr_insns_visited);
 		printf("nr_cfi: %ld\n", nr_cfi);
@@ -4941,6 +4938,9 @@ int check(struct objtool_file *file)
 	}
 
 out:
+	if (opts.verbose)
+		disas_warned_funcs(file);
+
 	/*
 	 *  For now, don't fail the kernel build on fatal warnings.  These
 	 *  errors are still fairly common due to the growing matrix of
