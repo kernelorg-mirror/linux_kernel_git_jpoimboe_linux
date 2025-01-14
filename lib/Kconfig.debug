@@ -547,7 +547,7 @@ config OBJTOOL
 
 config OBJTOOL_WERROR
 	bool "Run objtool with warnings as errors"
-	default n
+	default y
 	depends on OBJTOOL
 	help
 	  Fail the build when objtool produces warnings.
