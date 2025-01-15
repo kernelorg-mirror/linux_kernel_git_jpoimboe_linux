@@ -7,12 +7,23 @@
 static struct callback_head work_exited; /* all we need is ->next == NULL */
 
 #ifdef CONFIG_IRQ_WORK
+
+struct nmi_irq_work {
+	struct irq_work work;
+	struct task_struct *task;
+};
+
 static void task_work_set_notify_irq(struct irq_work *entry)
 {
-	test_and_set_tsk_thread_flag(current, TIF_NOTIFY_RESUME);
+	struct nmi_irq_work *work = container_of(entry, struct nmi_irq_work, work);
+
+	set_notify_resume(work->task);
 }
-static DEFINE_PER_CPU(struct irq_work, irq_work_NMI_resume) =
-	IRQ_WORK_INIT_HARD(task_work_set_notify_irq);
+
+static DEFINE_PER_CPU(struct nmi_irq_work, nmi_irq_work) = {
+	.work = IRQ_WORK_INIT_HARD(task_work_set_notify_irq),
+};
+
 #endif
 
 /**
@@ -65,15 +76,21 @@ int task_work_add(struct task_struct *task, struct callback_head *work,
 		if (!IS_ENABLED(CONFIG_IRQ_WORK))
 			return -EINVAL;
 #ifdef CONFIG_IRQ_WORK
+{
+		struct nmi_irq_work *irq_work = this_cpu_ptr(&nmi_irq_work);
+
 		head = task->task_works;
 		if (unlikely(head == &work_exited))
 			return -ESRCH;
 
-		if (!irq_work_queue(this_cpu_ptr(&irq_work_NMI_resume)))
+		if (!irq_work_queue(&irq_work->work))
 			return -EBUSY;
+
+		irq_work->task = current;
 
 		work->next = head;
 		task->task_works = work;
+}
 #endif
 		return 0;
 	}
@@ -109,11 +126,6 @@ int task_work_add(struct task_struct *task, struct callback_head *work,
 	case TWA_SIGNAL_NO_IPI:
 		__set_notify_signal(task);
 		break;
-#ifdef CONFIG_IRQ_WORK
-	case TWA_NMI_CURRENT:
-		irq_work_queue(this_cpu_ptr(&irq_work_NMI_resume));
-		break;
-#endif
 	default:
 		WARN_ON_ONCE(1);
 		break;
