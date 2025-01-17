@@ -56,6 +56,7 @@ static void unwind_deferred_task_work(struct callback_head *head)
 {
 	struct unwind_work *work = container_of(head, struct unwind_work, work);
 	struct unwind_task_info *info = &current->unwind_info;
+	struct unwind_cache *cache = &info->cache;
 	struct unwind_stacktrace trace;
 	u64 cookie;
 
@@ -73,16 +74,29 @@ static void unwind_deferred_task_work(struct callback_head *head)
 	if (!current->mm)
 		goto do_callback;
 
-	if (!info->entries) {
-		info->entries = kmalloc_array(UNWIND_MAX_ENTRIES, sizeof(long),
-					      GFP_KERNEL);
-		if (!info->entries)
+	if (!cache->entries) {
+		cache->entries = kmalloc_array(UNWIND_MAX_ENTRIES, sizeof(long),
+					       GFP_KERNEL);
+		if (!cache->entries)
 			goto do_callback;
 	}
 
-	trace.entries = info->entries;
+	trace.entries = cache->entries;
+
+	if (cookie == cache->cookie) {
+		/*
+		 * The user stack has already been previously unwound in this
+		 * entry context.  Skip the unwind and use the cache.
+		 */
+		trace.nr = cache->nr_entries;
+		goto do_callback;
+	}
+
 	trace.nr = 0;
 	unwind_user(&trace, UNWIND_MAX_ENTRIES);
+
+	cache->cookie = cookie;
+	cache->nr_entries = trace.nr;
 
 do_callback:
 	work->func(work, &trace, cookie);
@@ -174,5 +188,5 @@ void unwind_task_free(struct task_struct *task)
 {
 	struct unwind_task_info *info = &task->unwind_info;
 
-	kfree(info->entries);
+	kfree(info->cache.entries);
 }
