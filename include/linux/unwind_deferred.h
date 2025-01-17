@@ -30,6 +30,11 @@ static __always_inline void unwind_enter_from_user_mode(void)
 	current->unwind_info.cookie = 0;
 }
 
+static __always_inline void unwind_exit_to_user_mode(void)
+{
+	current->unwind_info.cookie = 0;
+}
+
 #else /* !CONFIG_UNWIND_USER */
 
 static inline void unwind_task_init(struct task_struct *task) {}
@@ -40,6 +45,7 @@ static inline int unwind_deferred_request(struct task_struct *task, struct unwin
 static inline bool unwind_deferred_cancel(struct task_struct *task, struct unwind_work *work) { return false; }
 
 static inline void unwind_enter_from_user_mode(void) {}
+static inline void unwind_exit_to_user_mode(void) {}
 
 #endif /* !CONFIG_UNWIND_USER */
 

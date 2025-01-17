@@ -11,6 +11,7 @@ struct unwind_cache {
 struct unwind_task_info {
 	struct unwind_cache	cache;
 	u64			cookie;
+	u64			nmi_cookie;
 };
 
 #endif /* _LINUX_UNWIND_USER_DEFERRED_TYPES_H */
