@@ -402,9 +402,10 @@ int paravirt_disable_iospace(void);
 		PVOP_TEST_NULL(op);					\
 		asm volatile(ALTERNATIVE(PARAVIRT_CALL, ALT_CALL_INSTR,	\
 				ALT_CALL_ALWAYS)			\
-			     : call_clbr, ASM_CALL_CONSTRAINT		\
+			     : call_clbr				\
 			     : paravirt_ptr(op),			\
 			       ##__VA_ARGS__				\
+			       COMMA(ASM_CALL_CONSTRAINT)		\
 			     : "memory", "cc" extra_clbr);		\
 		ret;							\
 	})
@@ -417,9 +418,10 @@ int paravirt_disable_iospace(void);
 		asm volatile(ALTERNATIVE_2(PARAVIRT_CALL,		\
 				 ALT_CALL_INSTR, ALT_CALL_ALWAYS,	\
 				 alt, cond)				\
-			     : call_clbr, ASM_CALL_CONSTRAINT		\
+			     : call_clbr				\
 			     : paravirt_ptr(op),			\
 			       ##__VA_ARGS__				\
+			       COMMA(ASM_CALL_CONSTRAINT)		\
 			     : "memory", "cc" extra_clbr);		\
 		ret;							\
 	})
