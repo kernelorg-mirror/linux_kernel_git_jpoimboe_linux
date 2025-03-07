@@ -335,14 +335,17 @@ do {									\
 	old__.var = _oval;						\
 	new__.var = _nval;						\
 									\
-	asm_inline qual (						\
+	__asm_call(qual,						\
 		ALTERNATIVE("call this_cpu_cmpxchg8b_emu",		\
-			    "cmpxchg8b " __percpu_arg([var]), X86_FEATURE_CX8) \
-		: ALT_OUTPUT_SP([var] "+m" (__my_cpu_var(_var)),	\
-				"+a" (old__.low), "+d" (old__.high))	\
-		: "b" (new__.low), "c" (new__.high),			\
-		  "S" (&(_var))						\
-		: "memory");						\
+			    "cmpxchg8b " __percpu_arg([var]),		\
+			    X86_FEATURE_CX8),				\
+		ASM_OUTPUT([var] "+m" (__my_cpu_var(_var)),		\
+				 "+a" (old__.low),			\
+				 "+d" (old__.high)),			\
+		ASM_INPUT(	  "b" (new__.low),			\
+				  "c" (new__.high),			\
+				  "S" (&(_var))),			\
+		ASM_CLOBBER("memory"));					\
 									\
 	old__.var;							\
 })
@@ -364,15 +367,19 @@ do {									\
 	old__.var = *_oval;						\
 	new__.var = _nval;						\
 									\
-	asm_inline qual (						\
+	__asm_call(qual,						\
 		ALTERNATIVE("call this_cpu_cmpxchg8b_emu",		\
-			    "cmpxchg8b " __percpu_arg([var]), X86_FEATURE_CX8) \
-		: ALT_OUTPUT_SP("=@ccz" (success),			\
-				[var] "+m" (__my_cpu_var(_var)),	\
-				"+a" (old__.low), "+d" (old__.high))	\
-		: "b" (new__.low), "c" (new__.high),			\
-		  "S" (&(_var))						\
-		: "memory");						\
+			    "cmpxchg8b " __percpu_arg([var]),		\
+			    X86_FEATURE_CX8),				\
+		ASM_OUTPUT([var] "+m" (__my_cpu_var(_var)),		\
+				 "=@ccz" (success),			\
+				 "+a" (old__.low),			\
+				 "+d" (old__.high)),			\
+		ASM_INPUT(	  "b" (new__.low),			\
+				  "c" (new__.high),			\
+				  "S" (&(_var))),			\
+		ASM_CLOBBER("memory"));					\
+									\
 	if (unlikely(!success))						\
 		*_oval = old__.var;					\
 									\
@@ -403,14 +410,17 @@ do {									\
 	old__.var = _oval;						\
 	new__.var = _nval;						\
 									\
-	asm_inline qual (						\
+	__asm_call(qual,						\
 		ALTERNATIVE("call this_cpu_cmpxchg16b_emu",		\
-			    "cmpxchg16b " __percpu_arg([var]), X86_FEATURE_CX16) \
-		: ALT_OUTPUT_SP([var] "+m" (__my_cpu_var(_var)),	\
-				"+a" (old__.low), "+d" (old__.high))	\
-		: "b" (new__.low), "c" (new__.high),			\
-		  "S" (&(_var))						\
-		: "memory");						\
+			    "cmpxchg16b " __percpu_arg([var]),		\
+			    X86_FEATURE_CX16)				\
+		ASM_OUTPUT([var] "+m" (__my_cpu_var(_var)),		\
+				 "+a" (old__.low),			\
+				 "+d" (old__.high)),			\
+		ASM_INPUT(	  "b" (new__.low),			\
+				  "c" (new__.high),			\
+				  "S" (&(_var))),			\
+		ASM_CLOBBER("memory"));					\
 									\
 	old__.var;							\
 })
@@ -432,15 +442,19 @@ do {									\
 	old__.var = *_oval;						\
 	new__.var = _nval;						\
 									\
-	asm_inline qual (						\
+	__asm_call(qual,						\
 		ALTERNATIVE("call this_cpu_cmpxchg16b_emu",		\
-			    "cmpxchg16b " __percpu_arg([var]), X86_FEATURE_CX16) \
-		: ALT_OUTPUT_SP("=@ccz" (success),			\
-				[var] "+m" (__my_cpu_var(_var)),	\
-				"+a" (old__.low), "+d" (old__.high))	\
-		: "b" (new__.low), "c" (new__.high),			\
-		  "S" (&(_var))						\
-		: "memory");						\
+			    "cmpxchg16b " __percpu_arg([var]),		\
+			    X86_FEATURE_CX16),				\
+		ASM_OUTPUT([var] "+m" (__my_cpu_var(_var)),		\
+				 "=@ccz" (success),			\
+				 "+a" (old__.low),			\
+				 "+d" (old__.high)),			\
+		ASM_INPUT(	  "b" (new__.low),			\
+				  "c" (new__.high),			\
+				  "S" (&(_var))),			\
+		ASM_CLOBBER("memory"));					\
+									\
 	if (unlikely(!success))						\
 		*_oval = old__.var;					\
 									\

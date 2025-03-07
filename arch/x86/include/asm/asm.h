@@ -234,11 +234,16 @@ register unsigned long current_stack_pointer asm(_ASM_SP);
  * should be wrapped with ASM_OUTPUT(), ASM_INPUT(), and ASM_CLOBBER(),
  * respectively.
  */
+
+#define __asm_call(vol, insns, output, input, clobber...)		\
+	asm_inline vol(insns						\
+		       : ASM_CALL_OUTPUT(output)			\
+		       : ASM_CALL_INPUT(input)				\
+		       : ASM_CALL_CLOBBER(clobber))
+
 #define asm_call(insns, output, input, clobber...)			\
-	asm_inline volatile(insns					\
-			    : ASM_CALL_OUTPUT(output)			\
-			    : ASM_CALL_INPUT(input)			\
-			    : ASM_CALL_CLOBBER(clobber))
+	__asm_call(volatile, insns, ASM_OUTPUT(output), ASM_INPUT(input), ## clobber)
+
 
 #endif /* __ASSEMBLER__ */
 
