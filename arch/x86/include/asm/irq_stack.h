@@ -21,7 +21,7 @@
  *
  *   2. Switch the stack pointer to the top of the irq stack.
  *
- *   3. Invoke whatever needs to be done (@asm_call argument)
+ *   3. Invoke whatever needs to be done (@insns argument)
  *
  *   4. Pop the original stack pointer from the top of the irq stack
  *	which brings it back to the original stack where it left off.
@@ -30,7 +30,7 @@
  *
  *   To allow flexible usage of the macro, the actual function code including
  *   the store of the arguments in the call ABI registers is handed in via
- *   the @asm_call argument.
+ *   the @insns argument.
  *
  * - Local variables:
  *
@@ -47,21 +47,17 @@
  * - Function arguments:
  *	The function argument(s), if any, have to be defined in register
  *	variables at the place where this is invoked. Storing the
- *	argument(s) in the proper register(s) is part of the @asm_call
+ *	argument(s) in the proper register(s) is part of the @insns
  *
  * - Constraints:
  *
  *   The constraints have to be done very carefully because the compiler
  *   does not know about the assembly call.
  *
- *   output:
+ *  output:
  *     As documented already above the @tos variable is required to be in
  *     the output constraints to make the compiler aware that R11 cannot be
  *     reused after the asm() statement.
- *
- *     For builds with CONFIG_UNWINDER_FRAME_POINTER, ASM_CALL_CONSTRAINT is
- *     required as well as this prevents certain creative GCC variants from
- *     misplacing the ASM code.
  *
  *  input:
  *    - func:
@@ -72,30 +68,33 @@
  *
  *    - function arguments:
  *	  The constraints are handed in via the 'argconstr' argument list. They
- *	  describe the register arguments which are used in @asm_call.
+ *	  describe the register arguments which are used in @insns.
  *
  *  clobbers:
  *     Function calls can clobber anything except the callee-saved
  *     registers. Tell the compiler.
  */
-#define call_on_stack(stack, func, asm_call, argconstr...)		\
+#define call_on_stack(stack, func, insns, argconstr...)			\
 {									\
 	register void *tos asm("r11");					\
 									\
 	tos = ((void *)(stack));					\
 									\
-	asm_inline volatile(						\
+	asm_call(							\
 	"movq	%%rsp, (%[tos])				\n"		\
 	"movq	%[tos], %%rsp				\n"		\
 									\
-	asm_call							\
+	insns								\
 									\
-	"popq	%%rsp					\n"		\
+	"popq	%%rsp					\n",		\
 									\
-	: "+r" (tos), ASM_CALL_CONSTRAINT				\
-	: [__func] "i" (func), [tos] "r" (tos) argconstr		\
-	: "cc", "rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10",	\
-	  "memory"							\
+	ASM_OUTPUT(	  "+r" (tos)),					\
+									\
+	ASM_INPUT([__func] "i" (func),					\
+		  [tos]    "r" (tos) argconstr),			\
+									\
+	ASM_CLOBBER("rax", "rcx", "rdx", "rsi", "rdi",			\
+		    "r8",  "r9",  "r10", "cc")				\
 	);								\
 }
 
@@ -115,9 +114,9 @@
 	"movq	%[arg3], %%rdx				\n"		\
 	ASM_CALL_ARG2
 
-#define call_on_irqstack(func, asm_call, argconstr...)			\
+#define call_on_irqstack(func, insns, argconstr...)			\
 	call_on_stack(__this_cpu_read(hardirq_stack_ptr),		\
-		      func, asm_call, argconstr)
+		      func, insns, argconstr)
 
 /* Macros to assert type correctness for run_*_on_irqstack macros */
 #define assert_function_type(func, proto)				\
@@ -129,7 +128,7 @@
 /*
  * Macro to invoke system vector and device interrupt C handlers.
  */
-#define call_on_irqstack_cond(func, regs, asm_call, constr, c_args...)	\
+#define call_on_irqstack_cond(func, regs, insns, constr, c_args...)	\
 {									\
 	/*								\
 	 * User mode entry and interrupt on the irq stack do not	\
@@ -147,7 +146,7 @@
 		 * sequence which matches the above direct invocation.	\
 		 */							\
 		__this_cpu_write(hardirq_stack_inuse, true);		\
-		call_on_irqstack(func, asm_call, constr);		\
+		call_on_irqstack(func, insns, constr);			\
 		__this_cpu_write(hardirq_stack_inuse, false);		\
 	}								\
 }
