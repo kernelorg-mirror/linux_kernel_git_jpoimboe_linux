@@ -252,8 +252,8 @@ static inline int alternatives_text_reserved(void *start, void *end)
 /*
  * Alternative inline assembly with output, input and clobbers.
  *
- * @output, @input and @clobbers should be wrapped with ASM_OUTPUT(),
- * ASM_INPUT() and ASM_CLOBBER(), respectively.
+ * @output, @input, and @clobber should be wrapped with
+ * ASM_OUTPUT(), ASM_INPUT(), and ASM_CLOBBER, respectively.
  */
 #define alternative_asm(oldinstr, newinstr, ft_flags,			\
 			output, input, clobber...)			\
@@ -275,35 +275,44 @@ static inline int alternatives_text_reserved(void *start, void *end)
 /*
  * Like alternative_asm(), but for replacing a direct call with another one.
  *
- * Use the %c operand modifier which is the generic way to print a bare
- * constant expression with all syntax-specific punctuation omitted. %P
- * is the x86-specific variant which can handle constants too, for
- * historical reasons, but it should be used primarily for PIC
- * references: i.e., if used for a function, it would add the PLT
- * suffix.
+ * All constraints must use named operands.  All @output, @input, and @clobbers
+ * should be wrapped with ASM_OUTPUT(), ASM_INPUT(), and ASM_CLOBBER(),
+ * respectively.
+ *
+ * Note this macro uses the %c operand modifier which is the generic way to
+ * print a bare constant expression with all syntax-specific punctuation
+ * omitted. %P is the x86-specific variant which can handle constants too, for
+ * historical reasons, but it should be used primarily for PIC references:
+ * i.e., if used for a function, it would add the PLT suffix.
  */
-#define alternative_call(oldfunc, newfunc, ft_flags, output, input, clobbers...)	\
-	asm_inline volatile(ALTERNATIVE("call %c[old]", "call %c[new]", ft_flags)	\
-		: ALT_OUTPUT_SP(output)							\
-		: [old] "i" (oldfunc), [new] "i" (newfunc)				\
-		  COMMA(input)								\
-		: clobbers)
+#define alternative_call(oldfunc, newfunc, ft_flags, output, input, clobber...)	\
+	asm_call(ALTERNATIVE("call %c[old]",					\
+			     "call %c[new]", ft_flags),				\
+		 ASM_OUTPUT(output),						\
+		 ASM_INPUT([old] "i" (oldfunc),					\
+			   [new] "i" (newfunc) COMMA(input)),			\
+		 ASM_CLOBBER(clobber))
 
 /*
  * Like alternative_call, but there are two features and respective functions.
  * If CPU has feature2, function2 is used.
  * Otherwise, if CPU has feature1, function1 is used.
  * Otherwise, old function is used.
+ *
+ * All constraints must use named operands.  @output, @input, and @clobbers
+ * should be wrapped with ASM_OUTPUT(), ASM_INPUT(), and ASM_CLOBBER(),
+ * respectively.
  */
-#define alternative_call_2(oldfunc, newfunc1, ft_flags1, newfunc2, ft_flags2,		\
-			   output, input, clobbers...)					\
-	asm_inline volatile(ALTERNATIVE_2("call %c[old]", "call %c[new1]", ft_flags1,	\
-		"call %c[new2]", ft_flags2)						\
-		: ALT_OUTPUT_SP(output)							\
-		: [old] "i" (oldfunc), [new1] "i" (newfunc1),				\
-		  [new2] "i" (newfunc2)							\
-		  COMMA(input)								\
-		: clobbers)
+#define alternative_call_2(oldfunc, newfunc1, ft_flags1, newfunc2, ft_flags2,	\
+			   output, input, clobbers...)				\
+	asm_call(ALTERNATIVE_2("call %c[old]",					\
+			       "call %c[new1]", ft_flags1,			\
+			       "call %c[new2]", ft_flags2),			\
+		 ASM_OUTPUT(output),						\
+		 ASM_INPUT([old]  "i" (oldfunc),				\
+			   [new1] "i" (newfunc1),				\
+			   [new2] "i" (newfunc2) COMMA(input)),			\
+		 ASM_CLOBBER(clobbers))
 
 #define ALT_OUTPUT_SP(...) ASM_CALL_CONSTRAINT, ## __VA_ARGS__
 
