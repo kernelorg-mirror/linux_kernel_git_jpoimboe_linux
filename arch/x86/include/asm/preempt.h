@@ -122,27 +122,27 @@ extern asmlinkage void preempt_schedule_notrace_thunk(void);
 
 DECLARE_STATIC_CALL(preempt_schedule, preempt_schedule_dynamic_enabled);
 
-#define __preempt_schedule() \
-do { \
-	__STATIC_CALL_MOD_ADDRESSABLE(preempt_schedule); \
-	asm volatile ("call " STATIC_CALL_TRAMP_STR(preempt_schedule) : ASM_CALL_CONSTRAINT); \
+#define __preempt_schedule()						\
+do {									\
+	__STATIC_CALL_MOD_ADDRESSABLE(preempt_schedule);		\
+	asm_call("call " STATIC_CALL_TRAMP_STR(preempt_schedule),,);	\
 } while (0)
 
 DECLARE_STATIC_CALL(preempt_schedule_notrace, preempt_schedule_notrace_dynamic_enabled);
 
-#define __preempt_schedule_notrace() \
-do { \
-	__STATIC_CALL_MOD_ADDRESSABLE(preempt_schedule_notrace); \
-	asm volatile ("call " STATIC_CALL_TRAMP_STR(preempt_schedule_notrace) : ASM_CALL_CONSTRAINT); \
+#define __preempt_schedule_notrace()					\
+do {									\
+	__STATIC_CALL_MOD_ADDRESSABLE(preempt_schedule_notrace);	\
+	asm_call("call " STATIC_CALL_TRAMP_STR(preempt_schedule_notrace),,);\
 } while (0)
 
 #else /* PREEMPT_DYNAMIC */
 
 #define __preempt_schedule() \
-	asm volatile ("call preempt_schedule_thunk" : ASM_CALL_CONSTRAINT);
+	asm_call("call preempt_schedule_thunk",,);
 
 #define __preempt_schedule_notrace() \
-	asm volatile ("call preempt_schedule_notrace_thunk" : ASM_CALL_CONSTRAINT);
+	asm_call("call preempt_schedule_notrace_thunk",,);
 
 #endif /* PREEMPT_DYNAMIC */
 
