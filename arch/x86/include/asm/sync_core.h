@@ -10,31 +10,33 @@
 #ifdef CONFIG_X86_32
 static __always_inline void iret_to_self(void)
 {
-	asm volatile (
-		"pushfl\n\t"
-		"pushl %%cs\n\t"
-		"pushl $1f\n\t"
-		"iret\n\t"
-		"1:"
-		: ASM_CALL_CONSTRAINT : : "memory");
+	asm_call("pushfl\n\t"
+		 "pushl %%cs\n\t"
+		 "pushl $1f\n\t"
+		 "iret\n\t"
+		 "1:",
+		 ASM_OUTPUT(),
+		 ASM_INPUT(),
+		 ASM_CLOBBER("memory"));
 }
 #else
 static __always_inline void iret_to_self(void)
 {
 	unsigned int tmp;
 
-	asm volatile (
-		"mov %%ss, %[tmp]\n\t"
-		"pushq %q[tmp]\n\t"
-		"pushq %%rsp\n\t"
-		"addq $8, (%%rsp)\n\t"
-		"pushfq\n\t"
-		"mov %%cs, %[tmp]\n\t"
-		"pushq %q[tmp]\n\t"
-		"pushq $1f\n\t"
-		"iretq\n\t"
-		"1:"
-		: [tmp] "=&r" (tmp), ASM_CALL_CONSTRAINT : : "cc", "memory");
+	asm_call("mov %%ss, %[tmp]\n\t"
+		 "pushq %q[tmp]\n\t"
+		 "pushq %%rsp\n\t"
+		 "addq $8, (%%rsp)\n\t"
+		 "pushfq\n\t"
+		 "mov %%cs, %[tmp]\n\t"
+		 "pushq %q[tmp]\n\t"
+		 "pushq $1f\n\t"
+		 "iretq\n\t"
+		 "1:",
+		 ASM_OUTPUT([tmp] "=&r" (tmp)),
+		 ASM_INPUT(),
+		 ASM_CLOBBER("cc", "memory"));
 }
 #endif /* CONFIG_X86_32 */
 
