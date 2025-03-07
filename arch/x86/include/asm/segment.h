@@ -257,7 +257,8 @@ static inline void vdso_read_cpunode(unsigned *cpu, unsigned *node)
 	alternative_asm("lsl %[seg],%k[p]",
 			"rdpid %[p]",
 			X86_FEATURE_RDPID,
-			[p] "=r" (p), [seg] "r" (__CPUNODE_SEG));
+			ASM_OUTPUT([p]  "=r" (p)),
+			ASM_INPUT( [seg] "r" (__CPUNODE_SEG)));
 
 	if (cpu)
 		*cpu = (p & VDSO_CPUNODE_MASK);

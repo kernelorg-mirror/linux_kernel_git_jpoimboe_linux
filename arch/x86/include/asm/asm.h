@@ -214,6 +214,7 @@ static __always_inline __pure void *rip_rel_ptr(void *p)
  */
 #define ASM_OUTPUT(x...)	x
 #define ASM_INPUT(x...)		x
+#define ASM_CLOBBER(x...)	x
 
 /*
  * This output constraint should be used for any inline asm which has a "call"

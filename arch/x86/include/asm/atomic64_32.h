@@ -59,9 +59,11 @@ static __always_inline s64 arch_atomic64_read_nonatomic(const atomic64_t *v)
 #define ATOMIC64_DECL(sym) ATOMIC64_DECL_ONE(sym##_cx8)
 #else
 #define __alternative_atomic64(f, g, out, in, clobbers...)		\
-	alternative_call(atomic64_##f##_386, atomic64_##g##_cx8,	\
-			 X86_FEATURE_CX8, ASM_OUTPUT(out),		\
-			 ASM_INPUT(in), clobbers)
+	alternative_call(atomic64_##f##_386,				\
+			 atomic64_##g##_cx8, X86_FEATURE_CX8,		\
+			 ASM_OUTPUT(out),				\
+			 ASM_INPUT(in),					\
+			 ASM_CLOBBER(clobbers))
 
 #define ATOMIC64_DECL(sym) ATOMIC64_DECL_ONE(sym##_cx8); \
 	ATOMIC64_DECL_ONE(sym##_386)
@@ -109,9 +111,11 @@ static __always_inline s64 arch_atomic64_xchg(atomic64_t *v, s64 n)
 	unsigned high = (unsigned)(n >> 32);
 	unsigned low = (unsigned)n;
 	alternative_atomic64(xchg,
-			     "=&A" (o),
-			     ASM_INPUT("S" (v), "b" (low), "c" (high)),
-			     "memory");
+			     ASM_OUTPUT("=&A" (o)),
+			     ASM_INPUT(	  "S" (v),
+					  "b" (low),
+					  "c" (high)),
+			     ASM_CLOBBER("memory"));
 	return o;
 }
 #define arch_atomic64_xchg arch_atomic64_xchg
@@ -120,25 +124,35 @@ static __always_inline void arch_atomic64_set(atomic64_t *v, s64 i)
 {
 	unsigned high = (unsigned)(i >> 32);
 	unsigned low = (unsigned)i;
+
 	alternative_atomic64(set,
-			     /* no output */,
-			     ASM_INPUT("S" (v), "b" (low), "c" (high)),
-			     "eax", "edx", "memory");
+			     ASM_OUTPUT(),
+			     ASM_INPUT("S" (v),
+				       "b" (low),
+				       "c" (high)),
+			     ASM_CLOBBER("eax", "edx", "memory"));
 }
 
 static __always_inline s64 arch_atomic64_read(const atomic64_t *v)
 {
 	s64 r;
-	alternative_atomic64(read, "=&A" (r), "c" (v), "memory");
+
+	alternative_atomic64(read,
+			     ASM_OUTPUT("=&A" (r)),
+			     ASM_INPUT(   "c" (v)),
+			     ASM_CLOBBER("memory"));
+
 	return r;
 }
 
 static __always_inline s64 arch_atomic64_add_return(s64 i, atomic64_t *v)
 {
 	alternative_atomic64(add_return,
-			     ASM_OUTPUT("+A" (i), "+c" (v)),
-			     /* no input */,
-			     "memory");
+			     ASM_OUTPUT("+A" (i),
+					"+c" (v)),
+			     ASM_INPUT(),
+			     ASM_CLOBBER("memory"));
+
 	return i;
 }
 #define arch_atomic64_add_return arch_atomic64_add_return
@@ -146,9 +160,11 @@ static __always_inline s64 arch_atomic64_add_return(s64 i, atomic64_t *v)
 static __always_inline s64 arch_atomic64_sub_return(s64 i, atomic64_t *v)
 {
 	alternative_atomic64(sub_return,
-			     ASM_OUTPUT("+A" (i), "+c" (v)),
-			     /* no input */,
-			     "memory");
+			     ASM_OUTPUT("+A" (i),
+					"+c" (v)),
+			     ASM_INPUT(),
+			     ASM_CLOBBER("memory"));
+
 	return i;
 }
 #define arch_atomic64_sub_return arch_atomic64_sub_return
@@ -156,10 +172,12 @@ static __always_inline s64 arch_atomic64_sub_return(s64 i, atomic64_t *v)
 static __always_inline s64 arch_atomic64_inc_return(atomic64_t *v)
 {
 	s64 a;
+
 	alternative_atomic64(inc_return,
-			     "=&A" (a),
-			     "S" (v),
-			     "memory", "ecx");
+			     ASM_OUTPUT("=&A" (a)),
+			     ASM_INPUT(   "S" (v)),
+			     ASM_CLOBBER("memory", "ecx"));
+
 	return a;
 }
 #define arch_atomic64_inc_return arch_atomic64_inc_return
@@ -167,10 +185,12 @@ static __always_inline s64 arch_atomic64_inc_return(atomic64_t *v)
 static __always_inline s64 arch_atomic64_dec_return(atomic64_t *v)
 {
 	s64 a;
+
 	alternative_atomic64(dec_return,
-			     "=&A" (a),
-			     "S" (v),
-			     "memory", "ecx");
+			     ASM_OUTPUT("=&A" (a)),
+			     ASM_INPUT(   "S" (v)),
+			     ASM_CLOBBER("memory", "ecx"));
+
 	return a;
 }
 #define arch_atomic64_dec_return arch_atomic64_dec_return
@@ -178,34 +198,36 @@ static __always_inline s64 arch_atomic64_dec_return(atomic64_t *v)
 static __always_inline void arch_atomic64_add(s64 i, atomic64_t *v)
 {
 	__alternative_atomic64(add, add_return,
-			       ASM_OUTPUT("+A" (i), "+c" (v)),
-			       /* no input */,
-			       "memory");
+			       ASM_OUTPUT("+A" (i),
+					  "+c" (v)),
+			       ASM_INPUT(),
+			       ASM_CLOBBER("memory"));
 }
 
 static __always_inline void arch_atomic64_sub(s64 i, atomic64_t *v)
 {
 	__alternative_atomic64(sub, sub_return,
-			       ASM_OUTPUT("+A" (i), "+c" (v)),
-			       /* no input */,
-			       "memory");
+			       ASM_OUTPUT("+A" (i),
+					  "+c" (v)),
+			       ASM_INPUT(),
+			       ASM_CLOBBER("memory"));
 }
 
 static __always_inline void arch_atomic64_inc(atomic64_t *v)
 {
 	__alternative_atomic64(inc, inc_return,
-			       /* no output */,
-			       "S" (v),
-			       "memory", "eax", "ecx", "edx");
+			       ASM_OUTPUT(),
+			       ASM_INPUT("S" (v)),
+			       ASM_CLOBBER("memory", "eax", "ecx", "edx"));
 }
 #define arch_atomic64_inc arch_atomic64_inc
 
 static __always_inline void arch_atomic64_dec(atomic64_t *v)
 {
 	__alternative_atomic64(dec, dec_return,
-			       /* no output */,
-			       "S" (v),
-			       "memory", "eax", "ecx", "edx");
+			       ASM_OUTPUT(),
+			       ASM_INPUT("S" (v)),
+			       ASM_CLOBBER("memory", "eax", "ecx", "edx"));
 }
 #define arch_atomic64_dec arch_atomic64_dec
 
@@ -213,10 +235,14 @@ static __always_inline int arch_atomic64_add_unless(atomic64_t *v, s64 a, s64 u)
 {
 	unsigned low = (unsigned)u;
 	unsigned high = (unsigned)(u >> 32);
+
 	alternative_atomic64(add_unless,
-			     ASM_OUTPUT("+A" (a), "+c" (low), "+D" (high)),
-			     "S" (v),
-			     "memory");
+			     ASM_OUTPUT("+A" (a),
+					"+c" (low),
+					"+D" (high)),
+			     ASM_INPUT(  "S" (v)),
+			     ASM_CLOBBER("memory"));
+
 	return (int)a;
 }
 #define arch_atomic64_add_unless arch_atomic64_add_unless
@@ -224,10 +250,12 @@ static __always_inline int arch_atomic64_add_unless(atomic64_t *v, s64 a, s64 u)
 static __always_inline int arch_atomic64_inc_not_zero(atomic64_t *v)
 {
 	int r;
+
 	alternative_atomic64(inc_not_zero,
-			     "=&a" (r),
-			     "S" (v),
-			     "ecx", "edx", "memory");
+			     ASM_OUTPUT("=&a" (r)),
+			     ASM_INPUT(   "S" (v)),
+			     ASM_CLOBBER("ecx", "edx", "memory"));
+
 	return r;
 }
 #define arch_atomic64_inc_not_zero arch_atomic64_inc_not_zero
@@ -235,10 +263,12 @@ static __always_inline int arch_atomic64_inc_not_zero(atomic64_t *v)
 static __always_inline s64 arch_atomic64_dec_if_positive(atomic64_t *v)
 {
 	s64 r;
+
 	alternative_atomic64(dec_if_positive,
-			     "=&A" (r),
-			     "S" (v),
-			     "ecx", "memory");
+			     ASM_OUTPUT("=&A" (r)),
+			     ASM_INPUT(   "S" (v)),
+			     ASM_CLOBBER("ecx", "memory"));
+
 	return r;
 }
 #define arch_atomic64_dec_if_positive arch_atomic64_dec_if_positive
