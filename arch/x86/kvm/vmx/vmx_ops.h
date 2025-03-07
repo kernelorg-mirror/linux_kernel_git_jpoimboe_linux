@@ -118,35 +118,36 @@ do_exception:
 
 #else /* !CONFIG_CC_HAS_ASM_GOTO_OUTPUT */
 
-	asm volatile("1: vmread %[field], %[output]\n\t"
-		     ".byte 0x3e\n\t" /* branch taken hint */
-		     "ja 3f\n\t"
+	asm_call("1: vmread %[field], %[output]\n\t"
+		 ".byte 0x3e\n\t" /* branch taken hint */
+		 "ja 3f\n\t"
 
-		     /*
-		      * VMREAD failed.  Push '0' for @fault, push the failing
-		      * @field, and bounce through the trampoline to preserve
-		      * volatile registers.
-		      */
-		     "xorl %k[output], %k[output]\n\t"
-		     "2:\n\t"
-		     "push %[output]\n\t"
-		     "push %[field]\n\t"
-		     "call vmread_error_trampoline\n\t"
+		 /*
+		  * VMREAD failed.  Push '0' for @fault, push the failing
+		  * @field, and bounce through the trampoline to preserve
+		  * volatile registers.
+		  */
+		 "xorl %k[output], %k[output]\n\t"
+		 "2:\n\t"
+		 "push %[output]\n\t"
+		 "push %[field]\n\t"
+		 "call vmread_error_trampoline\n\t"
 
-		     /*
-		      * Unwind the stack.  Note, the trampoline zeros out the
-		      * memory for @fault so that the result is '0' on error.
-		      */
-		     "pop %[field]\n\t"
-		     "pop %[output]\n\t"
-		     "3:\n\t"
+		 /*
+		  * Unwind the stack.  Note, the trampoline zeros out the
+		  * memory for @fault so that the result is '0' on error.
+		  */
+		 "pop %[field]\n\t"
+		 "pop %[output]\n\t"
+		 "3:\n\t"
 
-		     /* VMREAD faulted.  As above, except push '1' for @fault. */
-		     _ASM_EXTABLE_TYPE_REG(1b, 2b, EX_TYPE_ONE_REG, %[output])
+		 /* VMREAD faulted.  As above, except push '1' for @fault. */
+		 _ASM_EXTABLE_TYPE_REG(1b, 2b, EX_TYPE_ONE_REG, %[output]),
 
-		     : ASM_CALL_CONSTRAINT, [output] "=&r" (value)
-		     : [field] "r" (field)
-		     : "cc");
+		 ASM_OUTPUT([output] "=&r" (value)),
+		 ASM_INPUT( [field]    "r" (field)),
+		 ASM_CLOBBER("cc"));
+
 	return value;
 
 #endif /* CONFIG_CC_HAS_ASM_GOTO_OUTPUT */
