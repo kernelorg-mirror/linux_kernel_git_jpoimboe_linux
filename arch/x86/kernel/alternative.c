@@ -2371,12 +2371,11 @@ static noinline void __init alt_reloc_selftest(void)
 	 * Getting this wrong will either crash and burn or tickle the WARN
 	 * above.
 	 */
-	asm_inline volatile (
-		ALTERNATIVE("", "lea %[mem], %%" _ASM_ARG1 "; call __alt_reloc_selftest;", X86_FEATURE_ALWAYS)
-		: ASM_CALL_CONSTRAINT
-		: [mem] "m" (__alt_reloc_selftest_addr)
-		: _ASM_ARG1
-	);
+	asm_call(ALTERNATIVE("", "lea %[mem], %%" _ASM_ARG1 "; call __alt_reloc_selftest;",
+			     X86_FEATURE_ALWAYS),
+		 ASM_OUTPUT(),
+		 ASM_INPUT([mem] "m" (__alt_reloc_selftest_addr)),
+		 ASM_CLOBBER(_ASM_ARG1));
 }
 
 void __init alternative_instructions(void)
