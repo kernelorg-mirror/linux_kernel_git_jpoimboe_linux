@@ -314,8 +314,6 @@ static inline int alternatives_text_reserved(void *start, void *end)
 			   [new2] "i" (newfunc2) COMMA(input)),			\
 		 ASM_CLOBBER(clobbers))
 
-#define ALT_OUTPUT_SP(...) ASM_CALL_CONSTRAINT, ## __VA_ARGS__
-
 /* Macro for creating assembler functions avoiding any C magic. */
 #define DEFINE_ASM_FUNC(func, instr, sec)		\
 	asm (".pushsection " #sec ", \"ax\"\n"		\
