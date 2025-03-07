@@ -191,7 +191,8 @@ static inline void clflushopt(volatile void *__p)
 {
 	alternative_asm("ds clflush %[val]",
 			"clflushopt %[val]", X86_FEATURE_CLFLUSHOPT,
-			ASM_OUTPUT([val] "+m" (*(volatile char __force *)__p)));
+			ASM_OUTPUT([val] "+m" (*(volatile char __force *)__p)),
+			ASM_INPUT());
 }
 
 static inline void clwb(volatile void *__p)

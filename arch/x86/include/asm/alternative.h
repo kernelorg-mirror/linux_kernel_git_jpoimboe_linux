@@ -259,10 +259,18 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags) \
 		: : input)
 
-/* Like alternative_input, but with a single output argument */
-#define alternative_asm(oldinstr, newinstr, ft_flags, output, input...)	\
+/*
+ * Alternative inline assembly with output, input and clobbers.
+ *
+ * @output, @input and @clobbers should be wrapped with ASM_OUTPUT(),
+ * ASM_INPUT() and ASM_CLOBBER(), respectively.
+ */
+#define alternative_asm(oldinstr, newinstr, ft_flags,			\
+			output, input, clobber...)			\
 	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags)	\
-		: output : input)
+			    : output					\
+			    : input					\
+			    : "memory", ## clobber)
 
 /*
  * Like alternative_asm(), but for replacing a direct call with another one.

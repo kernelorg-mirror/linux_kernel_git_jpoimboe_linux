@@ -97,7 +97,8 @@ static inline void native_apic_mem_write(u32 reg, u32 v)
 	alternative_asm("movl %[val], %[mem]",
 			"xchgl %[val], %[mem]", X86_BUG_11AP,
 			ASM_OUTPUT([val] "+r" (v),
-				   [mem] "+m" (*addr)));
+				   [mem] "+m" (*addr)),
+			ASM_INPUT());
 }
 
 static inline u32 native_apic_mem_read(u32 reg)
