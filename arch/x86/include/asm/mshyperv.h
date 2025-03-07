@@ -137,13 +137,15 @@ static inline u64 _hv_do_fast_hypercall16(u64 control, u64 input1, u64 input2)
 	u32 input2_lo = lower_32_bits(input2);
 	u64 hv_status;
 
-	__asm__ __volatile__ (CALL_NOSPEC
-			      : "=A"(hv_status),
-			      "+c"(input1_lo), ASM_CALL_CONSTRAINT
-			      :	"A" (control), "b" (input1_hi),
-			      "D"(input2_hi), "S"(input2_lo),
-			      THUNK_TARGET(hv_hypercall_pg)
-			      : "cc");
+	asm_call(CALL_NOSPEC,
+		 ASM_OUTPUT("=A" (hv_status),
+			    "+c" (input1_lo)),
+		 ASM_INPUT(  "A" (control),
+			     "b" (input1_hi),
+			     "D" (input2_hi),
+			     "S" (input2_lo),
+			     THUNK_TARGET(hv_hypercall_pg)),
+		 ASM_CLOBBER("cc"));
 	return hv_status;
 #endif
 }
