@@ -189,9 +189,9 @@ static __always_inline void clflush(volatile void *__p)
 
 static inline void clflushopt(volatile void *__p)
 {
-	alternative_io("ds clflush %0",
-		       "clflushopt %0", X86_FEATURE_CLFLUSHOPT,
-		       "+m" (*(volatile char __force *)__p));
+	alternative_io("ds clflush %[val]",
+		       "clflushopt %[val]", X86_FEATURE_CLFLUSHOPT,
+		       [val] "+m" (*(volatile char __force *)__p));
 }
 
 static inline void clwb(volatile void *__p)
