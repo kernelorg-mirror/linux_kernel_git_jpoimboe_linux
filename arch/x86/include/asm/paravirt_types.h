@@ -348,12 +348,12 @@ extern struct paravirt_patch_template pv_ops;
 #define ____PVOP_CALL(ret, array, op, call_clbr, extra_clbr, ...)	\
 	({								\
 		PVOP_CALL_ARGS;						\
-		asm volatile(ALTERNATIVE(PARAVIRT_CALL, ALT_CALL_INSTR,	\
-				ALT_CALL_ALWAYS)			\
-			     : call_clbr, ASM_CALL_CONSTRAINT		\
-			     : paravirt_ptr(array, op),			\
-			       ##__VA_ARGS__				\
-			     : "memory", "cc" extra_clbr);		\
+		asm_call(ALTERNATIVE(PARAVIRT_CALL,			\
+				     ALT_CALL_INSTR, ALT_CALL_ALWAYS),	\
+			 ASM_OUTPUT(call_clbr),				\
+			 ASM_INPUT(paravirt_ptr(array, op),		\
+				   ##__VA_ARGS__),			\
+			 ASM_CLOBBER("memory", "cc" extra_clbr));	\
 		ret;							\
 	})
 
@@ -361,13 +361,13 @@ extern struct paravirt_patch_template pv_ops;
 			  extra_clbr, ...)				\
 	({								\
 		PVOP_CALL_ARGS;						\
-		asm volatile(ALTERNATIVE_2(PARAVIRT_CALL,		\
-				 ALT_CALL_INSTR, ALT_CALL_ALWAYS,	\
-				 alt, cond)				\
-			     : call_clbr, ASM_CALL_CONSTRAINT		\
-			     : paravirt_ptr(array, op),			\
-			       ##__VA_ARGS__				\
-			     : "memory", "cc" extra_clbr);		\
+		asm_call(ALTERNATIVE_2(PARAVIRT_CALL,			\
+				       ALT_CALL_INSTR, ALT_CALL_ALWAYS,	\
+				       alt, cond),			\
+			 ASM_OUTPUT(call_clbr),				\
+			 ASM_INPUT(paravirt_ptr(array, op),		\
+				   ##__VA_ARGS__),			\
+			 ASM_CLOBBER("memory", "cc" extra_clbr));	\
 		ret;							\
 	})
 
