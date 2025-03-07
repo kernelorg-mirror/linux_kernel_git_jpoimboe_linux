@@ -285,14 +285,11 @@ the objtool maintainers.
    manual unwind hint macros in asm/unwind_hints.h.
 
    If it's a GCC-compiled .c file, the error may be because the function
-   uses an inline asm() statement which has a "call" instruction.  An
-   asm() statement with a call instruction must declare the use of the
-   stack pointer in its output operand.  On x86_64, this means adding
-   the ASM_CALL_CONSTRAINT as an output constraint:
+   uses an inline asm() statement which has a CALL instruction.
 
-     asm volatile("call func" : ASM_CALL_CONSTRAINT);
-
-   Otherwise the stack frame may not get created before the call.
+   On x86_64, an asm() statement with a CALL instruction must use
+   asm_call().  Otherwise the stack frame may not get created before the
+   call.
 
    objtool can help with pinpointing the exact function where it happens:
 

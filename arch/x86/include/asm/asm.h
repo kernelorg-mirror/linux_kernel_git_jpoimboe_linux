@@ -204,6 +204,14 @@ static __always_inline __pure void *rip_rel_ptr(void *p)
 
 /* For C file, we already have NOKPROBE_SYMBOL macro */
 
+register unsigned long current_stack_pointer asm(_ASM_SP);
+
+#define ASM_CALL_CONSTRAINT	"+r" (current_stack_pointer)
+
+#define ASM_CALL_OUTPUT(x...)	ASM_CALL_CONSTRAINT, ## x
+#define ASM_CALL_INPUT(x...)	x
+#define ASM_CALL_CLOBBER(x...)	"memory", ## x
+
 /* Insert a comma if args are non-empty */
 #define COMMA(x...)		__COMMA(x)
 #define __COMMA(...)		, ##__VA_ARGS__
@@ -217,13 +225,21 @@ static __always_inline __pure void *rip_rel_ptr(void *p)
 #define ASM_CLOBBER(x...)	x
 
 /*
- * This output constraint should be used for any inline asm which has a "call"
- * instruction.  Otherwise the asm may be inserted before the frame pointer
- * gets set up by the containing function.  If you forget to do this, objtool
- * may print a "call without frame pointer save/setup" warning.
+ * asm_call() should be used for any inline asm with a CALL instruction.
+ * Otherwise the asm may be inserted before the frame pointer gets set up by
+ * the containing function.  If you forget to do this, objtool may print a
+ * "call without frame pointer save/setup" warning.
+ *
+ * All constraints must use named operands.  @output, @input, and @clobber
+ * should be wrapped with ASM_OUTPUT(), ASM_INPUT(), and ASM_CLOBBER(),
+ * respectively.
  */
-register unsigned long current_stack_pointer asm(_ASM_SP);
-#define ASM_CALL_CONSTRAINT "+r" (current_stack_pointer)
+#define asm_call(insns, output, input, clobber...)			\
+	asm_inline volatile(insns					\
+			    : ASM_CALL_OUTPUT(output)			\
+			    : ASM_CALL_INPUT(input)			\
+			    : ASM_CALL_CLOBBER(clobber))
+
 #endif /* __ASSEMBLER__ */
 
 #define _ASM_EXTABLE(from, to)					\
