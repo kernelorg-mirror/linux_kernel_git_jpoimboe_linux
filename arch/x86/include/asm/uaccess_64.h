@@ -122,14 +122,16 @@ copy_user_generic(void *to, const void *from, unsigned long len)
 	 * If CPU has FSRM feature, use 'rep movs'.
 	 * Otherwise, use rep_movs_alternative.
 	 */
-	asm volatile(
-		"1:\n\t"
-		ALTERNATIVE("rep movsb",
-			    "call rep_movs_alternative", ALT_NOT(X86_FEATURE_FSRM))
-		"2:\n"
-		_ASM_EXTABLE_UA(1b, 2b)
-		:"+c" (len), "+D" (to), "+S" (from), ASM_CALL_CONSTRAINT
-		: : "memory", "rax");
+	asm_call("1:\n\t"
+		 ALTERNATIVE("rep movsb",
+			     "call rep_movs_alternative", ALT_NOT(X86_FEATURE_FSRM))
+		 "2:\n"
+		 _ASM_EXTABLE_UA(1b, 2b),
+		 ASM_OUTPUT("+c" (len),
+			    "+D" (to),
+			    "+S" (from)),
+		 ASM_INPUT(),
+		 ASM_CLOBBER("memory", "rax"));
 	clac();
 	return len;
 }
@@ -184,14 +186,14 @@ static __always_inline __must_check unsigned long __clear_user(void __user *addr
 	 * No memory constraint because it doesn't change any memory gcc
 	 * knows about.
 	 */
-	asm volatile(
-		"1:\n\t"
-		ALTERNATIVE("rep stosb",
-			    "call rep_stos_alternative", ALT_NOT(X86_FEATURE_FSRS))
-		"2:\n"
-	       _ASM_EXTABLE_UA(1b, 2b)
-	       : "+c" (size), "+D" (addr), ASM_CALL_CONSTRAINT
-	       : "a" (0));
+	asm_call("1:\n\t"
+		 ALTERNATIVE("rep stosb",
+			     "call rep_stos_alternative", ALT_NOT(X86_FEATURE_FSRS))
+		 "2:\n"
+		 _ASM_EXTABLE_UA(1b, 2b),
+		 ASM_OUTPUT("+c" (size),
+			    "+D" (addr)),
+		 ASM_INPUT("a" (0)));
 
 	clac();
 

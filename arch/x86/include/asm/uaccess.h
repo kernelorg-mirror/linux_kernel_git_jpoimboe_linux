@@ -78,10 +78,11 @@ extern int __get_user_bad(void);
 	int __ret_gu;							\
 	register __inttype(*(ptr)) __val_gu asm("%"_ASM_DX);		\
 	__chk_user_ptr(ptr);						\
-	asm volatile("call __" #fn "_%c[size]"				\
-		     : "=a" (__ret_gu), "=r" (__val_gu),		\
-			ASM_CALL_CONSTRAINT				\
-		     : "a" (ptr), [size] "i" (sizeof(*(ptr))));		\
+	asm_call("call __" #fn "_%c[size]",				\
+		 ASM_OUTPUT(	 "=a" (__ret_gu),			\
+				 "=r" (__val_gu)),			\
+		 ASM_INPUT([size] "i" (sizeof(*(ptr))),			\
+				  "a" (ptr)));				\
 	instrument_get_user(__val_gu);					\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
 	__builtin_expect(__ret_gu, 0);					\
@@ -177,13 +178,12 @@ extern void __put_user_nocheck_8(void);
 	__chk_user_ptr(__ptr);						\
 	__ptr_pu = __ptr;						\
 	__val_pu = __x;							\
-	asm volatile("call __" #fn "_%c[size]"				\
-		     : "=c" (__ret_pu),					\
-			ASM_CALL_CONSTRAINT				\
-		     : "c" (__ptr_pu),					\
-		       "r" (__val_pu),					\
-		       [size] "i" (sizeof(*(ptr)))			\
-		     :"ebx");						\
+	asm_call("call __" #fn "_%c[size]",				\
+		 ASM_OUTPUT(	 "=c" (__ret_pu)),			\
+		 ASM_INPUT([size] "i" (sizeof(*(ptr))),			\
+				  "c" (__ptr_pu),			\
+				  "r" (__val_pu)),			\
+		 ASM_CLOBBER("ebx"));					\
 	instrument_put_user(__x, __ptr, sizeof(*(ptr)));		\
 	__builtin_expect(__ret_pu, 0);					\
 })
