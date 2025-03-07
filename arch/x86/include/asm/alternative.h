@@ -254,17 +254,15 @@ static inline int alternatives_text_reserved(void *start, void *end)
  *
  * Peculiarities:
  * No memory clobber here.
- * Argument numbers start with 1.
- * Leaving an unused argument 0 to keep API compatibility.
  */
 #define alternative_input(oldinstr, newinstr, ft_flags, input...)	\
 	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags) \
-		: : "i" (0), ## input)
+		: : input)
 
 /* Like alternative_input, but with a single output argument */
 #define alternative_asm(oldinstr, newinstr, ft_flags, output, input...)	\
 	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags)	\
-		: output : "i" (0), ## input)
+		: output : input)
 
 /*
  * Like alternative_asm(), but for replacing a direct call with another one.
