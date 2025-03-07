@@ -128,7 +128,7 @@ DECLARE_STATIC_CALL(xen_hypercall, xen_hypercall_func);
 	register unsigned long __arg4 asm(__HYPERCALL_ARG4REG) = __arg4; \
 	register unsigned long __arg5 asm(__HYPERCALL_ARG5REG) = __arg5;
 
-#define __HYPERCALL_0PARAM	"=r" (__res), ASM_CALL_CONSTRAINT
+#define __HYPERCALL_0PARAM	"=r" (__res)
 #define __HYPERCALL_1PARAM	__HYPERCALL_0PARAM, "+r" (__arg1)
 #define __HYPERCALL_2PARAM	__HYPERCALL_1PARAM, "+r" (__arg2)
 #define __HYPERCALL_3PARAM	__HYPERCALL_2PARAM, "+r" (__arg3)
@@ -158,10 +158,10 @@ DECLARE_STATIC_CALL(xen_hypercall, xen_hypercall_func);
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_0ARG();						\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_0PARAM				\
-		      : __HYPERCALL_ENTRY(__HYPERVISOR_ ## name)	\
-		      : __HYPERCALL_CLOBBER0);				\
+	asm_call(__HYPERCALL,						\
+		 __HYPERCALL_0PARAM,					\
+		 __HYPERCALL_ENTRY(__HYPERVISOR_ ## name),		\
+		 __HYPERCALL_CLOBBER0);					\
 	(type)__res;							\
 })
 
@@ -169,10 +169,10 @@ DECLARE_STATIC_CALL(xen_hypercall, xen_hypercall_func);
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_1ARG(a1);						\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_1PARAM				\
-		      : __HYPERCALL_ENTRY(__HYPERVISOR_ ## name)	\
-		      : __HYPERCALL_CLOBBER1);				\
+	asm_call(__HYPERCALL,						\
+		 __HYPERCALL_1PARAM,					\
+		 __HYPERCALL_ENTRY(__HYPERVISOR_ ## name),		\
+		 __HYPERCALL_CLOBBER1);					\
 	(type)__res;							\
 })
 
@@ -180,10 +180,10 @@ DECLARE_STATIC_CALL(xen_hypercall, xen_hypercall_func);
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_2ARG(a1, a2);					\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_2PARAM				\
-		      : __HYPERCALL_ENTRY(__HYPERVISOR_ ## name)	\
-		      : __HYPERCALL_CLOBBER2);				\
+	asm_call(__HYPERCALL,						\
+		 __HYPERCALL_2PARAM,					\
+		 __HYPERCALL_ENTRY(__HYPERVISOR_ ## name),		\
+		 __HYPERCALL_CLOBBER2);					\
 	(type)__res;							\
 })
 
@@ -191,10 +191,10 @@ DECLARE_STATIC_CALL(xen_hypercall, xen_hypercall_func);
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_3ARG(a1, a2, a3);					\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_3PARAM				\
-		      : __HYPERCALL_ENTRY(__HYPERVISOR_ ## name)	\
-		      : __HYPERCALL_CLOBBER3);				\
+	asm_call(__HYPERCALL,						\
+		 __HYPERCALL_3PARAM,					\
+		 __HYPERCALL_ENTRY(__HYPERVISOR_ ## name),		\
+		 __HYPERCALL_CLOBBER3);					\
 	(type)__res;							\
 })
 
@@ -202,10 +202,10 @@ DECLARE_STATIC_CALL(xen_hypercall, xen_hypercall_func);
 ({									\
 	__HYPERCALL_DECLS;						\
 	__HYPERCALL_4ARG(a1, a2, a3, a4);				\
-	asm volatile (__HYPERCALL					\
-		      : __HYPERCALL_4PARAM				\
-		      : __HYPERCALL_ENTRY(__HYPERVISOR_ ## name)	\
-		      : __HYPERCALL_CLOBBER4);				\
+	asm_call(__HYPERCALL,						\
+		 __HYPERCALL_4PARAM,					\
+		 __HYPERCALL_ENTRY(__HYPERVISOR_ ## name),		\
+		 __HYPERCALL_CLOBBER4);					\
 	(type)__res;							\
 })
 
