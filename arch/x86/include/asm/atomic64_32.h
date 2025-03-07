@@ -50,11 +50,10 @@ static __always_inline s64 arch_atomic64_read_nonatomic(const atomic64_t *v)
 
 #ifdef CONFIG_X86_CX8
 #define __alternative_atomic64(f, g, out, in, clobbers...)		\
-	asm volatile("call %c[func]"					\
-		     : ALT_OUTPUT_SP(out) \
-		     : [func] "i" (atomic64_##g##_cx8)			\
-		       COMMA(in)					\
-		     : clobbers)
+	asm_call("call %c[func]",					\
+		 ASM_OUTPUT(out),					\
+		 ASM_INPUT([func] "i" (atomic64_##g##_cx8) COMMA(in)),	\
+		 ASM_CLOBBER(clobbers))
 
 #define ATOMIC64_DECL(sym) ATOMIC64_DECL_ONE(sym##_cx8)
 #else
