@@ -54,12 +54,13 @@ static __always_inline u64 rdtsc_ordered(void)
 	 * Thus, use the preferred barrier on the respective CPU, aiming for
 	 * RDTSCP as the default.
 	 */
-	asm volatile(ALTERNATIVE_2("rdtsc",
-				   "lfence; rdtsc", X86_FEATURE_LFENCE_RDTSC,
-				   "rdtscp", X86_FEATURE_RDTSCP)
-			: EAX_EDX_RET(val, low, high)
+	alternative_asm_2("rdtsc",
+			  "lfence; rdtsc", X86_FEATURE_LFENCE_RDTSC,
+			  "rdtscp", X86_FEATURE_RDTSCP,
+			  ASM_OUTPUT(EAX_EDX_RET(val, low, high)),
+			  ASM_INPUT(),
 			/* RDTSCP clobbers ECX with MSR_TSC_AUX. */
-			:: "ecx");
+			  ASM_CLOBBER("ecx"));
 
 	return EAX_EDX_VAL(val, low, high);
 }
