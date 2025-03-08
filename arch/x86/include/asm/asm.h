@@ -207,9 +207,16 @@ static __always_inline __pure void *rip_rel_ptr(void *p)
 register unsigned long current_stack_pointer asm(_ASM_SP);
 
 #ifdef CONFIG_FRAME_POINTER_UNWINDER
-# define ASM_CALL_OUTPUT(...)	"+r" (current_stack_pointer), ##__VA_ARGS__
-#else
+# ifdef __clang__
+#  define ASM_CALL_OUTPUT(x...)	x
+#  define ASM_CALL_INPUT(...)	"r" (__builtin_frame_address(0)), ##__VA_ARGS__
+# else /* gcc */
+#  define ASM_CALL_OUTPUT(...)	"+r" (current_stack_pointer), ##__VA_ARGS__
+#  define ASM_CALL_INPUT(x...)	x
+# endif
+#else /* !CONFIG_FRAME_POINTER_UNWINDER */
 # define ASM_CALL_OUTPUT(x...)	x
+# define ASM_CALL_INPUT(x...)	x
 #endif
 
 #define ASM_CALL_INPUT(x...)	x
