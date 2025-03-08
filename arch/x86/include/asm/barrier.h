@@ -12,12 +12,23 @@
  */
 
 #ifdef CONFIG_X86_32
-#define mb() asm volatile(ALTERNATIVE("lock addl $0,-4(%%esp)", "mfence", \
-				      X86_FEATURE_XMM2) ::: "memory", "cc")
-#define rmb() asm volatile(ALTERNATIVE("lock addl $0,-4(%%esp)", "lfence", \
-				       X86_FEATURE_XMM2) ::: "memory", "cc")
-#define wmb() asm volatile(ALTERNATIVE("lock addl $0,-4(%%esp)", "sfence", \
-				       X86_FEATURE_XMM2) ::: "memory", "cc")
+#define mb() alternative_asm("lock addl $0,-4(%%esp)",			\
+			     "mfence", X86_FEATURE_XMM2,		\
+			     ASM_OUTPUT(),				\
+			     ASM_INPUT(),				\
+			     ASM_CLOBBER("memory", "cc"))
+
+#define rmb() alternative_asm("lock addl $0, -4(%%esp)",		\
+			      "lfence", X86_FEATURE_XMM2,		\
+			      ASM_OUTPUT(),				\
+			      ASM_INPUT(),				\
+			      ASM_CLOBBER("memory", "cc"))
+
+#define wmb() alternative_asm("lock addl $0, -4(%%esp)",		\
+			      "sfence", X86_FEATURE_XMM2,		\
+			      ASM_OUTPUT(),				\
+			      ASM_INPUT(),				\
+			      ASM_CLOBBER("memory", "cc"))
 #else
 #define __mb()	asm volatile("mfence":::"memory")
 #define __rmb()	asm volatile("lfence":::"memory")
