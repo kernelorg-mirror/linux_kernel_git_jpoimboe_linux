@@ -78,9 +78,9 @@ static __always_inline unsigned long smap_save(void)
 
 	asm volatile ("# smap_save\n\t"
 		      ALTERNATIVE(ANNOTATE_IGNORE_ALTERNATIVE "\n\t"
-				  "", "pushf; pop %0; clac",
+				  "", "pushf; pop %[flags]; clac",
 				  X86_FEATURE_SMAP)
-		      : "=rm" (flags) : : "memory", "cc");
+		      : [flags] "=rm" (flags) : : "memory", "cc");
 
 	return flags;
 }
@@ -89,9 +89,9 @@ static __always_inline void smap_restore(unsigned long flags)
 {
 	asm volatile ("# smap_restore\n\t"
 		      ALTERNATIVE(ANNOTATE_IGNORE_ALTERNATIVE "\n\t"
-				  "", "push %0; popf",
+				  "", "push %[flags]; popf",
 				  X86_FEATURE_SMAP)
-		      : : "g" (flags) : "memory", "cc");
+		      : : [flags] "g" (flags) : "memory", "cc");
 }
 
 /* These macros can be used in asm() statements */
