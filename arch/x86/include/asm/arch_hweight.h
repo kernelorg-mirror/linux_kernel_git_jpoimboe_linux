@@ -6,20 +6,20 @@
 
 #ifdef CONFIG_64BIT
 #define REG_IN "D"
-#define REG_OUT "a"
+#define REG_OUT "=a"
 #else
 #define REG_IN "a"
-#define REG_OUT "a"
+#define REG_OUT "=a"
 #endif
 
 static __always_inline unsigned int __arch_hweight32(unsigned int w)
 {
 	unsigned int res;
 
-	asm_inline (ALTERNATIVE("call __sw_hweight32",
-				"popcntl %[val], %[cnt]", X86_FEATURE_POPCNT)
-			 : [cnt] "=" REG_OUT (res), ASM_CALL_CONSTRAINT
-			 : [val] REG_IN (w));
+	asm_call(ALTERNATIVE("call __sw_hweight32",
+			     "popcntl %[val], %[cnt]", X86_FEATURE_POPCNT),
+		 ASM_OUTPUT([cnt] REG_OUT (res)),
+		 ASM_INPUT( [val] REG_IN  (w)));
 
 	return res;
 }
@@ -45,10 +45,10 @@ static __always_inline unsigned long __arch_hweight64(__u64 w)
 {
 	unsigned long res;
 
-	asm_inline (ALTERNATIVE("call __sw_hweight64",
-				"popcntq %[val], %[cnt]", X86_FEATURE_POPCNT)
-			 : [cnt] "=" REG_OUT (res), ASM_CALL_CONSTRAINT
-			 : [val] REG_IN (w));
+	asm_call(ALTERNATIVE("call __sw_hweight64",
+			     "popcntq %[val], %[cnt]", X86_FEATURE_POPCNT),
+		 ASM_OUTPUT([cnt] REG_OUT (res)),
+		 ASM_INPUT( [val] REG_IN  (w)));
 
 	return res;
 }
