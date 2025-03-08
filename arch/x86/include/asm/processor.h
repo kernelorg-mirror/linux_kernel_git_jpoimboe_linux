@@ -713,8 +713,11 @@ static inline u32 per_cpu_l2c_id(unsigned int cpu)
  */
 static __always_inline void amd_clear_divider(void)
 {
-	asm volatile(ALTERNATIVE("", "div %[one]", X86_BUG_DIV0)
-		     :: "a" (0), "d" (0), [one] "r" (1));
+	alternative_asm("", "div %[one]", X86_BUG_DIV0,
+			ASM_OUTPUT(),
+			ASM_INPUT([one] "r" (1),
+					"a" (0),
+					"d" (0)));
 }
 
 extern void amd_check_microcode(void);
