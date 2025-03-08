@@ -76,11 +76,13 @@ static __always_inline unsigned long smap_save(void)
 {
 	unsigned long flags;
 
-	asm volatile ("# smap_save\n\t"
-		      ALTERNATIVE(ANNOTATE_IGNORE_ALTERNATIVE "\n\t"
-				  "", "pushf; pop %[flags]; clac",
-				  X86_FEATURE_SMAP)
-		      : [flags] "=rm" (flags) : : "memory", "cc");
+	alternative_asm("# smap_save\n\t"
+			ANNOTATE_IGNORE_ALTERNATIVE "\n\t"
+			"", "pushf; pop %[flags]; clac",
+			X86_FEATURE_SMAP,
+			ASM_OUTPUT([flags] "=rm" (flags)),
+			ASM_INPUT(),
+			ASM_CLOBBER("memory", "cc"));
 
 	return flags;
 }
