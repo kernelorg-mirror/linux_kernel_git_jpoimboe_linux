@@ -272,6 +272,16 @@ static inline int alternatives_text_reserved(void *start, void *end)
 			    : input					\
 			    : "memory", ## clobber)
 
+#define alternative_asm_2(oldinstr, newinstr1, ft_flags1,		\
+			  newinstr2, ft_flags2,				\
+			  output, input, clobber...)			\
+	asm_inline volatile(ALTERNATIVE_2(oldinstr,			\
+					  newinstr1, ft_flags1,		\
+					  newinstr2, ft_flags2)		\
+			    : output					\
+			    : input					\
+			    : "memory", ## clobber)
+
 /*
  * Like alternative_asm(), but for replacing a direct call with another one.
  *
