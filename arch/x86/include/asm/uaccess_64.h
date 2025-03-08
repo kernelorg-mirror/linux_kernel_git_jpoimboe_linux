@@ -26,10 +26,9 @@ extern unsigned long USER_PTR_MAX;
  */
 static inline unsigned long __untagged_addr(unsigned long addr)
 {
-	asm_inline (ALTERNATIVE("", "and " __percpu_arg([mask]) ", %[addr]",
-				X86_FEATURE_LAM)
-	     : [addr] "+r" (addr)
-	     : [mask] "m" (__my_cpu_var(tlbstate_untag_mask)));
+	alternative_asm("", "and " __percpu_arg([mask]) ", %[addr]", X86_FEATURE_LAM,
+			ASM_OUTPUT([addr] "+r" (addr)),
+			ASM_INPUT( [mask]  "m" (__my_cpu_var(tlbstate_untag_mask))));
 
 	return addr;
 }
