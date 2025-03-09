@@ -81,7 +81,7 @@ extern int __get_user_bad(void);
 	asm volatile("call __" #fn "_%c[size]"				\
 		     : "=a" (__ret_gu), "=r" (__val_gu),		\
 			ASM_CALL_CONSTRAINT				\
-		     : "0" (ptr), [size] "i" (sizeof(*(ptr))));		\
+		     : "a" (ptr), [size] "i" (sizeof(*(ptr))));		\
 	instrument_get_user(__val_gu);					\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
 	__builtin_expect(__ret_gu, 0);					\
@@ -180,7 +180,7 @@ extern void __put_user_nocheck_8(void);
 	asm volatile("call __" #fn "_%c[size]"				\
 		     : "=c" (__ret_pu),					\
 			ASM_CALL_CONSTRAINT				\
-		     : "0" (__ptr_pu),					\
+		     : "c" (__ptr_pu),					\
 		       "r" (__val_pu),					\
 		       [size] "i" (sizeof(*(ptr)))			\
 		     :"ebx");						\
@@ -318,11 +318,10 @@ do {									\
 		     _ASM_EXTABLE_TYPE_REG(2b, 3b, EX_TYPE_EFAULT_REG |	\
 					   EX_FLAG_CLEAR_AX_DX,		\
 					   %[errout])			\
-		     : [errout] "=r" (retval),				\
+		     : [errout] "+r" (retval),				\
 		       [output] "=&A"(x)				\
 		     : [lowbits] "m" (__m(__ptr)),			\
-		       [highbits] "m" __m(((u32 __user *)(__ptr)) + 1),	\
-		       "0" (retval));					\
+		       [highbits] "m" __m(((u32 __user *)(__ptr)) + 1));\
 })
 
 #else
@@ -362,10 +361,9 @@ do {									\
 		     _ASM_EXTABLE_TYPE_REG(1b, 2b, EX_TYPE_EFAULT_REG | \
 					   EX_FLAG_CLEAR_AX,		\
 					   %[errout])			\
-		     : [errout] "=r" (err),				\
+		     : [errout] "+r" (err),				\
 		       [output] "=a" (x)				\
-		     : [umem] "m" (__m(addr)),				\
-		       "0" (err))
+		     : [umem] "m" (__m(addr)));				\
 
 #endif // CONFIG_CC_HAS_ASM_GOTO_OUTPUT
 
