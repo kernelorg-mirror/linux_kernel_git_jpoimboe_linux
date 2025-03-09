@@ -24,17 +24,17 @@ static __always_inline void iret_to_self(void)
 	unsigned int tmp;
 
 	asm volatile (
-		"mov %%ss, %0\n\t"
-		"pushq %q0\n\t"
+		"mov %%ss, %[tmp]\n\t"
+		"pushq %q[tmp]\n\t"
 		"pushq %%rsp\n\t"
 		"addq $8, (%%rsp)\n\t"
 		"pushfq\n\t"
-		"mov %%cs, %0\n\t"
-		"pushq %q0\n\t"
+		"mov %%cs, %[tmp]\n\t"
+		"pushq %q[tmp]\n\t"
 		"pushq $1f\n\t"
 		"iretq\n\t"
 		"1:"
-		: "=&r" (tmp), ASM_CALL_CONSTRAINT : : "cc", "memory");
+		: [tmp] "=&r" (tmp), ASM_CALL_CONSTRAINT : : "cc", "memory");
 }
 #endif /* CONFIG_X86_32 */
 
