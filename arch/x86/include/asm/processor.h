@@ -628,9 +628,10 @@ extern char			ignore_fpu_irq;
  */
 static inline void prefetch(const void *x)
 {
-	alternative_input(BASE_PREFETCH,
-			  "prefetchnta %[val]", X86_FEATURE_XMM,
-			  [val] "m" (*(const char *)x));
+	alternative_asm(BASE_PREFETCH,
+			"prefetchnta %[val]", X86_FEATURE_XMM,
+			ASM_OUTPUT(),
+			ASM_INPUT([val] "m" (*(const char *)x)));
 }
 
 /*
@@ -640,9 +641,10 @@ static inline void prefetch(const void *x)
  */
 static __always_inline void prefetchw(const void *x)
 {
-	alternative_input(BASE_PREFETCH,
-			  "prefetchw %[val]", X86_FEATURE_3DNOWPREFETCH,
-			  [val] "m" (*(const char *)x));
+	alternative_asm(BASE_PREFETCH,
+			"prefetchw %[val]", X86_FEATURE_3DNOWPREFETCH,
+			ASM_OUTPUT(),
+			ASM_INPUT([val] "m" (*(const char *)x)));
 }
 
 #define TOP_OF_INIT_STACK ((unsigned long)&init_stack + sizeof(init_stack) - \
