@@ -250,16 +250,6 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	alternatve_asm_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2,,)
 
 /*
- * Alternative inline assembly with input.
- *
- * Peculiarities:
- * No memory clobber here.
- */
-#define alternative_input(oldinstr, newinstr, ft_flags, input...)	\
-	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags) \
-		: : input)
-
-/*
  * Alternative inline assembly with output, input and clobbers.
  *
  * @output, @input and @clobbers should be wrapped with ASM_OUTPUT(),
