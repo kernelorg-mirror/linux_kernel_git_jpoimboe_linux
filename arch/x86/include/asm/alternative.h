@@ -244,10 +244,10 @@ static inline int alternatives_text_reserved(void *start, void *end)
  * without volatile and memory clobber.
  */
 #define alternative(oldinstr, newinstr, ft_flags)			\
-	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags) : : : "memory")
+	alternative_asm(oldinstr, newinstr, ft_flags,,)
 
 #define alternative_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2) \
-	asm_inline volatile(ALTERNATIVE_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2) ::: "memory")
+	alternatve_asm_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2,,)
 
 /*
  * Alternative inline assembly with input.
