@@ -8,19 +8,31 @@
 
 #include <asm/asm.h>
 
+#define __UNWIND_HINT(label, type, sp_reg, sp_offset, signal)	\
+	.pushsection .discard.unwind_hints;			\
+	/* struct unwind_hint */				\
+	.long label - .;					\
+	.short sp_offset;					\
+	.byte sp_reg;						\
+	.byte type;						\
+	.byte signal;						\
+	.balign 4;						\
+	.popsection
+
+#define __ASM_ANNOTATE(label, type)				\
+	.pushsection .discard.annotate_insn,"M",@progbits,8;	\
+	.long label - .;					\
+	.long type;						\
+	.popsection
+
 #ifndef __ASSEMBLY__
 
-#define UNWIND_HINT(type, sp_reg, sp_offset, signal)	\
-	"987: \n\t"						\
-	".pushsection .discard.unwind_hints\n\t"		\
-	/* struct unwind_hint */				\
-	".long 987b - .\n\t"					\
-	".short " __stringify(sp_offset) "\n\t"			\
-	".byte " __stringify(sp_reg) "\n\t"			\
-	".byte " __stringify(type) "\n\t"			\
-	".byte " __stringify(signal) "\n\t"			\
-	".balign 4 \n\t"					\
-	".popsection\n\t"
+#define UNWIND_HINT(type, sp_reg, sp_offset, signal)		\
+	"\n# <UNWIND_HINT>\n"					\
+	"987: "							\
+	__stringify(__UNWIND_HINT(987b, type, sp_reg,		\
+				  sp_offset, signal))		\
+	"\n# </UNWIND_HINT>\n\t"
 
 /*
  * This macro marks the given function's stack frame as "non-standard", which
@@ -45,23 +57,18 @@
 #define STACK_FRAME_NON_STANDARD_FP(func)
 #endif
 
-#define ASM_REACHABLE							\
-	"998:\n\t"							\
-	".pushsection .discard.reachable\n\t"				\
-	".long 998b\n\t"						\
-	".popsection\n\t"
-
 #define __ASM_BREF(label)	label ## b
 
-#define __ASM_ANNOTATE(label, type)					\
-	".pushsection .discard.annotate_insn,\"M\",@progbits,8\n\t"	\
-	".long " __stringify(label) " - .\n\t"			\
-	".long " __stringify(type) "\n\t"				\
-	".popsection\n\t"
-
 #define ASM_ANNOTATE(type)						\
-	"911:\n\t"						\
-	__ASM_ANNOTATE(911b, type)
+	"\n# <ANNOTATE_" __stringify(type) ">\n"			\
+	"911:\t"							\
+	__stringify(__ASM_ANNOTATE(911b, __PASTE(ANNOTYPE_, type)))	\
+	"\n# </ANNOTATE_" __stringify(type) ">\n\t"
+
+#define ASM_ANNOTATE_LABEL(label, type)					\
+	"\n# BEGIN ANNOTATE_" __stringify(type) "\n"			\
+	__stringify(__ASM_ANNOTATE(label, __PASTE(ANNOTYPE_, type)))	\
+	"\n# </ANNOTATE_" __stringify(type) "\n\t"
 
 #else /* __ASSEMBLY__ */
 
@@ -88,15 +95,7 @@
  */
 .macro UNWIND_HINT type:req sp_reg=0 sp_offset=0 signal=0
 .Lhere_\@:
-	.pushsection .discard.unwind_hints
-		/* struct unwind_hint */
-		.long .Lhere_\@ - .
-		.short \sp_offset
-		.byte \sp_reg
-		.byte \type
-		.byte \signal
-		.balign 4
-	.popsection
+	__UNWIND_HINT(.Lhere_\@, \type, \sp_reg, \sp_offset, \signal)
 .endm
 
 .macro STACK_FRAME_NON_STANDARD func:req
@@ -113,10 +112,7 @@
 
 .macro ANNOTATE type:req
 .Lhere_\@:
-	.pushsection .discard.annotate_insn,"M",@progbits,8
-	.long	.Lhere_\@ - .
-	.long	\type
-	.popsection
+	__ASM_ANNOTATE(.Lhere_\@, \type)
 .endm
 
 #endif /* __ASSEMBLY__ */
@@ -125,11 +121,12 @@
 
 #ifndef __ASSEMBLY__
 
-#define UNWIND_HINT(type, sp_reg, sp_offset, signal) "\n\t"
 #define STACK_FRAME_NON_STANDARD(func)
 #define STACK_FRAME_NON_STANDARD_FP(func)
-#define __ASM_ANNOTATE(label, type) ""
-#define ASM_ANNOTATE(type)
+
+#define UNWIND_HINT(type, sp_reg, sp_offset, signal)	""
+#define ASM_ANNOTATE(type)				""
+#define ASM_ANNOTATE_LABEL(sym, type)			""
 #else
 .macro UNWIND_HINT type:req sp_reg=0 sp_offset=0 signal=0
 .endm
@@ -146,30 +143,30 @@
  * Annotate away the various 'relocation to !ENDBR` complaints; knowing that
  * these relocations will never be used for indirect calls.
  */
-#define ANNOTATE_NOENDBR		ASM_ANNOTATE(ANNOTYPE_NOENDBR)
-#define ANNOTATE_NOENDBR_SYM(sym)	asm(__ASM_ANNOTATE(sym, ANNOTYPE_NOENDBR))
+#define ANNOTATE_NOENDBR		ASM_ANNOTATE(NOENDBR)
+#define ANNOTATE_NOENDBR_SYM(sym)	asm(ASM_ANNOTATE_LABEL(sym, NOENDBR))
 
 /*
  * This should be used immediately before an indirect jump/call. It tells
  * objtool the subsequent indirect jump/call is vouched safe for retpoline
  * builds.
  */
-#define ANNOTATE_RETPOLINE_SAFE		ASM_ANNOTATE(ANNOTYPE_RETPOLINE_SAFE)
+#define ANNOTATE_RETPOLINE_SAFE		ASM_ANNOTATE(RETPOLINE_SAFE)
 /*
  * See linux/instrumentation.h
  */
-#define ANNOTATE_INSTR_BEGIN(label)	__ASM_ANNOTATE(label, ANNOTYPE_INSTR_BEGIN)
-#define ANNOTATE_INSTR_END(label)	__ASM_ANNOTATE(label, ANNOTYPE_INSTR_END)
+#define ANNOTATE_INSTR_BEGIN(label)	ASM_ANNOTATE_LABEL(label, INSTR_BEGIN)
+#define ANNOTATE_INSTR_END(label)	ASM_ANNOTATE_LABEL(label, INSTR_END)
 /*
  * objtool annotation to ignore the alternatives and only consider the original
  * instruction(s).
  */
-#define ANNOTATE_IGNORE_ALTERNATIVE	ASM_ANNOTATE(ANNOTYPE_IGNORE_ALTS)
+#define ANNOTATE_IGNORE_ALTERNATIVE	ASM_ANNOTATE(IGNORE_ALTS)
 /*
  * This macro indicates that the following intra-function call is valid.
  * Any non-annotated intra-function call will cause objtool to issue a warning.
  */
-#define ANNOTATE_INTRA_FUNCTION_CALL	ASM_ANNOTATE(ANNOTYPE_INTRA_FUNCTION_CALL)
+#define ANNOTATE_INTRA_FUNCTION_CALL	ASM_ANNOTATE(INTRA_FUNCTION_CALL)
 /*
  * Use objtool to validate the entry requirement that all code paths do
  * VALIDATE_UNRET_END before RET.
@@ -177,13 +174,13 @@
  * NOTE: The macro must be used at the beginning of a global symbol, otherwise
  * it will be ignored.
  */
-#define ANNOTATE_UNRET_BEGIN		ASM_ANNOTATE(ANNOTYPE_UNRET_BEGIN)
+#define ANNOTATE_UNRET_BEGIN		ASM_ANNOTATE(UNRET_BEGIN)
 /*
  * This should be used to refer to an instruction that is considered
  * terminating, like a noreturn CALL or UD2 when we know they are not -- eg
  * WARN using UD2.
  */
-#define ANNOTATE_REACHABLE(label)	__ASM_ANNOTATE(label, ANNOTYPE_REACHABLE)
+#define ANNOTATE_REACHABLE(label)	ASM_ANNOTATE_LABEL(label, REACHABLE)
 
 #else
 #define ANNOTATE_NOENDBR		ANNOTATE type=ANNOTYPE_NOENDBR
