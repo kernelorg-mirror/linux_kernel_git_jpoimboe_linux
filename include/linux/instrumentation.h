@@ -9,7 +9,7 @@
 
 /* Begin/end of an instrumentation safe region */
 #define __instrumentation_begin(c) ({					\
-	asm volatile(__stringify(c) ": nop\n\t"				\
+	asm_inline volatile(__stringify(c) ": nop\n\t"			\
 		     ANNOTATE_INSTR_BEGIN(__ASM_BREF(c))		\
 		     : : "i" (c));					\
 })
@@ -47,7 +47,7 @@
  * part of the condition block and does not escape.
  */
 #define __instrumentation_end(c) ({					\
-	asm volatile(__stringify(c) ": nop\n\t"				\
+	asm_inline volatile(__stringify(c) ": nop\n\t"			\
 		     ANNOTATE_INSTR_END(__ASM_BREF(c))			\
 		     : : "i" (c));					\
 })
