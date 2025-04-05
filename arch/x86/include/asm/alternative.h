@@ -151,45 +151,83 @@ static inline int alternatives_text_reserved(void *start, void *end)
 #define alt_rlen		"775f-774f"
 
 #define OLDINSTR(oldinstr)						\
-	"# ALT: oldinstr\n"						\
-	"771:\n\t" oldinstr "\n772:\n"					\
-	"# ALT: padding\n"						\
-	".skip -(((" alt_rlen ")-(" alt_slen ")) > 0) * "		\
-		"((" alt_rlen ")-(" alt_slen ")),0x90\n"		\
+	"771:" oldinstr "\n"						\
+	"772:\t.skip -(((" alt_rlen ")-(" alt_slen ")) > 0) * "		\
+		      "((" alt_rlen ")-(" alt_slen ")),0x90\n"		\
 	"773:\n"
 
-#define ALTINSTR_ENTRY(ft_flags)					      \
-	".pushsection .altinstructions,\"a\"\n"				      \
-	" .long 771b - .\n"				/* label           */ \
-	" .long 774f - .\n"				/* new instruction */ \
-	" .4byte " __stringify(ft_flags) "\n"		/* feature + flags */ \
-	" .byte " alt_total_slen "\n"			/* source len      */ \
-	" .byte " alt_rlen "\n"				/* replacement len */ \
+#define ALTINSTR_ENTRY(ft_flags)					\
+	"# ALT ENTRY:\n"						\
+	".pushsection .altinstructions,\"a\"; "				\
+	" .long 771b - .; "			/* label           */	\
+	" .long 774f - .; "			/* new instruction */	\
+	" .4byte " __stringify(ft_flags) "; "	/* feature + flags */	\
+	" .byte " alt_total_slen "; "		/* source len      */	\
+	" .byte " alt_rlen "; "			/* replacement len */	\
 	".popsection\n"
 
-#define ALTINSTR_REPLACEMENT(newinstr)		/* replacement */	\
+#define ALTINSTR_REPLACEMENT(newinstr)					\
+	"# ALT REPLACEMENT:\n"						\
 	".pushsection .altinstr_replacement, \"ax\"\n"			\
-	"# ALT: replacement\n"						\
-	"774:\n\t" newinstr "\n775:\n"					\
-	".popsection\n"
+	"774:\t" newinstr "\n"						\
+	"775:\n"							\
+	".popsection"
 
-/* alternative assembly primitive: */
-#define ALTERNATIVE(oldinstr, newinstr, ft_flags)			\
+
+#define __ALTERNATIVE(oldinstr, newinstr, ft_flags)			\
 	OLDINSTR(oldinstr)						\
 	ALTINSTR_ENTRY(ft_flags)					\
 	ALTINSTR_REPLACEMENT(newinstr)
 
-#define ALTERNATIVE_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2) \
-	ALTERNATIVE(ALTERNATIVE(oldinstr, newinstr1, ft_flags1), newinstr2, ft_flags2)
+#define __ALTERNATIVE_2(oldinstr,					\
+			newinstr1, ft_flags1,				\
+			newinstr2, ft_flags2)				\
+	__ALTERNATIVE("\n"						\
+		      __ALTERNATIVE(oldinstr,				\
+				    newinstr1, ft_flags1),		\
+		      newinstr2, ft_flags2)
+
+#define __ALTERNATIVE_3(oldinstr,					\
+			newinstr1, ft_flags1,				\
+			newinstr2, ft_flags2,				\
+			newinstr3, ft_flags3)				\
+	__ALTERNATIVE("\n"						\
+		      __ALTERNATIVE_2(oldinstr,				\
+				      newinstr1, ft_flags1,		\
+				      newinstr2, ft_flags2),		\
+		      newinstr3, ft_flags3)
+
+
+#define ALTERNATIVE(oldinstr, newinstr, ft_flags)			\
+	"\n# <ALTERNATIVE>\n"						\
+	__ALTERNATIVE("\t" oldinstr, newinstr, ft_flags)		\
+	"\n# </ALTERNATIVE>\n"
+
+#define ALTERNATIVE_2(oldinstr,						\
+		      newinstr1, ft_flags1,				\
+		      newinstr2, ft_flags2)				\
+	"\n# <ALTERNATIVE_2>\n"						\
+	__ALTERNATIVE_2("\t"						\
+			oldinstr,					\
+			newinstr1, ft_flags1,				\
+			newinstr2, ft_flags2)				\
+	"\n# </ALTERNATIVE_2>\n"
+
+#define ALTERNATIVE_3(oldinstr,						\
+		      newinstr1, ft_flags1,				\
+		      newinstr2, ft_flags2,				\
+		      newinstr3, ft_flags3)				\
+	"\n# <ALTERNATIVE_3>\n"						\
+	__ALTERNATIVE_3("\t"						\
+			oldinstr,					\
+			newinstr1, ft_flags1,				\
+			newinstr2, ft_flags2,				\
+			newinstr3, ft_flags3)				\
+	"\n# </ALTERNATIVE_3>\n"
 
 /* If @feature is set, patch in @newinstr_yes, otherwise @newinstr_no. */
 #define ALTERNATIVE_TERNARY(oldinstr, ft_flags, newinstr_yes, newinstr_no) \
 	ALTERNATIVE_2(oldinstr, newinstr_no, X86_FEATURE_ALWAYS, newinstr_yes, ft_flags)
-
-#define ALTERNATIVE_3(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2, \
-			newinstr3, ft_flags3)				\
-	ALTERNATIVE(ALTERNATIVE_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2), \
-		      newinstr3, ft_flags3)
 
 /*
  * Alternative instructions for different CPU types or capabilities.
