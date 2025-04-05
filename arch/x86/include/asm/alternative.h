@@ -156,46 +156,91 @@ static inline int alternatives_text_reserved(void *start, void *end)
 #define alt_total_slen		"773b-771b"
 #define alt_rlen		"775f-774f"
 
+#define ORIG_HEADER							\
+	"# ORIG:\n"							\
+	"771:\t"
+
 #define OLDINSTR(oldinstr)						\
-	"# ALT: oldinstr\n"						\
-	"771:\n\t" oldinstr "\n772:\n"					\
-	"# ALT: padding\n"						\
+	oldinstr							\
+	"772:\t"							\
 	".skip -(((" alt_rlen ")-(" alt_slen ")) > 0) * "		\
-		"((" alt_rlen ")-(" alt_slen ")),0x90\n"		\
-	"773:\n"
+		"((" alt_rlen ")-(" alt_slen ")), 0x90; "		\
+	"773: "
 
-#define ALTINSTR_ENTRY(ft_flags)					      \
-	".pushsection .altinstructions,\"a\"\n"				      \
-	" .long 771b - .\n"				/* label           */ \
-	" .long 774f - .\n"				/* new instruction */ \
-	" .4byte " __stringify(ft_flags) "\n"		/* feature + flags */ \
-	" .byte " alt_total_slen "\n"			/* source len      */ \
-	" .byte " alt_rlen "\n"				/* replacement len */ \
-	".popsection\n"
+#define ALTINSTR_ENTRY(ft_flags)					\
+	".pushsection .altinstructions, \"a\"; "			\
+	".long 771b - .; "			/* label           */	\
+	".long 774f - .; "			/* new instruction */	\
+	".4byte " __stringify(ft_flags) "; "	/* feature + flags */	\
+	".byte " alt_total_slen "; "		/* source len      */	\
+	".byte " alt_rlen "; "			/* replacement len */	\
+	".popsection; "
 
-#define ALTINSTR_REPLACEMENT(newinstr)		/* replacement */	\
-	".pushsection .altinstr_replacement, \"ax\"\n"			\
-	"# ALT: replacement\n"						\
-	"774:\n\t" newinstr "\n775:\n"					\
-	".popsection\n"
+#define ALTINSTR_REPLACEMENT(newinstr, ft_flags_str)			\
+	".pushsection .altinstr_replacement, \"ax\"\n\n"		\
+	"# REPLACEMENT: [" ft_flags_str "]\n"				\
+	"774:\t" newinstr "\n"						\
+	"775:\t"							\
+	".popsection"
 
-/* alternative assembly primitive: */
-#define ALTERNATIVE(oldinstr, newinstr, ft_flags)			\
+#define __ALT(oldinstr, newinstr, ft_flags, ft_flags_str)		\
 	OLDINSTR(oldinstr)						\
 	ALTINSTR_ENTRY(ft_flags)					\
-	ALTINSTR_REPLACEMENT(newinstr)
+	ALTINSTR_REPLACEMENT(newinstr, ft_flags_str)
 
-#define ALTERNATIVE_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2) \
-	ALTERNATIVE(ALTERNATIVE(oldinstr, newinstr1, ft_flags1), newinstr2, ft_flags2)
+
+#define __ALTERNATIVE(oldinstr, newinstr, ft_flags, ft_flags_str)	\
+	"\n# <ALTERNATIVE>\n"						\
+	__ALT(ORIG_HEADER oldinstr "\n",				\
+	      newinstr, ft_flags, ft_flags_str)				\
+	"\n# </ALTERNATIVE>\n\t"
+
+#define __ALTERNATIVE_2(oldinstr,					\
+		      newinstr1, ft_flags1, ft_flags1_str,		\
+		      newinstr2, ft_flags2, ft_flags2_str)		\
+	"\n# <ALTERNATIVE_2>\n"						\
+	__ALT(__ALT(ORIG_HEADER oldinstr "\n",				\
+		    newinstr1, ft_flags1, ft_flags1_str) "; ",		\
+	      newinstr2, ft_flags2, ft_flags2_str)			\
+	"\n# </ALTERNATIVE_2>\n\t"
+
+#define __ALTERNATIVE_3(oldinstr,					\
+		      newinstr1, ft_flags1, ft_flags1_str,		\
+		      newinstr2, ft_flags2, ft_flags2_str,		\
+		      newinstr3, ft_flags3, ft_flags3_str)		\
+	"\n# <ALTERNATIVE_3>\n"						\
+	__ALT(__ALT(__ALT(ORIG_HEADER oldinstr "\n",			\
+			  newinstr1, ft_flags1, ft_flags1_str) "; ",	\
+		    newinstr2, ft_flags2, ft_flags2_str) "; ",		\
+	      newinstr3, ft_flags3, ft_flags3_str)			\
+	"\n# </ALTERNATIVE_3>\n\t"
+
+
+#define ALTERNATIVE(oldinstr, newinstr, ft_flags)			\
+	__ALTERNATIVE(oldinstr, newinstr, ft_flags, #ft_flags)
+
+#define ALTERNATIVE_2(oldinstr,						\
+		      newinstr1, ft_flags1,				\
+		      newinstr2, ft_flags2)				\
+	__ALTERNATIVE_2(oldinstr,					\
+		       newinstr1, ft_flags1, #ft_flags1,		\
+		       newinstr2, ft_flags2, #ft_flags2)
+
+#define ALTERNATIVE_3(oldinstr,						\
+		      newinstr1, ft_flags1,				\
+		      newinstr2, ft_flags2,				\
+		      newinstr3, ft_flags3)				\
+	__ALTERNATIVE_3(oldinstr,					\
+		       newinstr1, ft_flags1, #ft_flags1,		\
+		       newinstr2, ft_flags2, #ft_flags2,		\
+		       newinstr3, ft_flags3, #ft_flags3)
 
 /* If @feature is set, patch in @newinstr_yes, otherwise @newinstr_no. */
-#define ALTERNATIVE_TERNARY(oldinstr, ft_flags, newinstr_yes, newinstr_no) \
-	ALTERNATIVE_2(oldinstr, newinstr_no, X86_FEATURE_ALWAYS, newinstr_yes, ft_flags)
-
-#define ALTERNATIVE_3(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2, \
-			newinstr3, ft_flags3)				\
-	ALTERNATIVE(ALTERNATIVE_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2), \
-		      newinstr3, ft_flags3)
+#define ALTERNATIVE_TERNARY(oldinstr, ft_flags,				\
+			    newinstr_yes, newinstr_no)			\
+	__ALTERNATIVE_2(oldinstr, newinstr_no,				\
+			X86_FEATURE_ALWAYS, "X86_FEATURE_ALWAYS",	\
+			newinstr_yes, ft_flags, #ft_flags)
 
 /*
  * Alternative instructions for different CPU types or capabilities.
@@ -210,10 +255,17 @@ static inline int alternatives_text_reserved(void *start, void *end)
  * without volatile and memory clobber.
  */
 #define alternative(oldinstr, newinstr, ft_flags)			\
-	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags) : : : "memory")
+	asm_inline volatile(						\
+		__ALTERNATIVE(oldinstr, newinstr, ft_flags, #ft_flags)	\
+		::: "memory")
 
-#define alternative_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2) \
-	asm_inline volatile(ALTERNATIVE_2(oldinstr, newinstr1, ft_flags1, newinstr2, ft_flags2) ::: "memory")
+#define alternative_2(oldinstr, newinstr1, ft_flags1,			\
+		      newinstr2, ft_flags2)				\
+	asm_inline volatile(						\
+		__ALTERNATIVE_2(oldinstr,				\
+				newinstr1, ft_flags1, #ft_flags1,	\
+				newinstr2, ft_flags2, #ft_flags2)	\
+		::: "memory")
 
 /*
  * Alternative inline assembly with input.
@@ -224,12 +276,14 @@ static inline int alternatives_text_reserved(void *start, void *end)
  * Leaving an unused argument 0 to keep API compatibility.
  */
 #define alternative_input(oldinstr, newinstr, ft_flags, input...)	\
-	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags) \
-		: : "i" (0), ## input)
+	asm_inline volatile(						\
+		__ALTERNATIVE(oldinstr, newinstr, ft_flags, #ft_flags)	\
+		:: "i" (0), ## input)
 
 /* Like alternative_input, but with a single output argument */
 #define alternative_io(oldinstr, newinstr, ft_flags, output, input...)	\
-	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags)	\
+	asm_inline volatile(						\
+		__ALTERNATIVE(oldinstr, newinstr, ft_flags, #ft_flags)	\
 		: output : "i" (0), ## input)
 
 /*
@@ -242,11 +296,13 @@ static inline int alternatives_text_reserved(void *start, void *end)
  * references: i.e., if used for a function, it would add the PLT
  * suffix.
  */
-#define alternative_call(oldfunc, newfunc, ft_flags, output, input, clobbers...)	\
-	asm_inline volatile(ALTERNATIVE("call %c[old]", "call %c[new]", ft_flags)	\
-		: ALT_OUTPUT_SP(output)							\
-		: [old] "i" (oldfunc), [new] "i" (newfunc)				\
-		  COMMA(input)								\
+#define alternative_call(oldfunc, newfunc, ft_flags,			\
+			 output, input, clobbers...)			\
+	asm_inline volatile(						\
+		__ALTERNATIVE("call %c[old]",				\
+			      "call %c[new]", ft_flags, #ft_flags)	\
+		: ALT_OUTPUT_SP(output)					\
+		: [old] "i" (oldfunc), [new] "i" (newfunc) COMMA(input)	\
 		: clobbers)
 
 /*
@@ -255,14 +311,16 @@ static inline int alternatives_text_reserved(void *start, void *end)
  * Otherwise, if CPU has feature1, function1 is used.
  * Otherwise, old function is used.
  */
-#define alternative_call_2(oldfunc, newfunc1, ft_flags1, newfunc2, ft_flags2,		\
-			   output, input, clobbers...)					\
-	asm_inline volatile(ALTERNATIVE_2("call %c[old]", "call %c[new1]", ft_flags1,	\
-		"call %c[new2]", ft_flags2)						\
-		: ALT_OUTPUT_SP(output)							\
-		: [old] "i" (oldfunc), [new1] "i" (newfunc1),				\
-		  [new2] "i" (newfunc2)							\
-		  COMMA(input)								\
+#define alternative_call_2(oldfunc, newfunc1, ft_flags1,		\
+			   newfunc2, ft_flags2,				\
+			   output, input, clobbers...)			\
+	asm_inline volatile(						\
+		__ALTERNATIVE_2("call %c[old]",				\
+				"call %c[new1]", ft_flags1, #ft_flags1,	\
+				"call %c[new2]", ft_flags2, #ft_flags2)	\
+		: ALT_OUTPUT_SP(output)					\
+		: [old] "i" (oldfunc), [new1] "i" (newfunc1),		\
+		  [new2] "i" (newfunc2) COMMA(input)			\
 		: clobbers)
 
 #define ALT_OUTPUT_SP(...) ASM_CALL_CONSTRAINT, ## __VA_ARGS__
