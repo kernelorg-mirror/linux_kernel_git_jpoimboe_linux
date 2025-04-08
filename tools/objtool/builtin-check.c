@@ -300,6 +300,11 @@ int objtool_run(int argc, const char **argv)
 	if (!opts_valid())
 		return 1;
 
+	if (opts.verbose) {
+		opts.backtrace = 1;
+		opts.sec_address = 1;
+	}
+
 	objname = argv[0];
 
 	if (opts.dump_orc)

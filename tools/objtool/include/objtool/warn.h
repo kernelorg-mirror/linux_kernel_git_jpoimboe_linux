@@ -86,7 +86,7 @@ static inline char *offstr(struct section *sec, unsigned long offset)
 
 #define BT_INSN(insn, format, ...)				\
 ({								\
-	if (opts.verbose || opts.backtrace) {			\
+	if (opts.backtrace) {					\
 		struct instruction *_insn = (insn);		\
 		char *_str = offstr(_insn->sec, _insn->offset); \
 		WARN("  %s: " format, _str, ##__VA_ARGS__);	\
