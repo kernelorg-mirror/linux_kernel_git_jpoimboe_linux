@@ -116,7 +116,10 @@ static __always_inline void mwait_idle_with_hints(u32 eax, u32 ecx)
 	if (static_cpu_has_bug(X86_BUG_MONITOR) || !current_set_polling_and_test()) {
 		const void *addr = &current_thread_info()->flags;
 
-		alternative_input("", "clflush (%[addr])", X86_BUG_CLFLUSH_MONITOR, [addr] "a" (addr));
+		alternative_asm("", "clflush (%[addr])", X86_BUG_CLFLUSH_MONITOR,
+				ASM_OUTPUT(),
+				ASM_INPUT([addr] "a" (addr)));
+
 		__monitor(addr, 0, 0);
 
 		if (need_resched())
