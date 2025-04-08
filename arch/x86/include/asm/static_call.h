@@ -32,16 +32,17 @@
  * and __static_call_fixup().
  */
 #define __ARCH_DEFINE_STATIC_CALL_TRAMP(name, insns)			\
-	asm(".pushsection .static_call.text, \"ax\"		\n"	\
-	    ".align 4						\n"	\
-	    ".globl " STATIC_CALL_TRAMP_STR(name) "		\n"	\
-	    STATIC_CALL_TRAMP_STR(name) ":			\n"	\
+	asm("\n# ARCH_DEFINE_STATIC_CALL_TRAMP(" __stringify(name) "):\n"\
+	    ".pushsection .static_call.text, \"ax\"; "			\
+	    ".align 4; "						\
+	    ".globl " STATIC_CALL_TRAMP_STR(name) "; "			\
+	    STATIC_CALL_TRAMP_STR(name) ": "				\
 	    ANNOTATE_NOENDBR						\
-	    insns "						\n"	\
-	    ".byte 0x0f, 0xb9, 0xcc				\n"	\
-	    ".type " STATIC_CALL_TRAMP_STR(name) ", @function	\n"	\
-	    ".size " STATIC_CALL_TRAMP_STR(name) ", . - " STATIC_CALL_TRAMP_STR(name) " \n" \
-	    ".popsection					\n")
+	    insns "; "							\
+	    ".byte 0x0f, 0xb9, 0xcc; "					\
+	    ".type " STATIC_CALL_TRAMP_STR(name) ", @function; "	\
+	    ".size " STATIC_CALL_TRAMP_STR(name) ", . - " STATIC_CALL_TRAMP_STR(name) "; "\
+	    ".popsection\n\n")
 
 #define ARCH_DEFINE_STATIC_CALL_TRAMP(name, func)			\
 	__ARCH_DEFINE_STATIC_CALL_TRAMP(name, ".byte 0xe9; .long " #func " - (. + 4)")

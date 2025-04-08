@@ -13,21 +13,23 @@
 #include <linux/types.h>
 
 #define JUMP_TABLE_ENTRY(key, label)			\
-	".pushsection __jump_table,  \"aw\" \n\t"	\
-	_ASM_ALIGN "\n\t"				\
-	".long 1b - . \n\t"				\
-	".long " label " - . \n\t"			\
-	_ASM_PTR " " key " - . \n\t"			\
-	".popsection \n\t"
+	".pushsection __jump_table,  \"aw\"; "		\
+	_ASM_ALIGN "; "					\
+	".long 1b - . ; "				\
+	".long " label " - . ; "			\
+	_ASM_PTR " " key " - . ; "			\
+	".popsection\n"
 
 /* This macro is also expanded on the Rust side. */
 #ifdef CONFIG_HAVE_JUMP_LABEL_HACK
 #define ARCH_STATIC_BRANCH_ASM(key, label)		\
-	"1: jmp " label " # objtool NOPs this \n\t"	\
+	"\n# STATIC_BRANCH(" key "):\n"			\
+	"\t1: jmp " label " # objtool NOPs this\n"	\
 	JUMP_TABLE_ENTRY(key " + 2", label)
 #else /* !CONFIG_HAVE_JUMP_LABEL_HACK */
 #define ARCH_STATIC_BRANCH_ASM(key, label)		\
-	"1: .byte " __stringify(BYTES_NOP5) "\n\t"	\
+	"\n# STATIC_BRANCH(" key "):\n"			\
+	"\t1: .byte " __stringify(BYTES_NOP5) "\n"	\
 	JUMP_TABLE_ENTRY(key, label)
 #endif /* CONFIG_HAVE_JUMP_LABEL_HACK */
 

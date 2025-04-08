@@ -42,11 +42,12 @@
 
 #ifdef CONFIG_SMP
 #define LOCK_PREFIX_HERE \
-		".pushsection .smp_locks,\"a\"\n"	\
-		".balign 4\n"				\
-		".long 671f - .\n" /* offset */		\
-		".popsection\n"				\
-		"671:"
+		"\n# LOCK_PREFIX_HERE:\n"		\
+		".pushsection .smp_locks,\"a\"; "	\
+		".balign 4; "				\
+		".long 671f - .; " /* offset */		\
+		".popsection; "				\
+		"671:\n"
 
 #define LOCK_PREFIX LOCK_PREFIX_HERE "\n\tlock "
 
