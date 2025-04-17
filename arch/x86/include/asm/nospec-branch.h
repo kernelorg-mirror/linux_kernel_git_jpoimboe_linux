@@ -537,9 +537,10 @@ DECLARE_PER_CPU(bool, x86_ibpb_exit_to_user);
 
 static inline void indirect_branch_prediction_barrier(void)
 {
-	asm_inline volatile(ALTERNATIVE("", "call write_ibpb", X86_FEATURE_IBPB)
-			    : ASM_CALL_CONSTRAINT
-			    :: "rax", "rcx", "rdx", "memory");
+	asm_call(ALTERNATIVE("", "call write_ibpb", X86_FEATURE_IBPB),
+		 ASM_OUTPUT(),
+		 ASM_INPUT(),
+		 ASM_CLOBBER("rax", "rcx", "rdx", "memory"));
 }
 
 /* The Intel SPEC CTRL MSR base value cache */
