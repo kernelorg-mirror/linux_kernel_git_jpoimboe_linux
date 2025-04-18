@@ -139,9 +139,9 @@ static __always_inline unsigned long task_size_max(void)
 {
 	unsigned long ret;
 
-	alternative_io("movq %[small], %[ret]",
-		       "movq %[large], %[ret]", X86_FEATURE_LA57,
-			[ret] "=r" (ret),
+	alternative_asm("movq %[small], %[ret]",
+			"movq %[large], %[ret]", X86_FEATURE_LA57,
+			[ret]  "=r" (ret),
 			[small] "i" ((1ul << 47)-PAGE_SIZE),
 			[large] "i" ((1ul << 56)-PAGE_SIZE));
 

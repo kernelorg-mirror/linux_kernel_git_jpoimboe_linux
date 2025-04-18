@@ -262,12 +262,12 @@ static inline int alternatives_text_reserved(void *start, void *end)
 		: : "i" (0), ## input)
 
 /* Like alternative_input, but with a single output argument */
-#define alternative_io(oldinstr, newinstr, ft_flags, output, input...)	\
+#define alternative_asm(oldinstr, newinstr, ft_flags, output, input...)	\
 	asm_inline volatile(ALTERNATIVE(oldinstr, newinstr, ft_flags)	\
 		: output : "i" (0), ## input)
 
 /*
- * Like alternative_io, but for replacing a direct call with another one.
+ * Like alternative_asm(), but for replacing a direct call with another one.
  *
  * Use the %c operand modifier which is the generic way to print a bare
  * constant expression with all syntax-specific punctuation omitted. %P

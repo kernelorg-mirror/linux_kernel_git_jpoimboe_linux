@@ -254,7 +254,7 @@ static inline void vdso_read_cpunode(unsigned *cpu, unsigned *node)
 	 *
 	 * If RDPID is available, use it.
 	 */
-	alternative_io ("lsl %[seg],%k[p]",
+	alternative_asm("lsl %[seg],%k[p]",
 			"rdpid %[p]",
 			X86_FEATURE_RDPID,
 			[p] "=r" (p), [seg] "r" (__CPUNODE_SEG));
