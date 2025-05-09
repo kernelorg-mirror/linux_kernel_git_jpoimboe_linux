@@ -68,9 +68,20 @@ bool arch_callee_saved_reg(unsigned char reg)
 	}
 }
 
-unsigned long arch_dest_reloc_offset(int addend)
+s64 arch_insn_adjusted_addend(struct instruction *insn, struct reloc *reloc)
 {
-	return addend + 4;
+	s64 addend = reloc_addend(reloc);
+
+	switch (reloc_type(reloc)) {
+	case R_X86_64_PC32:
+	case R_X86_64_PLT32:
+		addend += insn->offset + insn->len - reloc_offset(reloc);
+		break;
+	default:
+		break;
+	}
+
+	return addend;
 }
 
 unsigned long arch_jump_destination(struct instruction *insn)
