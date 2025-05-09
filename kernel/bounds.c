@@ -13,6 +13,7 @@
 #include <linux/kbuild.h>
 #include <linux/log2.h>
 #include <linux/spinlock_types.h>
+#include <linux/jump_label.h>
 
 int main(void)
 {
@@ -29,6 +30,9 @@ int main(void)
 #else
 	DEFINE(LRU_GEN_WIDTH, 0);
 	DEFINE(__LRU_REFS_WIDTH, 0);
+#endif
+#if defined(CONFIG_HAVE_ARCH_JUMP_LABEL_RELATIVE) && defined(CONFIG_JUMP_LABEL)
+	DEFINE(JUMP_ENTRY_SIZE, sizeof(struct jump_entry));
 #endif
 	/* End of constants */
 
