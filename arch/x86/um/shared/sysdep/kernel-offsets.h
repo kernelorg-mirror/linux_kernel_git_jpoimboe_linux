@@ -8,6 +8,7 @@
 #include <linux/audit.h>
 #include <asm/mman.h>
 #include <asm/seccomp.h>
+#include <asm/extable.h>
 
 /* workaround for a warning with -Wmissing-prototypes */
 void foo(void);
