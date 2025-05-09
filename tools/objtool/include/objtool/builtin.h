@@ -51,4 +51,6 @@ int objtool_run(int argc, const char **argv);
 
 void print_args(void);
 
+int cmd_klp(int argc, const char **argv);
+
 #endif /* _BUILTIN_H */
