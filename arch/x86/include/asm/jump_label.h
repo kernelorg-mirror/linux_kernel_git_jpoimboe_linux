@@ -12,12 +12,17 @@
 #include <linux/stringify.h>
 #include <linux/types.h>
 
-#define JUMP_TABLE_ENTRY(key, label)			\
-	".pushsection __jump_table,  \"a\"\n\t"		\
-	_ASM_ALIGN "\n\t"				\
-	".long 1b - . \n\t"				\
-	".long " label " - . \n\t"			\
-	_ASM_PTR " " key " - . \n\t"			\
+#ifndef COMPILE_OFFSETS
+#include <generated/bounds.h>
+#endif
+
+#define JUMP_TABLE_ENTRY(key, label)				\
+	".pushsection __jump_table,  \"aM\", @progbits, "	\
+	__stringify(JUMP_ENTRY_SIZE) "\n\t"			\
+	_ASM_ALIGN "\n\t"					\
+	".long 1b - . \n\t"					\
+	".long " label " - . \n\t"				\
+	_ASM_PTR " " key " - . \n\t"				\
 	".popsection \n\t"
 
 /* This macro is also expanded on the Rust side. */
