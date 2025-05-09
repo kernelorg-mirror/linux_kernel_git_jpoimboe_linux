@@ -258,7 +258,7 @@ static bool __dead_end_function(struct objtool_file *file, struct symbol *func,
 	if (!func)
 		return false;
 
-	if (func->bind == STB_GLOBAL || func->bind == STB_WEAK) {
+	if (!is_local_sym(func)) {
 		if (is_rust_noreturn(func))
 			return true;
 
@@ -267,7 +267,7 @@ static bool __dead_end_function(struct objtool_file *file, struct symbol *func,
 				return true;
 	}
 
-	if (func->bind == STB_WEAK)
+	if (is_weak_sym(func))
 		return false;
 
 	if (!func->len)
@@ -434,7 +434,7 @@ static int decode_instructions(struct objtool_file *file)
 		u8 prev_len = 0;
 		u8 idx = 0;
 
-		if (!(sec->sh.sh_flags & SHF_EXECINSTR))
+		if (!is_text_sec(sec))
 			continue;
 
 		if (strcmp(sec->name, ".altinstr_replacement") &&
@@ -457,7 +457,7 @@ static int decode_instructions(struct objtool_file *file)
 		if (!strcmp(sec->name, ".init.text") && !opts.module)
 			sec->init = true;
 
-		for (offset = 0; offset < sec->sh.sh_size; offset += insn->len) {
+		for (offset = 0; offset < sec_size(sec); offset += insn->len) {
 			if (!insns || idx == INSN_CHUNK_MAX) {
 				insns = calloc(INSN_CHUNK_SIZE, sizeof(*insn));
 				if (!insns) {
@@ -477,7 +477,7 @@ static int decode_instructions(struct objtool_file *file)
 			insn->prev_len = prev_len;
 
 			ret = arch_decode_instruction(file, sec, offset,
-						      sec->sh.sh_size - offset,
+						      sec_size(sec) - offset,
 						      insn);
 			if (ret)
 				return ret;
@@ -497,12 +497,12 @@ static int decode_instructions(struct objtool_file *file)
 		}
 
 		sec_for_each_sym(sec, func) {
-			if (func->type != STT_NOTYPE && func->type != STT_FUNC)
+			if (!is_notype_sym(func) && !is_func_sym(func))
 				continue;
 
-			if (func->offset == sec->sh.sh_size) {
+			if (func->offset == sec_size(sec)) {
 				/* Heuristic: likely an "end" symbol */
-				if (func->type == STT_NOTYPE)
+				if (is_notype_sym(func))
 					continue;
 				ERROR("%s(): STT_FUNC at end of section", func->name);
 				return -1;
@@ -518,7 +518,7 @@ static int decode_instructions(struct objtool_file *file)
 
 			sym_for_each_insn(file, func, insn) {
 				insn->sym = func;
-				if (func->type == STT_FUNC &&
+				if (is_func_sym(func) &&
 				    insn->type == INSN_ENDBR &&
 				    list_empty(&insn->call_node)) {
 					if (insn->offset == func->offset) {
@@ -562,7 +562,7 @@ static int add_pv_ops(struct objtool_file *file, const char *symname)
 		idx = (reloc_offset(reloc) - sym->offset) / sizeof(unsigned long);
 
 		func = reloc->sym;
-		if (func->type == STT_SECTION)
+		if (is_sec_sym(func))
 			func = find_symbol_by_offset(reloc->sym->sec,
 						     reloc_addend(reloc));
 		if (!func) {
@@ -825,7 +825,7 @@ static int create_ibt_endbr_seal_sections(struct objtool_file *file)
 		struct symbol *sym = insn->sym;
 		*site = 0;
 
-		if (opts.module && sym && sym->type == STT_FUNC &&
+		if (opts.module && sym && is_func_sym(sym) &&
 		    insn->offset == sym->offset &&
 		    (!strcmp(sym->name, "init_module") ||
 		     !strcmp(sym->name, "cleanup_module"))) {
@@ -860,7 +860,7 @@ static int create_cfi_sections(struct objtool_file *file)
 
 	idx = 0;
 	for_each_sym(file->elf, sym) {
-		if (sym->type != STT_FUNC)
+		if (!is_func_sym(sym))
 			continue;
 
 		if (strncmp(sym->name, "__cfi_", 6))
@@ -876,7 +876,7 @@ static int create_cfi_sections(struct objtool_file *file)
 
 	idx = 0;
 	for_each_sym(file->elf, sym) {
-		if (sym->type != STT_FUNC)
+		if (!is_func_sym(sym))
 			continue;
 
 		if (strncmp(sym->name, "__cfi_", 6))
@@ -1465,7 +1465,7 @@ static bool jump_is_sibling_call(struct objtool_file *file,
 		return false;
 
 	/* Disallow sibling calls into STT_NOTYPE */
-	if (ts->type == STT_NOTYPE)
+	if (is_notype_sym(ts))
 		return false;
 
 	/* Must not be self to be a sibling */
@@ -1500,7 +1500,7 @@ static int add_jump_destinations(struct objtool_file *file)
 		if (!reloc) {
 			dest_sec = insn->sec;
 			dest_off = arch_jump_destination(insn);
-		} else if (reloc->sym->type == STT_SECTION) {
+		} else if (is_sec_sym(reloc->sym)) {
 			dest_sec = reloc->sym->sec;
 			dest_off = arch_insn_adjusted_addend(insn, reloc);
 		} else if (reloc->sym->retpoline_thunk) {
@@ -1666,12 +1666,12 @@ static int add_call_destinations(struct objtool_file *file)
 				return -1;
 			}
 
-			if (func && insn_call_dest(insn)->type != STT_FUNC) {
+			if (func && !is_func_sym(insn_call_dest(insn))) {
 				ERROR_INSN(insn, "unsupported call to non-function");
 				return -1;
 			}
 
-		} else if (reloc->sym->type == STT_SECTION) {
+		} else if (is_sec_sym(reloc->sym)) {
 			dest_off = arch_insn_adjusted_addend(insn, reloc);
 			dest = find_call_destination(reloc->sym->sec, dest_off);
 			if (!dest) {
@@ -2166,7 +2166,7 @@ static int add_jump_table_alts(struct objtool_file *file)
 		return 0;
 
 	for_each_sym(file->elf, func) {
-		if (func->type != STT_FUNC)
+		if (!is_func_sym(func))
 			continue;
 
 		mark_func_jump_tables(file, func);
@@ -2206,14 +2206,14 @@ static int read_unwind_hints(struct objtool_file *file)
 		return -1;
 	}
 
-	if (sec->sh.sh_size % sizeof(struct unwind_hint)) {
+	if (sec_size(sec) % sizeof(struct unwind_hint)) {
 		ERROR("struct unwind_hint size mismatch");
 		return -1;
 	}
 
 	file->hints = true;
 
-	for (i = 0; i < sec->sh.sh_size / sizeof(struct unwind_hint); i++) {
+	for (i = 0; i < sec_size(sec) / sizeof(struct unwind_hint); i++) {
 		hint = (struct unwind_hint *)sec->data->d_buf + i;
 
 		reloc = find_reloc_by_dest(file->elf, sec, i * sizeof(*hint));
@@ -2222,7 +2222,7 @@ static int read_unwind_hints(struct objtool_file *file)
 			return -1;
 		}
 
-		if (reloc->sym->type == STT_SECTION) {
+		if (is_sec_sym(reloc->sym)) {
 			offset = reloc_addend(reloc);
 		} else if (reloc->sym->local_label) {
 			offset = reloc->sym->offset;
@@ -2258,7 +2258,7 @@ static int read_unwind_hints(struct objtool_file *file)
 		if (hint->type == UNWIND_HINT_TYPE_REGS_PARTIAL) {
 			struct symbol *sym = find_symbol_by_offset(insn->sec, insn->offset);
 
-			if (sym && sym->bind == STB_GLOBAL) {
+			if (sym && is_global_sym(sym)) {
 				if (opts.ibt && insn->type != INSN_ENDBR && !insn->noendbr) {
 					ERROR_INSN(insn, "UNWIND_HINT_IRET_REGS without ENDBR");
 					return -1;
@@ -2472,10 +2472,10 @@ static int classify_symbols(struct objtool_file *file)
 	struct symbol *func;
 
 	for_each_sym(file->elf, func) {
-		if (func->type == STT_NOTYPE && strstarts(func->name, ".L"))
+		if (is_notype_sym(func) && strstarts(func->name, ".L"))
 			func->local_label = true;
 
-		if (func->bind != STB_GLOBAL)
+		if (!is_global_sym(func))
 			continue;
 
 		if (!strncmp(func->name, STATIC_CALL_TRAMP_PREFIX_STR,
@@ -4179,11 +4179,11 @@ static int add_prefix_symbols(struct objtool_file *file)
 	struct symbol *func;
 
 	for_each_sec(file->elf, sec) {
-		if (!(sec->sh.sh_flags & SHF_EXECINSTR))
+		if (!is_text_sec(sec))
 			continue;
 
 		sec_for_each_sym(sec, func) {
-			if (func->type != STT_FUNC)
+			if (!is_func_sym(func))
 				continue;
 
 			add_prefix_symbol(file, func);
@@ -4227,7 +4227,7 @@ static int validate_section(struct objtool_file *file, struct section *sec)
 	int warnings = 0;
 
 	sec_for_each_sym(sec, func) {
-		if (func->type != STT_FUNC)
+		if (!is_func_sym(func))
 			continue;
 
 		init_insn_state(file, &state, sec);
@@ -4271,7 +4271,7 @@ static int validate_functions(struct objtool_file *file)
 	int warnings = 0;
 
 	for_each_sec(file->elf, sec) {
-		if (!(sec->sh.sh_flags & SHF_EXECINSTR))
+		if (!is_text_sec(sec))
 			continue;
 
 		warnings += validate_section(file, sec);
@@ -4452,7 +4452,7 @@ static int validate_ibt(struct objtool_file *file)
 	for_each_sec(file->elf, sec) {
 
 		/* Already done by validate_ibt_insn() */
-		if (sec->sh.sh_flags & SHF_EXECINSTR)
+		if (is_text_sec(sec))
 			continue;
 
 		if (!sec->rsec)
