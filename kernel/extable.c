@@ -55,6 +55,8 @@ const struct exception_table_entry *search_exception_tables(unsigned long addr)
 {
 	const struct exception_table_entry *e;
 
+	BUILD_BUG_ON(EXTABLE_SIZE != sizeof(struct exception_table_entry));
+
 	e = search_kernel_exception_table(addr);
 	if (!e)
 		e = search_module_extables(addr);
