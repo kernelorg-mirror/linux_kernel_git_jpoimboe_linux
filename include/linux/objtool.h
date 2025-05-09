@@ -8,11 +8,14 @@
 
 #include <asm/asm.h>
 
+#define UNWIND_HINT_SIZE 12
+
 #ifndef __ASSEMBLY__
 
-#define UNWIND_HINT(type, sp_reg, sp_offset, signal)	\
+#define UNWIND_HINT(type, sp_reg, sp_offset, signal)		\
 	"987: \n\t"						\
-	".pushsection .discard.unwind_hints\n\t"		\
+	".pushsection .discard.unwind_hints, \"M\", @progbits, "\
+		      __stringify(UNWIND_HINT_SIZE) "\n\t"	\
 	/* struct unwind_hint */				\
 	".long 987b - .\n\t"					\
 	".short " __stringify(sp_offset) "\n\t"			\
@@ -88,7 +91,7 @@
  */
 .macro UNWIND_HINT type:req sp_reg=0 sp_offset=0 signal=0
 .Lhere_\@:
-	.pushsection .discard.unwind_hints
+	.pushsection .discard.unwind_hints, "M", @progbits, UNWIND_HINT_SIZE
 		/* struct unwind_hint */
 		.long .Lhere_\@ - .
 		.short \sp_offset

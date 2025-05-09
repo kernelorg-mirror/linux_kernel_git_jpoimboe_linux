@@ -199,6 +199,8 @@ static struct orc_entry *orc_find(unsigned long ip)
 {
 	static struct orc_entry *orc;
 
+	BUILD_BUG_ON(UNWIND_HINT_SIZE != sizeof(struct unwind_hint));
+
 	if (ip == 0)
 		return &null_orc_entry;
 
