@@ -13,7 +13,7 @@
 #include <linux/types.h>
 
 #define JUMP_TABLE_ENTRY(key, label)			\
-	".pushsection __jump_table,  \"aw\" \n\t"	\
+	".pushsection __jump_table,  \"a\"\n\t"		\
 	_ASM_ALIGN "\n\t"				\
 	".long 1b - . \n\t"				\
 	".long " label " - . \n\t"			\
