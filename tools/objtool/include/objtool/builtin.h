@@ -30,6 +30,7 @@ struct opts {
 
 	/* options: */
 	bool backtrace;
+	const char *debug_checksum;
 	bool dryrun;
 	bool link;
 	bool mnop;
