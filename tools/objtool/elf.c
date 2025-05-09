@@ -442,6 +442,11 @@ static void elf_add_symbol(struct elf *elf, struct symbol *sym)
 	elf_hash_add(symbol, &sym->hash, sym->idx);
 	elf_hash_add(symbol_name, &sym->name_hash, str_hash(sym->name));
 
+	if (is_func_sym(sym) && sym->len == 16 &&
+	    (strstarts(sym->name, "__pfx") || strstarts(sym->name, "__cfi_")))
+		sym->prefix = 1;
+
+
 	if (is_func_sym(sym) && strstr(sym->name, ".cold"))
 		sym->cold = 1;
 	sym->pfunc = sym->cfunc = sym;
