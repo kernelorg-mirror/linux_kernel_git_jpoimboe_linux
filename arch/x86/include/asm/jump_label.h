@@ -12,29 +12,31 @@
 #include <linux/stringify.h>
 #include <linux/types.h>
 
-#define JUMP_TABLE_ENTRY(key, label)			\
-	".pushsection __jump_table,  \"a\"\n\t"		\
-	_ASM_ALIGN "\n\t"				\
-	".long 1b - . \n\t"				\
-	".long " label " - . \n\t"			\
-	_ASM_PTR " " key " - . \n\t"			\
+#define JUMP_TABLE_ENTRY(key, label, size)				\
+	".pushsection __jump_table, \"aM\", @progbits, " size "\n\t"	\
+	_ASM_ALIGN "\n\t"						\
+	".long 1b - . \n\t"						\
+	".long " label " - . \n\t"					\
+	_ASM_PTR " " key " - . \n\t"					\
 	".popsection \n\t"
 
 /* This macro is also expanded on the Rust side. */
 #ifdef CONFIG_HAVE_JUMP_LABEL_HACK
-#define ARCH_STATIC_BRANCH_ASM(key, label)		\
+#define ARCH_STATIC_BRANCH_ASM(key, label, size)	\
 	"1: jmp " label " # objtool NOPs this \n\t"	\
-	JUMP_TABLE_ENTRY(key " + 2", label)
+	JUMP_TABLE_ENTRY(key " + 2", label, size)
 #else /* !CONFIG_HAVE_JUMP_LABEL_HACK */
-#define ARCH_STATIC_BRANCH_ASM(key, label)		\
+#define ARCH_STATIC_BRANCH_ASM(key, label, size)	\
 	"1: .byte " __stringify(BYTES_NOP5) "\n\t"	\
-	JUMP_TABLE_ENTRY(key, label)
+	JUMP_TABLE_ENTRY(key, label, size)
 #endif /* CONFIG_HAVE_JUMP_LABEL_HACK */
 
 static __always_inline bool arch_static_branch(struct static_key * const key, const bool branch)
 {
-	asm goto(ARCH_STATIC_BRANCH_ASM("%c0 + %c1", "%l[l_yes]")
-		: :  "i" (key), "i" (branch) : : l_yes);
+	asm goto(ARCH_STATIC_BRANCH_ASM("%c[key] + %c[branch]", "%l[l_yes]", "%c[size]")
+		 : : [key] "i" (key), [branch] "i" (branch),
+		     [size] "i" (sizeof(struct jump_entry))
+		 : : l_yes);
 
 	return false;
 l_yes:
@@ -45,8 +47,10 @@ static __always_inline bool arch_static_branch_jump(struct static_key * const ke
 {
 	asm goto("1:"
 		"jmp %l[l_yes]\n\t"
-		JUMP_TABLE_ENTRY("%c0 + %c1", "%l[l_yes]")
-		: :  "i" (key), "i" (branch) : : l_yes);
+		JUMP_TABLE_ENTRY("%c[key] + %c[branch]", "%l[l_yes]", "%c[size]")
+		: : [key] "i" (key), [branch] "i" (branch),
+		    [size] "i" (sizeof(struct jump_entry))
+		: : l_yes);
 
 	return false;
 l_yes:
