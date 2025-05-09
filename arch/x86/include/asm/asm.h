@@ -136,6 +136,10 @@ static __always_inline __pure void *rip_rel_ptr(void *p)
 
 #ifdef __KERNEL__
 
+#ifndef COMPILE_OFFSETS
+#include <asm/asm-offsets.h>
+#endif
+
 # include <asm/extable_fixup_types.h>
 
 /* Exception table entry */
