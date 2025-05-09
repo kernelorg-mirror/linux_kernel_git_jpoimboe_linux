@@ -14,6 +14,8 @@
 
 #define __weak __attribute__((weak))
 
+#define SYM_CHECKSUM_SEC ".discard.sym_checksum"
+
 struct pv_state {
 	bool clean;
 	struct list_head targets;
