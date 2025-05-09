@@ -15,6 +15,7 @@
 #include <linux/spinlock_types.h>
 #include <linux/jump_label.h>
 #include <linux/static_call_types.h>
+#include <linux/objtool_types.h>
 
 int main(void)
 {
@@ -37,6 +38,9 @@ int main(void)
 #endif
 #ifdef CONFIG_HAVE_STATIC_CALL_INLINE
 	DEFINE(STATIC_CALL_TRAMP_KEY_SIZE, sizeof(struct static_call_tramp_key));
+#endif
+#ifdef CONFIG_OBJTOOL
+	DEFINE(UNWIND_HINT_SIZE, sizeof(struct unwind_hint));
 #endif
 	/* End of constants */
 
