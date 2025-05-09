@@ -946,10 +946,19 @@ elf_create_prefix_symbol(struct elf *elf, struct symbol *orig, size_t size)
 	size_t namelen = strlen(orig->name) + sizeof("__pfx_");
 	char name[SYM_NAME_LEN];
 	unsigned long offset;
+	struct symbol *sym;
 
 	snprintf(name, namelen, "__pfx_%s", orig->name);
 
+	sym = orig;
 	offset = orig->sym.st_value - size;
+
+	sec_for_each_sym_continue_reverse(orig->sec, sym) {
+		if (sym->offset < offset)
+			break;
+		if (sym->offset == offset && !strcmp(sym->name, name))
+			return NULL;
+	}
 
 	return elf_create_symbol(elf, name, orig->sec,
 				 GELF_ST_BIND(orig->sym.st_info),
