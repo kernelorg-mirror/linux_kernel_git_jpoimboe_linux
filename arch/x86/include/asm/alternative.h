@@ -15,6 +15,8 @@
 #define ALT_DIRECT_CALL(feature) ((ALT_FLAG_DIRECT_CALL << ALT_FLAGS_SHIFT) | (feature))
 #define ALT_CALL_ALWAYS		ALT_DIRECT_CALL(X86_FEATURE_ALWAYS)
 
+#define ALTINSTR_SIZE		14
+
 #ifndef __ASSEMBLER__
 
 #include <linux/stddef.h>
@@ -165,7 +167,8 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	"773:\n"
 
 #define ALTINSTR_ENTRY(ft_flags)					      \
-	".pushsection .altinstructions,\"a\"\n"				      \
+	".pushsection .altinstructions, \"aM\", @progbits, "		      \
+		      __stringify(ALTINSTR_SIZE) "\n"			      \
 	" .long 771b - .\n"				/* label           */ \
 	" .long 774f - .\n"				/* new instruction */ \
 	" .4byte " __stringify(ft_flags) "\n"		/* feature + flags */ \
@@ -328,7 +331,7 @@ void nop_func(void);
 741:									\
 	.skip -(((744f-743f)-(741b-740b)) > 0) * ((744f-743f)-(741b-740b)),0x90	;\
 742:									\
-	.pushsection .altinstructions,"a" ;				\
+	.pushsection .altinstructions, "aM", @progbits, ALTINSTR_SIZE ;	\
 	altinstr_entry 740b,743f,flag,742b-740b,744f-743f ;		\
 	.popsection ;							\
 	.pushsection .altinstr_replacement,"ax"	;			\

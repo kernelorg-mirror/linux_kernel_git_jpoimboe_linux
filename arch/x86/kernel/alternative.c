@@ -425,6 +425,8 @@ void __init_or_module noinline apply_alternatives(struct alt_instr *start,
 	u8 *instr, *replacement;
 	struct alt_instr *a, *b;
 
+	BUILD_BUG_ON(ALTINSTR_SIZE != sizeof(struct alt_instr));
+
 	DPRINTK(ALT, "alt table %px, -> %px", start, end);
 
 	/*
