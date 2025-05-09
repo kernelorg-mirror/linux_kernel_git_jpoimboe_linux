@@ -9,6 +9,7 @@
 
 struct opts {
 	/* actions: */
+	bool cfi;
 	bool dump_orc;
 	bool hack_jump_label;
 	bool hack_noinstr;
@@ -23,9 +24,9 @@ struct opts {
 	bool sls;
 	bool stackval;
 	bool static_call;
+	bool checksum;
 	bool uaccess;
 	int prefix;
-	bool cfi;
 
 	/* options: */
 	bool backtrace;

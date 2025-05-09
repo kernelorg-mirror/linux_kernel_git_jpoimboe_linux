@@ -15,6 +15,7 @@
 #include <objtool/special.h>
 #include <objtool/warn.h>
 #include <objtool/endianness.h>
+#include <objtool/checksum.h>
 
 #include <linux/objtool_types.h>
 #include <linux/hashtable.h>
@@ -988,6 +989,59 @@ static int create_direct_call_sections(struct objtool_file *file)
 	return 0;
 }
 
+#ifdef BUILD_KLP
+static int create_sym_checksum_section(struct objtool_file *file)
+{
+	struct section *sec;
+	struct symbol *sym;
+	unsigned int idx = 0;
+	struct sym_checksum *checksum;
+	size_t entsize = sizeof(struct sym_checksum);
+
+	sec = find_section_by_name(file->elf, SYM_CHECKSUM_SEC);
+	if (sec) {
+		if (!opts.dryrun)
+			WARN("file already has " SYM_CHECKSUM_SEC " section, skipping");
+
+		return 0;
+	}
+
+	for_each_sym(file->elf, sym)
+		if (sym->csum.checksum)
+			idx++;
+
+	if (!idx)
+		return 0;
+
+	sec = elf_create_section_pair(file->elf, ".discard.sym_checksum", entsize,
+				      idx, idx);
+	if (!sec)
+		return -1;
+
+	idx = 0;
+	for_each_sym(file->elf, sym) {
+		if (!sym->csum.checksum)
+			continue;
+
+		if (!elf_init_reloc(file->elf, sec->rsec, idx, idx * entsize,
+				    sym, 0, R_TEXT64))
+			return -1;
+
+		checksum = (struct sym_checksum *)sec->data->d_buf + idx;
+		checksum->addr = 0; /* reloc */
+		checksum->checksum = sym->csum.checksum;
+
+		mark_sec_changed(file->elf, sec, true);
+
+		idx++;
+	}
+
+	return 0;
+}
+#else
+static int create_sym_checksum_section(struct objtool_file *file) { return -EINVAL; }
+#endif
+
 /*
  * Warnings shouldn't be reported for ignored functions.
  */
@@ -1766,6 +1820,7 @@ static int handle_group_alt(struct objtool_file *file,
 		nop->type = INSN_NOP;
 		nop->sym = orig_insn->sym;
 		nop->alt_group = new_alt_group;
+		nop->fake = 1;
 	}
 
 	if (!special_alt->new_len) {
@@ -2545,6 +2600,14 @@ static void mark_holes(struct objtool_file *file)
 	}
 }
 
+static bool validate_branch_enabled(void)
+{
+	return opts.stackval ||
+	       opts.orc ||
+	       opts.uaccess ||
+	       opts.checksum;
+}
+
 static int decode_sections(struct objtool_file *file)
 {
 	int ret;
@@ -2580,7 +2643,7 @@ static int decode_sections(struct objtool_file *file)
 	 * Must be before add_jump_destinations(), which depends on 'func'
 	 * being set for alternatives, to enable proper sibling call detection.
 	 */
-	if (opts.stackval || opts.orc || opts.uaccess || opts.noinstr) {
+	if (validate_branch_enabled() || opts.noinstr) {
 		ret = add_special_section_alts(file);
 		if (ret)
 			return ret;
@@ -3559,6 +3622,51 @@ static bool skip_alt_group(struct instruction *insn)
 	return alt_insn->type == INSN_CLAC || alt_insn->type == INSN_STAC;
 }
 
+static void checksum_update_insn(struct objtool_file *file, struct symbol *func,
+				 struct instruction *insn)
+{
+	struct reloc *reloc = insn_reloc(file, insn);
+	struct symbol *dest = insn_call_dest(insn);
+
+	if (dest && !reloc) {
+		checksum_update(func, insn, insn->sec->data->d_buf + insn->offset, 1);
+		checksum_update(func, insn, dest->name, strlen(dest->name));
+	} else if (!insn->fake) {
+		checksum_update(func, insn, insn->sec->data->d_buf + insn->offset, insn->len);
+	}
+
+	if (reloc) {
+		struct symbol *sym = reloc->sym;
+
+		if (sym->sec && is_string_sec(sym->sec)) {
+			s64 addend;
+			char *str;
+
+			addend = arch_insn_adjusted_addend(insn, reloc);
+
+			str = sym->sec->data->d_buf + sym->offset + addend;
+
+			checksum_update(func, insn, str, strlen(str));
+
+		} else {
+			u64 offset = arch_insn_adjusted_addend(insn, reloc);
+
+			if (is_sec_sym(sym)) {
+				sym = find_symbol_containing(reloc->sym->sec, offset);
+				if (!sym)
+					return;
+
+				offset -= sym->offset;
+			}
+
+			checksum_update(func, insn, sym->demangled_name,
+					    strlen(sym->demangled_name));
+
+			checksum_update(func, insn, &offset, sizeof(offset));
+		}
+	}
+}
+
 /*
  * Follow the branch starting at the given instruction, and recursively follow
  * any other branches (jumps).  Meanwhile, track the frame pointer state at
@@ -3578,6 +3686,9 @@ static int validate_branch(struct objtool_file *file, struct symbol *func,
 
 	while (1) {
 		next_insn = next_insn_to_validate(file, insn);
+
+		if (opts.checksum && func && insn->sec)
+			checksum_update_insn(file, func, insn);
 
 		if (func && insn_func(insn) && func != insn_func(insn)->pfunc) {
 			/* Ignore KCFI type preambles, which always fall through */
@@ -3828,7 +3939,13 @@ static int validate_unwind_hint(struct objtool_file *file,
 				  struct insn_state *state)
 {
 	if (insn->hint && !insn->visited) {
-		int ret = validate_branch(file, insn_func(insn), insn, *state);
+		struct symbol *func = insn_func(insn);
+		int ret;
+
+		if (opts.checksum)
+			checksum_init(func);
+
+		ret = validate_branch(file, func, insn, *state);
 		if (ret)
 			BT_INSN(insn, "<=== (hint)");
 		return ret;
@@ -4176,6 +4293,7 @@ static int validate_symbol(struct objtool_file *file, struct section *sec,
 			   struct symbol *sym, struct insn_state *state)
 {
 	struct instruction *insn;
+	struct symbol *func;
 	int ret;
 
 	if (!sym->len) {
@@ -4193,9 +4311,18 @@ static int validate_symbol(struct objtool_file *file, struct section *sec,
 	if (opts.uaccess)
 		state->uaccess = sym->uaccess_safe;
 
-	ret = validate_branch(file, insn_func(insn), insn, *state);
+	func = insn_func(insn);
+
+	if (opts.checksum)
+		checksum_init(func);
+
+	ret = validate_branch(file, func, insn, *state);
 	if (ret)
 		BT_INSN(insn, "<=== (sym)");
+
+	if (opts.checksum)
+		checksum_finish(func);
+
 	return ret;
 }
 
@@ -4672,7 +4799,7 @@ int check(struct objtool_file *file)
 	if (opts.retpoline)
 		warnings += validate_retpoline(file);
 
-	if (opts.stackval || opts.orc || opts.uaccess) {
+	if (validate_branch_enabled()) {
 		int w = 0;
 
 		w += validate_functions(file);
@@ -4744,6 +4871,12 @@ int check(struct objtool_file *file)
 
 	if (opts.ibt) {
 		ret = create_ibt_endbr_seal_sections(file);
+		if (ret)
+			goto out;
+	}
+
+	if (opts.checksum) {
+		ret = create_sym_checksum_section(file);
 		if (ret)
 			goto out;
 	}
