@@ -496,8 +496,10 @@ static int elf_add_symbol(struct elf *elf, struct symbol *sym)
 	    (strstarts(sym->name, "__pfx") || strstarts(sym->name, "__cfi_")))
 		sym->prefix = 1;
 
+	if (strstarts(sym->name, ".klp.sym"))
+		sym->klp = 1;
 
-	if (is_func_sym(sym) && strstr(sym->name, ".cold"))
+	if (!sym->klp && is_func_sym(sym) && strstr(sym->name, ".cold"))
 		sym->cold = 1;
 	sym->pfunc = sym->cfunc = sym;
 
