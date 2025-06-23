@@ -34,6 +34,12 @@ struct static_call_site {
 	s32 key;
 };
 
+/* For finding the key associated with a trampoline */
+struct static_call_tramp_key {
+	s32 tramp;
+	s32 key;
+};
+
 #define DECLARE_STATIC_CALL(name, func)					\
 	extern struct static_call_key STATIC_CALL_KEY(name);		\
 	extern typeof(func) STATIC_CALL_TRAMP(name);

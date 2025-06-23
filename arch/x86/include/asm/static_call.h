@@ -58,7 +58,8 @@
 	ARCH_DEFINE_STATIC_CALL_TRAMP(name, __static_call_return0)
 
 #define ARCH_ADD_TRAMP_KEY(name)					\
-	asm(".pushsection .static_call_tramp_key, \"a\"		\n"	\
+	asm(".pushsection .static_call_tramp_key, \"aM\", @progbits, "	\
+	    __stringify(STATIC_CALL_TRAMP_KEY_SIZE) "\n"		\
 	    ".long " STATIC_CALL_TRAMP_STR(name) " - .		\n"	\
 	    ".long " STATIC_CALL_KEY_STR(name) " - .		\n"	\
 	    ".popsection					\n")
