@@ -14,6 +14,7 @@
 #include <linux/log2.h>
 #include <linux/spinlock_types.h>
 #include <linux/jump_label.h>
+#include <linux/static_call_types.h>
 
 int main(void)
 {
@@ -33,6 +34,9 @@ int main(void)
 #endif
 #if defined(CONFIG_HAVE_ARCH_JUMP_LABEL_RELATIVE) && defined(CONFIG_JUMP_LABEL)
 	DEFINE(JUMP_ENTRY_SIZE, sizeof(struct jump_entry));
+#endif
+#ifdef CONFIG_HAVE_STATIC_CALL_INLINE
+	DEFINE(STATIC_CALL_TRAMP_KEY_SIZE, sizeof(struct static_call_tramp_key));
 #endif
 	/* End of constants */
 

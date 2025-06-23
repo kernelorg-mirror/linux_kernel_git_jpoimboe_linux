@@ -650,8 +650,15 @@ static int create_static_call_sections(struct objtool_file *file)
 	if (!sec)
 		return -1;
 
-	/* Allow modules to modify the low bits of static_call_site::key */
-	sec->sh.sh_flags |= SHF_WRITE;
+	/*
+	 * Set SHF_MERGE to prevent tooling from stripping entsize.
+	 *
+	 * SHF_WRITE would also get set here to allow modules to modify the low
+	 * bits of static_call_site::key, but the LLVM linker doesn't allow
+	 * SHF_MERGE+SHF_WRITE for whatever reason.  That gets fixed up by the
+	 * makefiles with CONFIG_NEED_MODULE_PERMISSIONS_FIX.
+	 */
+	sec->sh.sh_flags |= SHF_MERGE;
 
 	idx = 0;
 	list_for_each_entry(insn, &file->static_call_list, call_node) {
