@@ -100,16 +100,16 @@
 #define TEXT_MAIN							\
 	.text								\
 	.text.[_0-9A-Za-df-rt-z]*					\
-	.text.s[_0-9A-Za-su-z]*						\
-	.text.st[_0-9A-Zb-z]*						\
-	.text.sta[_0-9A-Za-qs-z]*					\
-	.text.star[_0-9A-Za-su-z]*					\
-	.text.start[_0-9A-Za-tv-z]*					\
-	.text.startu[_0-9A-Za-oq-z]*					\
+	.text.s[_0-9A-Za-su-z]*		.text.s		.text.s.*	\
+	.text.st[_0-9A-Zb-z]*		.text.st	.text.st.*	\
+	.text.sta[_0-9A-Za-qs-z]*	.text.sta	.text.sta.*	\
+	.text.star[_0-9A-Za-su-z]*	.text.star	.text.star.*	\
+	.text.start[_0-9A-Za-tv-z]*	.text.start	.text.start.*	\
+	.text.startu[_0-9A-Za-oq-z]*	.text.startu	.text.startu.*	\
 	.text.startup[_0-9A-Za-z]*					\
-	.text.e[_0-9A-Za-wy-z]*						\
-	.text.ex[_0-9A-Za-hj-z]*					\
-	.text.exi[_0-9A-Za-su-z]*					\
+	.text.e[_0-9A-Za-wy-z]*		.text.e		.text.e.*	\
+	.text.ex[_0-9A-Za-hj-z]*	.text.ex	.text.ex.*	\
+	.text.exi[_0-9A-Za-su-z]*	.text.exi	.text.exi.*	\
 	.text.exit[_0-9A-Za-z]*
 
 /*
