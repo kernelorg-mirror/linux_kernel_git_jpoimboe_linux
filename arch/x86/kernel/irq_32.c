@@ -53,7 +53,7 @@ DEFINE_PER_CPU_CACHE_HOT(struct irq_stack *, softirq_stack_ptr);
 
 static void call_on_stack(void *func, void *stack)
 {
-	asm volatile("xchgl %[sp], %%esp\n"
+	asm volatile("xchgl %[sp], %%esp; "
 		     CALL_NOSPEC
 		     "movl %[sp], %%esp"
 		     : [sp] "+b" (stack)

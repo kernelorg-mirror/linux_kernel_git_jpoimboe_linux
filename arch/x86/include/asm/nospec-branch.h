@@ -443,18 +443,18 @@ static inline void call_depth_return_thunk(void) {}
  * -mindirect-branch-cs-prefix.
  */
 #define __CS_PREFIX(reg)				\
-	".irp rs,r8,r9,r10,r11,r12,r13,r14,r15\n"	\
-	".ifc \\rs," reg "\n"				\
-	".byte 0x2e\n"					\
-	".endif\n"					\
-	".endr\n"
+	".irp rs,r8,r9,r10,r11,r12,r13,r14,r15; "	\
+	".ifc \\rs," reg "; "				\
+	".byte 0x2e; "					\
+	".endif; "					\
+	".endr; "
 
 /*
  * Inline asm uses the %V modifier which is only in newer GCC
  * which is ensured when CONFIG_MITIGATION_RETPOLINE is defined.
  */
 #define CALL_NOSPEC	__CS_PREFIX("%V[thunk_target]")	\
-			"call __x86_indirect_thunk_%V[thunk_target]\n"
+			"call __x86_indirect_thunk_%V[thunk_target]"
 
 # define THUNK_TARGET(addr) [thunk_target] "r" (addr)
 
@@ -466,30 +466,30 @@ static inline void call_depth_return_thunk(void) {}
  */
 # define CALL_NOSPEC						\
 	ALTERNATIVE_2(						\
-	ANNOTATE_RETPOLINE_SAFE "\n"				\
-	"call *%[thunk_target]\n",				\
-	"       jmp    904f;\n"					\
-	"       .align 16\n"					\
-	"901:	call   903f;\n"					\
-	"902:	pause;\n"					\
-	"    	lfence;\n"					\
-	"       jmp    902b;\n"					\
-	"       .align 16\n"					\
-	"903:	lea    4(%%esp), %%esp;\n"			\
-	"       pushl  %[thunk_target];\n"			\
-	"       ret;\n"						\
-	"       .align 16\n"					\
-	"904:	call   901b;\n",				\
+	ANNOTATE_RETPOLINE_SAFE "; "				\
+	"call *%[thunk_target]; ",				\
+	"       jmp    904f; "					\
+	"       .align 16; "					\
+	"901:	call   903f; "					\
+	"902:	pause; "					\
+	"	lfence; "					\
+	"       jmp    902b; "					\
+	"       .align 16; "					\
+	"903:	lea    4(%%esp), %%esp; "			\
+	"       pushl  %[thunk_target]; "			\
+	"       ret; "						\
+	"       .align 16; "					\
+	"904:	call   901b; ",					\
 	X86_FEATURE_RETPOLINE,					\
-	"lfence;\n"						\
-	ANNOTATE_RETPOLINE_SAFE "\n"				\
-	"call *%[thunk_target]\n",				\
+	"lfence; "						\
+	ANNOTATE_RETPOLINE_SAFE "; "				\
+	"call *%[thunk_target]; ",				\
 	X86_FEATURE_RETPOLINE_LFENCE)
 
 # define THUNK_TARGET(addr) [thunk_target] "rm" (addr)
 #endif
 #else /* No retpoline for C / inline asm */
-# define CALL_NOSPEC "call *%[thunk_target]\n"
+# define CALL_NOSPEC "call *%[thunk_target]; "
 # define THUNK_TARGET(addr) [thunk_target] "rm" (addr)
 #endif
 
