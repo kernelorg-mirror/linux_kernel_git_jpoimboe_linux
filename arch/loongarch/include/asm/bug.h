@@ -44,7 +44,7 @@
 #define __WARN_FLAGS(cond_str, flags)				\
 do {								\
 	instrumentation_begin();				\
-	__BUG_FLAGS(cond_str, BUGFLAG_WARNING|(flags), ANNOTATE_REACHABLE(10001b));\
+	__BUG_FLAGS(cond_str, BUGFLAG_WARNING|(flags), ANNOTATE_REACHABLE_LABEL(10001b));\
 	instrumentation_end();					\
 } while (0)
 
