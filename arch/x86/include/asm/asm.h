@@ -2,8 +2,6 @@
 #ifndef _ASM_X86_ASM_H
 #define _ASM_X86_ASM_H
 
-#include <linux/annotate.h>
-
 #ifdef __ASSEMBLER__
 # define __ASM_FORM(x, ...)		x,## __VA_ARGS__
 # define __ASM_FORM_RAW(x, ...)		x,## __VA_ARGS__
