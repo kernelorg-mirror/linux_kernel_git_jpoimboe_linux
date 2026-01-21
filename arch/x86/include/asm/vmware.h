@@ -98,7 +98,7 @@ extern unsigned long vmware_tdx_hypercall(unsigned long cmd,
 static inline
 unsigned long vmware_hypercall1(unsigned long cmd, unsigned long in1)
 {
-	unsigned long out0;
+	unsigned long out0, tmp = 0;
 
 	if (cpu_feature_enabled(X86_FEATURE_TDX_GUEST))
 		return vmware_tdx_hypercall(cmd, in1, 0, 0, 0,
@@ -109,13 +109,11 @@ unsigned long vmware_hypercall1(unsigned long cmd, unsigned long in1)
 					     NULL, NULL, NULL, NULL, NULL);
 
 	asm_inline volatile (VMWARE_HYPERCALL
-		: "=a" (out0)
+		: "=a" (out0), "+b" (in1), "+c" (cmd), "+d" (tmp)
 		: [port] "i" (VMWARE_HYPERVISOR_PORT),
-		  "a" (VMWARE_HYPERVISOR_MAGIC),
-		  "b" (in1),
-		  "c" (cmd),
-		  "d" (0)
-		: "cc", "memory");
+		  "a" (VMWARE_HYPERVISOR_MAGIC)
+		: "di", "si", "cc", "memory");
+
 	return out0;
 }
 
@@ -123,7 +121,7 @@ static inline
 unsigned long vmware_hypercall3(unsigned long cmd, unsigned long in1,
 				u32 *out1, u32 *out2)
 {
-	unsigned long out0;
+	unsigned long out0, tmp = 0;
 
 	if (cpu_feature_enabled(X86_FEATURE_TDX_GUEST))
 		return vmware_tdx_hypercall(cmd, in1, 0, 0, 0,
@@ -134,13 +132,13 @@ unsigned long vmware_hypercall3(unsigned long cmd, unsigned long in1,
 					     out1, out2, NULL, NULL, NULL);
 
 	asm_inline volatile (VMWARE_HYPERCALL
-		: "=a" (out0), "=b" (*out1), "=c" (*out2)
+		: "=a" (out0), "=b" (*out1), "=c" (*out2), "+d" (tmp)
 		: [port] "i" (VMWARE_HYPERVISOR_PORT),
 		  "a" (VMWARE_HYPERVISOR_MAGIC),
 		  "b" (in1),
-		  "c" (cmd),
-		  "d" (0)
-		: "cc", "memory");
+		  "c" (cmd)
+		: "di", "si", "cc", "memory");
+
 	return out0;
 }
 
@@ -165,7 +163,8 @@ unsigned long vmware_hypercall4(unsigned long cmd, unsigned long in1,
 		  "b" (in1),
 		  "c" (cmd),
 		  "d" (0)
-		: "cc", "memory");
+		: "di", "si", "cc", "memory");
+
 	return out0;
 }
 
@@ -185,15 +184,13 @@ unsigned long vmware_hypercall5(unsigned long cmd, unsigned long in1,
 					     NULL, out2, NULL, NULL, NULL);
 
 	asm_inline volatile (VMWARE_HYPERCALL
-		: "=a" (out0), "=c" (*out2)
+		: "=a" (out0), "+b" (in1), "=c" (*out2), "+d" (in3),
+		  "+S" (in4), "+D" (in5)
 		: [port] "i" (VMWARE_HYPERVISOR_PORT),
 		  "a" (VMWARE_HYPERVISOR_MAGIC),
-		  "b" (in1),
-		  "c" (cmd),
-		  "d" (in3),
-		  "S" (in4),
-		  "D" (in5)
+		  "c" (cmd)
 		: "cc", "memory");
+
 	return out0;
 }
 
@@ -213,14 +210,14 @@ unsigned long vmware_hypercall6(unsigned long cmd, unsigned long in1,
 					     NULL, out2, out3, out4, out5);
 
 	asm_inline volatile (VMWARE_HYPERCALL
-		: "=a" (out0), "=c" (*out2), "=d" (*out3), "=S" (*out4),
-		  "=D" (*out5)
+		: "=a" (out0), "+b" (in1), "=c" (*out2), "=d" (*out3),
+		  "=S" (*out4), "=D" (*out5)
 		: [port] "i" (VMWARE_HYPERVISOR_PORT),
 		  "a" (VMWARE_HYPERVISOR_MAGIC),
-		  "b" (in1),
 		  "c" (cmd),
 		  "d" (in3)
 		: "cc", "memory");
+
 	return out0;
 }
 
@@ -241,15 +238,15 @@ unsigned long vmware_hypercall7(unsigned long cmd, unsigned long in1,
 					     out1, out2, out3, NULL, NULL);
 
 	asm_inline volatile (VMWARE_HYPERCALL
-		: "=a" (out0), "=b" (*out1), "=c" (*out2), "=d" (*out3)
+		: "=a" (out0), "=b" (*out1), "=c" (*out2), "=d" (*out3),
+		  "+S" (in4), "+D" (in5)
 		: [port] "i" (VMWARE_HYPERVISOR_PORT),
 		  "a" (VMWARE_HYPERVISOR_MAGIC),
 		  "b" (in1),
 		  "c" (cmd),
-		  "d" (in3),
-		  "S" (in4),
-		  "D" (in5)
+		  "d" (in3)
 		: "cc", "memory");
+
 	return out0;
 }
 
@@ -272,7 +269,9 @@ unsigned long vmware_hypercall_hb_out(unsigned long cmd, unsigned long in2,
 				      unsigned long in5, unsigned long in6,
 				      u32 *out1)
 {
-	unsigned long out0;
+	unsigned long out0, port;
+
+	port = in3 | VMWARE_HYPERVISOR_PORT_HB;
 
 	asm_inline volatile (
 		UNWIND_HINT_SAVE
@@ -282,15 +281,13 @@ unsigned long vmware_hypercall_hb_out(unsigned long cmd, unsigned long in2,
 		"rep outsb\n\t"
 		"pop %%" _ASM_BP "\n\t"
 		UNWIND_HINT_RESTORE
-		: "=a" (out0), "=b" (*out1)
+		: "=a" (out0), "=b" (*out1), "+c" (in2), "+d" (port),
+		  "+S" (in4), "+D" (in5)
 		: "a" (VMWARE_HYPERVISOR_MAGIC),
 		  "b" (cmd),
-		  "c" (in2),
-		  "d" (in3 | VMWARE_HYPERVISOR_PORT_HB),
-		  "S" (in4),
-		  "D" (in5),
 		  [in6] VMW_BP_CONSTRAINT (in6)
 		: "cc", "memory");
+
 	return out0;
 }
 
@@ -300,7 +297,9 @@ unsigned long vmware_hypercall_hb_in(unsigned long cmd, unsigned long in2,
 				     unsigned long in5, unsigned long in6,
 				     u32 *out1)
 {
-	unsigned long out0;
+	unsigned long out0, port;
+
+	port = in3 | VMWARE_HYPERVISOR_PORT_HB;
 
 	asm_inline volatile (
 		UNWIND_HINT_SAVE
@@ -310,13 +309,10 @@ unsigned long vmware_hypercall_hb_in(unsigned long cmd, unsigned long in2,
 		"rep insb\n\t"
 		"pop %%" _ASM_BP "\n\t"
 		UNWIND_HINT_RESTORE
-		: "=a" (out0), "=b" (*out1)
+		: "=a" (out0), "=b" (*out1), "+c" (in2), "+d" (port),
+		  "+S" (in4), "+D" (in5)
 		: "a" (VMWARE_HYPERVISOR_MAGIC),
 		  "b" (cmd),
-		  "c" (in2),
-		  "d" (in3 | VMWARE_HYPERVISOR_PORT_HB),
-		  "S" (in4),
-		  "D" (in5),
 		  [in6] VMW_BP_CONSTRAINT (in6)
 		: "cc", "memory");
 	return out0;
