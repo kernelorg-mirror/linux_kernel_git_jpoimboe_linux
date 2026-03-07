@@ -579,6 +579,8 @@ static int bmi160_config_pin(struct regmap *regmap, enum bmi160_int_pin pin,
 		int_latch_mask = BMI160_INT2_LATCH_MASK;
 		int_map_mask = BMI160_INT2_MAP_DRDY_EN;
 		break;
+	default:
+		BUG();
 	}
 	int_out_ctrl_mask = BMI160_INT_OUT_CTRL_MASK << int_out_ctrl_shift;
 
