@@ -100,12 +100,12 @@ static inline void clear_pages(void *addr, unsigned int npages)
 	 * __clear_pages_unrolled() are part of the inline asm register
 	 * specification.
 	 */
-	asm volatile(ALTERNATIVE_2("call __clear_pages_unrolled",
-				   "shrq $3, %%rcx; rep stosq", X86_FEATURE_REP_GOOD,
-				   "rep stosb", X86_FEATURE_ERMS)
-			: "+c" (len), "+D" (addr), ASM_CALL_CONSTRAINT
-			: "a" (0)
-			: "cc", "memory");
+	asm_call(ALTERNATIVE_2("call __clear_pages_unrolled",
+			       "shrq $3, %%rcx; rep stosq", X86_FEATURE_REP_GOOD,
+			       "rep stosb", X86_FEATURE_ERMS),
+		 ASM_OUTPUT("+c" (len), "+D" (addr)),
+		 ASM_INPUT("a" (0)),
+		 ASM_CLOBBER("cc", "memory"));
 }
 #define clear_pages clear_pages
 
