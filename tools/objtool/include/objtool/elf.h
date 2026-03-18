@@ -83,7 +83,6 @@ struct symbol {
 	u8 frame_pointer     : 1;
 	u8 ignore	     : 1;
 	u8 nocfi             : 1;
-	u8 cold		     : 1;
 	u8 prefix	     : 1;
 	u8 debug_checksum    : 1;
 	u8 changed	     : 1;
@@ -287,6 +286,11 @@ static inline bool is_alias_sym(struct symbol *sym)
 static inline bool is_prefix_func(struct symbol *sym)
 {
 	return sym->prefix;
+}
+
+static inline bool is_cold_func(struct symbol *sym)
+{
+	return sym->pfunc != sym;
 }
 
 static inline bool is_reloc_sec(struct section *sec)

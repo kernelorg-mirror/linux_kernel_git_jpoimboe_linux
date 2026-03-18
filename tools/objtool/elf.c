@@ -586,8 +586,11 @@ static int elf_add_symbol(struct elf *elf, struct symbol *sym)
 	if (strstarts(sym->name, ".klp.sym"))
 		sym->klp = 1;
 
+	sym->pfunc = sym->cfunc = sym;
+
 	if (!sym->klp && !is_sec_sym(sym) && strstr(sym->name, ".cold")) {
-		sym->cold = 1;
+		/* Tell read_symbols() this is a cold subfunction */
+		sym->pfunc = NULL;
 
 		/*
 		 * Clang doesn't mark cold subfunctions as STT_FUNC, which
@@ -595,8 +598,6 @@ static int elf_add_symbol(struct elf *elf, struct symbol *sym)
 		 */
 		sym->type = STT_FUNC;
 	}
-
-	sym->pfunc = sym->cfunc = sym;
 
 	return 0;
 }
@@ -695,7 +696,7 @@ static int read_symbols(struct elf *elf)
 			char *pname;
 			size_t pnamelen;
 
-			if (!sym->cold)
+			if (sym->pfunc)
 				continue;
 
 			coldstr = strstr(sym->name, ".cold");
