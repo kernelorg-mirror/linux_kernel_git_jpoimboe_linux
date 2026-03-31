@@ -335,6 +335,18 @@ void iterate_global_symbol_by_demangled_name(const struct elf *elf,
 	}
 }
 
+void iterate_sym_by_name(const struct elf *elf, const char *name,
+			 void (*process)(struct symbol *sym, void *data),
+			 void *data)
+{
+	struct symbol *sym;
+
+	elf_hash_for_each_possible(symbol_name, sym, name_hash, str_hash_demangled(name)) {
+		if (!strcmp(sym->name, name))
+			process(sym, data);
+	}
+}
+
 struct reloc *find_reloc_by_dest_range(const struct elf *elf, struct section *sec,
 				     unsigned long offset, unsigned int len)
 {
