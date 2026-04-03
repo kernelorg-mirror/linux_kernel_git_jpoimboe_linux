@@ -277,6 +277,9 @@ validate_config() {
 		[[ "$CONFIG_AS_VERSION" -lt 200000 ]] &&	\
 		die "Clang assembler version < 20 not supported"
 
+	"$SRC/tools/objtool/objtool" klp 2>&1 | command grep -q "not implemented" && \
+		die "objtool not built with KLP support; install xxhash-devel/libxxhash-dev (version >= 0.8) and recompile"
+
 	return 0
 }
 
