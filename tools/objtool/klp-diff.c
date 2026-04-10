@@ -873,9 +873,10 @@ static bool section_reference_needed(struct section *sec)
 	if (strstarts(sec->name, ".rodata"))
 		return true;
 
-	/* UBSAN anonymous data */
+	/* Anonymous data (UBSAN, Clang anonymous constants, etc.) */
 	if (strstarts(sec->name, ".data..Lubsan") ||	/* GCC */
-	    strstarts(sec->name, ".data..L__unnamed_"))	/* Clang */
+	    strstarts(sec->name, ".data..L__unnamed_") ||	/* Clang */
+	    strstarts(sec->name, ".data..Lanon."))	/* Clang */
 		return true;
 
 	return false;
