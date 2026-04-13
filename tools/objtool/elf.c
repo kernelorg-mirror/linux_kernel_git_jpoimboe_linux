@@ -1172,6 +1172,17 @@ static int read_relocs(struct elf *elf)
 	return 0;
 }
 
+static void mark_rodata(struct elf *elf)
+{
+	struct section *sec;
+
+	for_each_sec(elf, sec) {
+		if ((strstarts(sec->name, ".rodata") && !strstr(sec->name, ".str1.")) ||
+		    strstarts(sec->name, ".data.rel.ro"))
+			sec->rodata = true;
+	}
+}
+
 struct elf *elf_open_read(const char *name, int flags)
 {
 	struct elf *elf;
@@ -1221,6 +1232,8 @@ struct elf *elf_open_read(const char *name, int flags)
 
 	if (read_sections(elf))
 		goto err;
+
+	mark_rodata(elf);
 
 	if (read_symbols(elf))
 		goto err;
