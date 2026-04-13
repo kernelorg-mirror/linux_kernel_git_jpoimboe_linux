@@ -11,17 +11,6 @@
 #include <objtool/warn.h>
 #include <objtool/checksum.h>
 
-static void enable_debug_checksum_cb(struct symbol *sym, void *d)
-{
-	bool *found = d;
-
-	if (!is_func_sym(sym))
-		return;
-
-	sym->debug_checksum = 1;
-	*found = true;
-}
-
 static int checksum_debug_init(struct objtool_file *file)
 {
 	char *dup, *s;
@@ -38,13 +27,20 @@ static int checksum_debug_init(struct objtool_file *file)
 	s = dup;
 	while (*s) {
 		bool found = false;
+		struct symbol *sym;
 		char *comma;
 
 		comma = strchr(s, ',');
 		if (comma)
 			*comma = '\0';
 
-		iterate_sym_by_name(file->elf, s, enable_debug_checksum_cb, &found);
+		for_each_sym_by_name(file->elf, s, sym) {
+			if (!is_func_sym(sym))
+				continue;
+			sym->debug_checksum = 1;
+			found = true;
+		}
+
 		if (!found)
 			WARN("--debug-checksum: can't find '%s'", s);
 
