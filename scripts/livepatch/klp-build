@@ -440,6 +440,20 @@ do_init() {
 	[[ ! "$SRC" -ef "$SCRIPT_DIR/../.." ]] && die "please run from the kernel root directory"
 	[[ ! "$OBJ" -ef "$SCRIPT_DIR/../.." ]] && die "please run from the kernel root directory"
 
+	if (( SHORT_CIRCUIT >= 2 )); then
+		[[ -f "$ORIG_DIR/.complete" ]] || die "-S $SHORT_CIRCUIT requires completed $ORIG_DIR"
+		if (( SHORT_CIRCUIT >= 3 )); then
+			[[ -f "$PATCHED_DIR/.complete" ]] || die "-S $SHORT_CIRCUIT requires completed $PATCHED_DIR"
+			if (( SHORT_CIRCUIT >= 4 )); then
+				[[ -f "$ORIG_CSUM_DIR/.complete" ]] || die "-S $SHORT_CIRCUIT requires completed $ORIG_CSUM_DIR"
+				[[ -f "$PATCHED_CSUM_DIR/.complete" ]] || die "-S $SHORT_CIRCUIT requires completed $PATCHED_CSUM_DIR"
+				if (( SHORT_CIRCUIT >= 5 )); then
+					[[ -f "$DIFF_DIR/.complete" ]] || die "-S $SHORT_CIRCUIT requires completed $DIFF_DIR"
+				fi
+			fi
+		fi
+	fi
+
 	(( SHORT_CIRCUIT <= 1 )) && rm -rf "$TMP_DIR"
 	mkdir -p "$TMP_DIR"
 
@@ -601,6 +615,7 @@ copy_orig_objects() {
 
 	mv -f "$TMP_DIR/build.log" "$ORIG_DIR"
 	touch "$TIMESTAMP"
+	touch "$ORIG_DIR/.complete"
 }
 
 # Copy all changed objects to $PATCHED_DIR
@@ -639,6 +654,7 @@ copy_patched_objects() {
 	(( found == 0 )) && die "no changes detected"
 
 	mv -f "$TMP_DIR/build.log" "$PATCHED_DIR"
+	touch "$PATCHED_DIR/.complete"
 }
 
 # Copy .o files to a separate directory and run "objtool klp checksum" on each
@@ -720,6 +736,8 @@ diff_objects() {
 				die "objtool klp diff failed"
 		)
 	done
+
+	touch "$DIFF_DIR/.complete"
 }
 
 # For each changed object, run "objtool klp checksum" with --debug-checksum to
