@@ -221,6 +221,15 @@ static int read_sym_checksums(struct elf *elf)
  *
  *    CONFIG_FINEIBT (x86)
  *    CONFIG_MITIGATION_CALL_DEPTH_TRACKING (x86)
+ *    CONFIG_DYNAMIC_FTRACE_WITH_CALL_OPS (arm64)
+ *
+ * offset == 0 (at function entry):
+ *
+ *    CONFIG_DYNAMIC_FTRACE_WITH_ARGS without BTI (arm64)
+ *
+ * offset > 0 (after function entry):
+ *
+ *    CONFIG_DYNAMIC_FTRACE_WITH_ARGS with BTI (arm64)
  */
 static int read_pfe_offset(struct elf *elf)
 {
@@ -241,12 +250,20 @@ static int read_pfe_offset(struct elf *elf)
 			unsigned long target = reloc->sym->offset + reloc_addend(reloc);
 			struct symbol *func;
 
+			/* x86 cfi/pfx or arm64 func */
 			func = find_func_containing(reloc->sym->sec, target);
 			if (func) {
 				if (is_prefix_func(func))
 					elf->pfe_offset = target - (func->offset + func->len);
 				else
 					elf->pfe_offset = target - func->offset;
+				return 0;
+			}
+
+			/* arm64 CALL_OPS */
+			func = find_func_by_offset(reloc->sym->sec, target + 8);
+			if (func) {
+				elf->pfe_offset = -8;
 				return 0;
 			}
 		}
@@ -271,6 +288,14 @@ static int read_pfe_offset(struct elf *elf)
  *  __cfi_ prefix function (x86):
  *
  *    CONFIG_CFI
+ *
+ *  $d mapping symbol (arm64):
+ *
+ *    CONFIG_CFI
+ *
+ *  PFE before function entry, no symbol (arm64):
+ *
+ *    CONFIG_DYNAMIC_FTRACE_WITH_CALL_OPS
  */
 static unsigned long func_pfx_size(struct elf *elf, struct symbol *func)
 {
@@ -292,6 +317,16 @@ static unsigned long func_pfx_size(struct elf *elf, struct symbol *func)
 			return func->offset - pfx->offset;
 		}
 	}
+
+	/* arm64 kCFI $d data mapping symbol */
+	if (func->offset >= 4 &&
+	    find_data_mapping_sym(func->sec, func->offset - 4))
+		return 4;
+
+	/* arm64 CALL_OPS (mutually exclusive with kCFI) */
+	if (elf->pfe_offset < 0 && func->offset >= -elf->pfe_offset)
+		return -elf->pfe_offset;
+
 	return 0;
 }
 
