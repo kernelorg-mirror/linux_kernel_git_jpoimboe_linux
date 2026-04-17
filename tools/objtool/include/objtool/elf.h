@@ -119,6 +119,7 @@ struct elf {
 	struct list_head sections;
 	struct list_head symbols;
 	unsigned long num_relocs;
+	int pfe_offset;
 
 	int symbol_bits;
 	int symbol_name_bits;
@@ -531,20 +532,6 @@ static inline void set_sym_next_reloc(struct reloc *reloc, struct reloc *next)
 					      sym->offset, sym->len);	\
 	     reloc && reloc_offset(reloc) <  sym->offset + sym->len;	\
 	     reloc = rsec_next_reloc(sym->sec->rsec, reloc))
-
-static inline struct symbol *get_func_prefix(struct symbol *func)
-{
-	struct symbol *prev;
-
-	if (!is_func_sym(func))
-		return NULL;
-
-	prev = sec_prev_sym(func);
-	if (prev && is_prefix_func(prev))
-		return prev;
-
-	return NULL;
-}
 
 #define OFFSET_STRIDE_BITS	4
 #define OFFSET_STRIDE		(1UL << OFFSET_STRIDE_BITS)
