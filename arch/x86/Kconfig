@@ -2439,7 +2439,7 @@ config CALL_THUNKS
 
 config PREFIX_SYMBOLS
 	def_bool y
-	depends on CALL_PADDING && !CFI
+	depends on CALL_PADDING
 
 menuconfig CPU_MITIGATIONS
 	bool "Mitigations for CPU vulnerabilities"
