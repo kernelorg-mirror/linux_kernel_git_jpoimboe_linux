@@ -13,9 +13,14 @@ struct mod_plt_sec {
 	int			plt_max_entries;
 };
 
+struct bti_veneer_page;
+
 struct mod_arch_specific {
 	struct mod_plt_sec	core;
 	struct mod_plt_sec	init;
+
+	/* for CONFIG_ARM64_BTI_KERNEL */
+	struct bti_veneer_page	*bti_veneers;
 
 	/* for CONFIG_DYNAMIC_FTRACE */
 	struct plt_entry	*ftrace_trampolines;

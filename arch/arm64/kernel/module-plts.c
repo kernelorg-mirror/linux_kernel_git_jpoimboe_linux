@@ -3,12 +3,18 @@
  * Copyright (C) 2014-2017 Linaro Ltd. <ard.biesheuvel@linaro.org>
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/elf.h>
 #include <linux/ftrace.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleloader.h>
+#include <linux/slab.h>
 #include <linux/sort.h>
+#include <linux/vmalloc.h>
+#include <asm/cpufeature.h>
+#include <asm/text-patching.h>
 
 static struct plt_entry __get_adrp_add_pair(u64 dst, u64 pc,
 					    enum aarch64_insn_register reg)
@@ -66,6 +72,180 @@ static bool plt_entries_equal(const struct plt_entry *a,
 	       (q + aarch64_insn_adrp_get_offset(le32_to_cpu(b->adrp)));
 }
 
+/*
+ * The compiler may omit a function's BTI landing pad if it's a static function
+ * with no pointers referencing it.  That breaks two cases where a PLT might be
+ * needed to call such a function:
+ *
+ *   1) module cross-section call (e.g., .init to .text)
+ *
+ *   2) livepatch module using a klp relocation
+ *
+ * Fix up such cases with a second veneer which lives close to the target.
+ */
+struct bti_veneer {
+	__le32	bti_c;
+	__le32	b;
+};
+
+struct bti_veneer_page {
+	struct bti_veneer_page	*next;
+	struct bti_veneer	*veneers;
+	unsigned int		used;
+};
+
+#define BTI_VENEERS_PER_PAGE	(PAGE_SIZE / sizeof(struct bti_veneer))
+
+static bool plt_target_has_landing_pad(u64 target)
+{
+	u32 insn;
+
+	if (!system_supports_bti_kernel())
+		return true;
+
+	if (aarch64_insn_read((void *)target, &insn))
+		return true;
+
+	if (!aarch64_insn_is_hint(insn))
+		return false;
+
+	switch (insn & 0xFE0) {
+	case AARCH64_INSN_HINT_BTIC:
+	case AARCH64_INSN_HINT_BTIJ:
+	case AARCH64_INSN_HINT_BTIJC:
+	case AARCH64_INSN_HINT_PACIASP:
+	case AARCH64_INSN_HINT_PACIBSP:
+		return true;
+	}
+
+	return false;
+}
+
+static void *bti_veneer_vmalloc(u64 start, u64 end, gfp_t gfp)
+{
+	pgprot_t prot = __pgprot(pgprot_val(PAGE_KERNEL_ROX) | PTE_MAYBE_GP);
+
+	return __vmalloc_node_range(PAGE_SIZE, PAGE_SIZE, PAGE_ALIGN(start),
+				    ALIGN_DOWN(end, PAGE_SIZE), gfp, prot,
+				    VM_FLUSH_RESET_PERMS, NUMA_NO_NODE,
+				    __builtin_return_address(0));
+}
+
+static bool bti_veneer_in_range(const struct bti_veneer *veneer, u64 target)
+{
+	s64 offset = (s64)target - (s64)&veneer->b;
+
+	return offset >= -SZ_128M && offset < SZ_128M;
+}
+
+static struct bti_veneer_page *bti_veneer_page_alloc(struct module *mod,
+						     u64 target)
+{
+	struct bti_veneer_page *page;
+	void *p;
+
+	/*
+	 * vmalloc allocates at the lowest free address in the given range, so
+	 * try the range above the target first so it will be as close as
+	 * possible, making it more likely to be reusable for other targets in
+	 * the same object.
+	 */
+	p = bti_veneer_vmalloc(target, target + SZ_128M,
+			       GFP_KERNEL | __GFP_NOWARN);
+	if (!p)
+		p = bti_veneer_vmalloc(target - SZ_128M, target,
+				       GFP_KERNEL | __GFP_NOWARN);
+	if (!p) {
+		pr_err("%s: no address space within branch range of %pS for a BTI veneer\n",
+		       mod->name, (void *)target);
+		return NULL;
+	}
+
+	/* Don't leave unused slots executable */
+	aarch64_insn_set(p, AARCH64_BREAK_FAULT, PAGE_SIZE);
+
+	page = kzalloc_obj(*page, GFP_KERNEL);
+	if (!page) {
+		vfree(p);
+		return NULL;
+	}
+
+	page->veneers = p;
+	page->next = mod->arch.bti_veneers;
+	mod->arch.bti_veneers = page;
+
+	return page;
+}
+
+static u64 module_emit_bti_veneer(struct module *mod, u64 target)
+{
+	struct bti_veneer_page *page;
+	struct bti_veneer *veneer, insns;
+	u32 insn;
+
+	/* Look for an existing veneer for the target */
+	for (page = mod->arch.bti_veneers; page; page = page->next) {
+		for (unsigned int i = 0; i < page->used; i++) {
+			s32 offset;
+
+			veneer = &page->veneers[i];
+			insn = le32_to_cpu(veneer->b);
+			offset = aarch64_get_branch_offset(insn);
+
+			if ((u64)&veneer->b + offset == target)
+				return (u64)veneer;
+		}
+	}
+
+	/* Look for a free slot in range of the target */
+	for (page = mod->arch.bti_veneers; page; page = page->next) {
+		if (page->used == BTI_VENEERS_PER_PAGE)
+			continue;
+
+		veneer = &page->veneers[page->used];
+		if (bti_veneer_in_range(veneer, target))
+			goto emit;
+	}
+
+	page = bti_veneer_page_alloc(mod, target);
+	if (!page)
+		return 0;
+
+	veneer = &page->veneers[0];
+
+emit:
+	insn = aarch64_insn_gen_branch_imm((u64)&veneer->b, target,
+					   AARCH64_INSN_BRANCH_NOLINK);
+	if (WARN_ON(insn == AARCH64_BREAK_FAULT))
+		return 0;
+
+	insns.bti_c = cpu_to_le32(aarch64_insn_gen_hint(AARCH64_INSN_HINT_BTIC));
+	insns.b	    = cpu_to_le32(insn);
+
+	if (!aarch64_insn_copy(veneer, &insns, sizeof(insns))) {
+		pr_err("%s: failed to write BTI veneer for %pS\n",
+		       mod->name, (void *)target);
+		return 0;
+	}
+
+	page->used++;
+
+	return (u64)veneer;
+}
+
+void module_arch_cleanup(struct module *mod)
+{
+	struct bti_veneer_page *page, *next;
+
+	for (page = mod->arch.bti_veneers; page; page = next) {
+		next = page->next;
+		vfree(page->veneers);
+		kfree(page);
+	}
+
+	mod->arch.bti_veneers = NULL;
+}
+
 u64 module_emit_plt_entry(struct module *mod, Elf64_Shdr *sechdrs,
 			  void *loc, const Elf64_Rela *rela,
 			  Elf64_Sym *sym)
@@ -76,6 +256,12 @@ u64 module_emit_plt_entry(struct module *mod, Elf64_Shdr *sechdrs,
 	int i = pltsec->plt_num_entries;
 	int j = i - 1;
 	u64 val = sym->st_value + rela->r_addend;
+
+	if (!plt_target_has_landing_pad(val)) {
+		val = module_emit_bti_veneer(mod, val);
+		if (!val)
+			return 0;
+	}
 
 	if (is_forbidden_offset_for_adrp(&plt[i].adrp))
 		i++;
