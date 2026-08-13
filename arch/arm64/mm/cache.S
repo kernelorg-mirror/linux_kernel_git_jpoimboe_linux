@@ -57,6 +57,7 @@ SYM_FUNC_START(caches_clean_inval_pou)
 	ret
 SYM_FUNC_END(caches_clean_inval_pou)
 SYM_FUNC_ALIAS(__pi_caches_clean_inval_pou, caches_clean_inval_pou)
+SYM_FUNC_ALIAS(__efistub_caches_clean_inval_pou, caches_clean_inval_pou)
 
 /*
  *	caches_clean_inval_user_pou(start,end)

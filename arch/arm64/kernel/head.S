@@ -130,6 +130,7 @@ SYM_CODE_START(primary_entry)
 	bl	__cpu_setup			// initialise processor
 	b	__primary_switch
 SYM_CODE_END(primary_entry)
+SYM_FUNC_ALIAS(__efistub_primary_entry, primary_entry)
 
 	__INIT
 SYM_CODE_START_LOCAL(record_mmu_state)

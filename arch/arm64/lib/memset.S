@@ -226,3 +226,5 @@ EXPORT_SYMBOL(__memset)
 
 SYM_FUNC_ALIAS_WEAK(memset, __pi_memset)
 EXPORT_SYMBOL(memset)
+
+SYM_FUNC_ALIAS(__pi___memset, __pi_memset)

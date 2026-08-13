@@ -20,19 +20,12 @@
 	PROVIDE(pisym = sym);		\
 	ASSERT((sym - KIMAGE_VADDR) < (__bss_start - KIMAGE_VADDR), #msg)
 
-PROVIDE(__efistub_primary_entry		= primary_entry);
-
 /*
  * The EFI stub has its own symbol namespace prefixed by __efistub_, to
  * isolate it from the kernel proper. The following symbols are legally
  * accessed by the stub, so provide some aliases to make them accessible.
- * Only include data symbols here, or text symbols of functions that are
- * guaranteed to be safe when executed at another offset than they were
- * linked at. The routines below are all implemented in assembler in a
- * position independent manner
+ * Only include data symbols here.
  */
-PROVIDE(__efistub_caches_clean_inval_pou = __pi_caches_clean_inval_pou);
-
 PROVIDE(__efistub__text			= _text);
 PROVIDE(__efistub__end			= _end);
 PROVIDE(__efistub___inittext_end       	= __inittext_end);
@@ -41,10 +34,6 @@ PROVIDE(__efistub__edata		= _edata);
 PROVIDE(__efistub_sysfb_primary_display	= sysfb_primary_display);
 #endif
 PROVIDE(__efistub__ctype		= _ctype);
-
-PROVIDE(__pi___memcpy			= __pi_memcpy);
-PROVIDE(__pi___memmove			= __pi_memmove);
-PROVIDE(__pi___memset			= __pi_memset);
 
 PI_EXPORT_SYM(id_aa64isar1_override);
 PI_EXPORT_SYM(id_aa64isar2_override);
