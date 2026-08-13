@@ -71,7 +71,7 @@
 
 	__EFI_PE_HEADER
 
-	.section ".idmap.text","a"
+	.section ".idmap.text","ax"
 
 	/*
 	 * The following callee saved general purpose registers are used on the
@@ -83,6 +83,7 @@
 	 *  x21        primary_entry() .. start_kernel()        FDT pointer passed at boot in x0
 	 */
 SYM_CODE_START(primary_entry)
+	bti	c
 	bl	record_mmu_state
 	bl	preserve_boot_args
 
@@ -251,7 +252,7 @@ SYM_FUNC_END(__primary_switched)
  * end early head section, begin head code that is also used for
  * hotplug and needs to have the same protections as the text region
  */
-	.section ".idmap.text","a"
+	.section ".idmap.text","ax"
 
 /*
  * Starting from EL2 or EL1, configure the CPU to execute at the highest
@@ -455,7 +456,7 @@ SYM_FUNC_END(set_cpu_boot_mode_flag)
  * Checks if the selected granule size is supported by the CPU.
  * If it isn't, park the CPU
  */
-	.section ".idmap.text","a"
+	.section ".idmap.text","ax"
 SYM_FUNC_START(__enable_mmu)
 	mrs	x3, ID_AA64MMFR0_EL1
 	ubfx	x3, x3, #ID_AA64MMFR0_EL1_TGRAN_SHIFT, 4

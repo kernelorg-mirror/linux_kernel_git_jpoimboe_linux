@@ -167,6 +167,7 @@ SYM_CODE_END(__finalise_el2)
 	.pushsection	.idmap.text, "ax"
 
 SYM_CODE_START_LOCAL(enter_vhe)
+	bti	c
 	// Invalidate TLBs before enabling the MMU
 	tlbi	vmalle1
 	dsb	nsh

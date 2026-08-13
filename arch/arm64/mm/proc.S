@@ -175,7 +175,7 @@ alternative_else_nop_endif
 SYM_FUNC_END(cpu_do_resume)
 #endif
 
-	.pushsection ".idmap.text", "a"
+	.pushsection ".idmap.text", "ax"
 
 .macro	__idmap_cpu_set_reserved_ttbr1, tmp1, tmp2
 	adrp	\tmp1, reserved_pg_dir
@@ -211,7 +211,7 @@ SYM_FUNC_ALIAS(__pi_idmap_cpu_replace_ttbr1, idmap_cpu_replace_ttbr1)
 #define KPTI_NG_PTE_FLAGS	(PTE_ATTRINDX(MT_NORMAL) | PTE_TYPE_PAGE | \
 				 PTE_AF | PTE_SHARED | PTE_UXN | PTE_WRITE)
 
-	.pushsection ".idmap.text", "a"
+	.pushsection ".idmap.text", "ax"
 
 	.macro	pte_to_phys, phys, pte
 	and	\phys, \pte, #PTE_ADDR_LOW
@@ -438,7 +438,7 @@ SYM_FUNC_END(idmap_kpti_install_ng_mappings)
 	.popsection
 #endif
 
-	.pushsection ".idmap.text", "a"
+	.pushsection ".idmap.text", "ax"
 SYM_TYPED_FUNC_START(wait_linear_map_split_to_ptes)
 	/* Must be same registers as in idmap_kpti_install_ng_mappings */
 	swapper_ttb	.req	x3
@@ -479,7 +479,7 @@ SYM_FUNC_END(wait_linear_map_split_to_ptes)
  * Output:
  *	Return in x0 the value of the SCTLR_EL1 register.
  */
-	.pushsection ".idmap.text", "a"
+	.pushsection ".idmap.text", "ax"
 SYM_FUNC_START(__cpu_setup)
 	tlbi	vmalle1				// Invalidate local TLB
 	dsb	nsh
