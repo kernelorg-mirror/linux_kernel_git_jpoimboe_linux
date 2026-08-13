@@ -976,6 +976,7 @@ NOKPROBE(__sdei_asm_exit_trampoline)
  * want them.
  */
 SYM_CODE_START(__sdei_asm_handler)
+	bti	j
 	stp     x2, x3, [x1, #SDEI_EVENT_INTREGS + S_PC]
 	stp     x4, x5, [x1, #SDEI_EVENT_INTREGS + 16 * 2]
 	stp     x6, x7, [x1, #SDEI_EVENT_INTREGS + 16 * 3]
