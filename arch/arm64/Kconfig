@@ -2123,6 +2123,13 @@ config ARM64_BTI_KERNEL
 	  is enabled and the system supports BTI all kernel code including
 	  modular code must have BTI enabled.
 
+config CC_OMITS_BTI_LANDING_PADS
+	def_bool !CC_IS_CLANG || CLANG_VERSION >= 210000
+
+config LD_HAS_BTI_STUBS
+	def_bool (LD_IS_BFD && LD_VERSION >= 24200) || \
+		 (LD_IS_LLD && LLD_VERSION >= 200000)
+
 config CC_HAS_BRANCH_PROT_PAC_RET_BTI
 	# GCC 9 or later, clang 8 or later
 	def_bool $(cc-option,-mbranch-protection=pac-ret+leaf+bti)

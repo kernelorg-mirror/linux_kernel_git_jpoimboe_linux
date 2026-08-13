@@ -414,6 +414,11 @@ ASSERT((__entry_tramp_text_end - __entry_tramp_text_start) <= 3*PAGE_SIZE,
 #ifdef CONFIG_KVM
 ASSERT(__hyp_bss_start == __bss_start, "HYP and Host BSS are misaligned")
 #endif
+
+#if defined(CONFIG_ARM64_BTI_KERNEL) && !defined(CONFIG_COMPILE_TEST) && \
+    defined(CONFIG_CC_OMITS_BTI_LANDING_PADS) && !defined(CONFIG_LD_HAS_BTI_STUBS)
+ASSERT(__exittext_end - _text <= SZ_128M, "Kernel text too big for BTI")
+#endif
 /*
  * If padding is applied before .head.text, virt<->phys conversions will fail.
  */
