@@ -25,6 +25,7 @@ endif
 
 ifeq ($(CONFIG_ARM64_BTI_KERNEL),y)
 KBUILD_AFLAGS	+= -include $(srctree)/arch/arm64/include/asm/bti-note.h
+LDFLAGS_vmlinux	+= $(call ld-option,-z force-bti)
 endif
 
 cc_has_k_constraint := $(call try-run,echo				\
