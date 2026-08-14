@@ -4,7 +4,7 @@
 KBUILD_CFLAGS	:= $(subst $(CC_FLAGS_FTRACE),,$(KBUILD_CFLAGS)) -fpie \
 		   -Os -DDISABLE_BRANCH_PROFILING $(DISABLE_KSTACK_ERASE) \
 		   $(DISABLE_LATENT_ENTROPY_PLUGIN) \
-		   $(call cc-option,-mbranch-protection=none) \
+		   $(call cc-option,-mbranch-protection=bti) \
 		   -I$(srctree)/scripts/dtc/libfdt -fno-stack-protector \
 		   -include $(srctree)/include/linux/hidden.h \
 		   -D__DISABLE_EXPORTS -ffreestanding -D__NO_FORTIFY \
@@ -21,11 +21,14 @@ KBUILD_CFLAGS	:= $(filter-out $(CC_FLAGS_LTO), $(KBUILD_CFLAGS))
 
 hostprogs	:= relacheck
 
+# --prefix-alloc-sections=.init also renames .note.gnu.property, which LLD then
+# ignores, dropping the BTI property.  Rename it back.
 quiet_cmd_piobjcopy = $(quiet_cmd_objcopy)
-      cmd_piobjcopy = $(cmd_objcopy) && $(obj)/relacheck $(@) $(<)
+      cmd_piobjcopy = $(cmd_objcopy) && \
+		      $(OBJCOPY) --rename-section .init.note.gnu.property=.note.gnu.property $(@) && \
+		      $(obj)/relacheck $(@) $(<)
 
-$(obj)/%.pi.o: OBJCOPYFLAGS := --prefix-symbols=__pi_ \
-			       --remove-section=.note.gnu.property
+$(obj)/%.pi.o: OBJCOPYFLAGS := --prefix-symbols=__pi_
 $(obj)/%.pi.o: $(obj)/%.o $(obj)/relacheck FORCE
 	$(call if_changed,piobjcopy)
 
