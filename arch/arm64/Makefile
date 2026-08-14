@@ -23,6 +23,10 @@ ifeq ($(CONFIG_ARM64_ERRATUM_843419),y)
 LDFLAGS_vmlinux	+= --fix-cortex-a53-843419
 endif
 
+ifeq ($(CONFIG_ARM64_BTI_KERNEL),y)
+KBUILD_AFLAGS	+= -include $(srctree)/arch/arm64/include/asm/bti-note.h
+endif
+
 cc_has_k_constraint := $(call try-run,echo				\
 	'int main(void) {						\
 		asm volatile("and w0, w0, %w0" :: "K" (4294967295));	\
