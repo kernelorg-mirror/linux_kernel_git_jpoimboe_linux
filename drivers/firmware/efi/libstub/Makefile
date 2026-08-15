@@ -155,6 +155,12 @@ STUBCOPY_FLAGS-$(CONFIG_LOONGARCH)	+= --prefix-alloc-sections=.init \
 					   --prefix-symbols=__efistub_
 STUBCOPY_RELOC-$(CONFIG_LOONGARCH)	:= R_LARCH_MARK_LA
 
+# --prefix-alloc-sections=.init also renames .note.gnu.property, which the
+# linker then ignores, dropping the branch protection properties.  Rename it
+# back on any architecture which applies the prefix.
+STUBCOPY_RENAME-y = $(if $(findstring --prefix-alloc-sections,$(STUBCOPY_FLAGS-y)), \
+		      --rename-section .init.note.gnu.property=.note.gnu.property)
+
 $(obj)/%.stub.o: $(obj)/%.o FORCE
 	$(call if_changed,stubcopy)
 
@@ -171,4 +177,5 @@ quiet_cmd_stubcopy = STUBCPY $@
 		echo "$@: absolute symbol references not allowed in the EFI stub" >&2; \
 		/bin/false;						\
 	fi;								\
-	$(OBJCOPY) $(STUBCOPY_FLAGS-y) $< $@
+	$(OBJCOPY) $(STUBCOPY_FLAGS-y) $< $@				\
+	$(if $(STUBCOPY_RENAME-y),; $(OBJCOPY) $(STUBCOPY_RENAME-y) $@)
