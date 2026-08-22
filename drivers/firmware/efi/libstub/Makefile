@@ -155,6 +155,10 @@ STUBCOPY_FLAGS-$(CONFIG_LOONGARCH)	+= --prefix-alloc-sections=.init \
 					   --prefix-symbols=__efistub_
 STUBCOPY_RELOC-$(CONFIG_LOONGARCH)	:= R_LARCH_MARK_LA
 
+# This objtool metadata section is allocatable and needs to survive until the
+# vmlinux link.  Don't let it trigger the absolute symbol error or get renamed.
+NON_STANDARD_SEC		:= .discard.func_stack_frame_non_standard
+
 $(obj)/%.stub.o: $(obj)/%.o FORCE
 	$(call if_changed,stubcopy)
 
@@ -166,9 +170,10 @@ $(obj)/%.stub.o: $(obj)/%.o FORCE
 #
 quiet_cmd_stubcopy = STUBCPY $@
       cmd_stubcopy =							\
-	$(STRIP) --strip-debug -o $@ $<;				\
+	$(STRIP) --strip-debug --remove-section=$(NON_STANDARD_SEC) -o $@ $<; \
 	if $(OBJDUMP) -r $@ | grep $(STUBCOPY_RELOC-y); then		\
 		echo "$@: absolute symbol references not allowed in the EFI stub" >&2; \
 		/bin/false;						\
 	fi;								\
-	$(OBJCOPY) $(STUBCOPY_FLAGS-y) $< $@
+	$(OBJCOPY) $(STUBCOPY_FLAGS-y) $< $@;				\
+	$(OBJCOPY) --rename-section .init$(NON_STANDARD_SEC)=$(NON_STANDARD_SEC) $@ $@
